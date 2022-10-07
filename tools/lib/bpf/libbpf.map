@@ -121,6 +121,12 @@ LIBBPF_0.0.1 {
 		libbpf_prog_type_by_name;
 		libbpf_set_print;
 		libbpf_strerror;
+		attach_kprobe;
+		attach_tp;
+		attach_raw_tp;
+		attach_trace;
+		attach_lsm;
+		attach_iter;
 	local:
 		*;
 };

@@ -7908,17 +7908,17 @@ void bpf_program__set_expected_attach_type(struct bpf_program *prog,
 	__VA_ARGS__							    \
 }
 
-static struct bpf_link *attach_kprobe(const struct bpf_sec_def *sec,
+LIBBPF_API struct bpf_link *attach_kprobe(const struct bpf_sec_def *sec,
 				      struct bpf_program *prog);
-static struct bpf_link *attach_tp(const struct bpf_sec_def *sec,
+LIBBPF_API struct bpf_link *attach_tp(const struct bpf_sec_def *sec,
 				  struct bpf_program *prog);
-static struct bpf_link *attach_raw_tp(const struct bpf_sec_def *sec,
+LIBBPF_API struct bpf_link *attach_raw_tp(const struct bpf_sec_def *sec,
 				      struct bpf_program *prog);
-static struct bpf_link *attach_trace(const struct bpf_sec_def *sec,
+LIBBPF_API struct bpf_link *attach_trace(const struct bpf_sec_def *sec,
 				     struct bpf_program *prog);
-static struct bpf_link *attach_lsm(const struct bpf_sec_def *sec,
+LIBBPF_API struct bpf_link *attach_lsm(const struct bpf_sec_def *sec,
 				   struct bpf_program *prog);
-static struct bpf_link *attach_iter(const struct bpf_sec_def *sec,
+LIBBPF_API struct bpf_link *attach_iter(const struct bpf_sec_def *sec,
 				    struct bpf_program *prog);
 
 static const struct bpf_sec_def section_defs[] = {
@@ -9257,7 +9257,7 @@ struct bpf_link *bpf_program__attach_kprobe(struct bpf_program *prog,
 	return bpf_program__attach_kprobe_opts(prog, func_name, &opts);
 }
 
-static struct bpf_link *attach_kprobe(const struct bpf_sec_def *sec,
+struct bpf_link *attach_kprobe(const struct bpf_sec_def *sec,
 				      struct bpf_program *prog)
 {
 	DECLARE_LIBBPF_OPTS(bpf_kprobe_opts, opts);
@@ -9431,7 +9431,7 @@ struct bpf_link *bpf_program__attach_tracepoint(struct bpf_program *prog,
 	return bpf_program__attach_tracepoint_opts(prog, tp_category, tp_name, NULL);
 }
 
-static struct bpf_link *attach_tp(const struct bpf_sec_def *sec,
+struct bpf_link *attach_tp(const struct bpf_sec_def *sec,
 				  struct bpf_program *prog)
 {
 	char *sec_name, *tp_cat, *tp_name;
@@ -9486,7 +9486,7 @@ struct bpf_link *bpf_program__attach_raw_tracepoint(struct bpf_program *prog,
 	return link;
 }
 
-static struct bpf_link *attach_raw_tp(const struct bpf_sec_def *sec,
+struct bpf_link *attach_raw_tp(const struct bpf_sec_def *sec,
 				      struct bpf_program *prog)
 {
 	const char *tp_name = prog->sec_name + sec->len;
@@ -9534,13 +9534,13 @@ struct bpf_link *bpf_program__attach_lsm(struct bpf_program *prog)
 	return bpf_program__attach_btf_id(prog);
 }
 
-static struct bpf_link *attach_trace(const struct bpf_sec_def *sec,
+struct bpf_link *attach_trace(const struct bpf_sec_def *sec,
 				     struct bpf_program *prog)
 {
 	return bpf_program__attach_trace(prog);
 }
 
-static struct bpf_link *attach_lsm(const struct bpf_sec_def *sec,
+struct bpf_link *attach_lsm(const struct bpf_sec_def *sec,
 				   struct bpf_program *prog)
 {
 	return bpf_program__attach_lsm(prog);
@@ -9672,7 +9672,7 @@ bpf_program__attach_iter(struct bpf_program *prog,
 	return link;
 }
 
-static struct bpf_link *attach_iter(const struct bpf_sec_def *sec,
+struct bpf_link *attach_iter(const struct bpf_sec_def *sec,
 				    struct bpf_program *prog)
 {
 	return bpf_program__attach_iter(prog, NULL);
