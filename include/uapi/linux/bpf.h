@@ -1255,6 +1255,12 @@ struct bpf_stack_build_id {
 
 #define BPF_OBJ_NAME_LEN 16U
 
+struct iu_rela_dyn {
+	__u64	addr;
+	__u64	type;
+	__u64	value;
+};
+
 union bpf_attr {
 	struct { /* anonymous struct used by BPF_MAP_CREATE command */
 		__u32	map_type;	/* one of enum bpf_map_type */
@@ -1337,20 +1343,22 @@ union bpf_attr {
 			/* or valid module BTF object fd or 0 to attach to vmlinux */
 			__u32		attach_btf_obj_fd;
 		};
+		__u32		:32;		/* pad */
 		union {
 			struct {
-				__u32		rustfd;		/* file descriptor of Rust Program */
 				__aligned_u64	map_offs;	/* offsets of map relocs */
-				__aligned_u64	got_off; /* offset of GOT section */
-				__aligned_u64	got_size; /* size of GOT section in bytes */
+				__aligned_u64	got_off;	/* offset of GOT section */
+				__aligned_u64	got_size;	/* size of GOT section in bytes */
+				__aligned_u64	dyn_relas;	/* ptr to dynamic rela info */
+				__aligned_u64	nr_dyn_relas;	/* nr of dyn rela entries */
+				__u32		rustfd;		/* file descriptor of Rust Program */
 				__u32		map_cnt;	/* length map reloc array */	
 			};
 			struct {
-				__u32		base_prog_fd; /* fd of the base prog */
-				__aligned_u64	prog_offset; /* offset of prog in base prog */
+				__aligned_u64	prog_offset;	/* offset of prog in base */
+				__u32		base_prog_fd;	/* fd of the base prog */
 			};
 		};
-		__u32		:32;		/* pad */
 		__aligned_u64	fd_array;	/* array of FDs */
 	};
 
