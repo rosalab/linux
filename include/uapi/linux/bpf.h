@@ -875,6 +875,7 @@ enum bpf_cmd {
 	BPF_PROG_BIND_MAP,
 	BPF_PROG_LOAD_IU_BASE,
 	BPF_PROG_LOAD_IU,
+	BPF_PROG_TERMINATE,
 };
 
 enum bpf_map_type {

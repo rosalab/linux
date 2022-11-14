@@ -615,6 +615,57 @@ static int do_show(int argc, char **argv)
 	return err;
 }
 
+static int do_terminate(int argc, char**argv)
+{
+	__u32 id = 0;
+	int err;
+	int fd;
+
+	if (argc)
+		return BAD_ARG();
+
+	bpf_prog_terminate(10);
+	
+	return 0;
+	
+	if (json_output)
+		jsonw_start_array(json_wtr);
+	while (true) {
+		err = bpf_prog_get_next_id(id, &id);
+		if (err) {
+			if (errno == ENOENT) {
+				err = 0;
+				break;
+			}
+			p_err("can't get next program: %s%s", strerror(errno),
+			      errno == EINVAL ? " -- kernel too old?" : "");
+			err = -1;
+			break;
+		}
+
+		fd = bpf_prog_get_fd_by_id(id);
+		if (fd < 0) {
+			if (errno == ENOENT)
+				continue;
+			p_err("can't get prog by id (%u): %s",
+			      id, strerror(errno));
+			err = -1;
+			break;
+		}
+
+		err = show_prog(fd);
+		close(fd);
+		if (err)
+			break;
+	}
+
+	if (json_output)
+		jsonw_end_array(json_wtr);
+
+
+	return err;
+}
+
 static int
 prog_dump(struct bpf_prog_info *info, enum dump_mode mode,
 	  char *filepath, bool opcodes, bool visual, bool linum)
@@ -2223,7 +2274,7 @@ static int do_help(int argc, char **argv)
 	}
 
 	fprintf(stderr,
-		"Usage: %1$s %2$s { show | list } [PROG]\n"
+		"Usage: %1$s %2$s { show | list | terminate} [PROG]\n"
 		"       %1$s %2$s dump xlated PROG [{ file FILE | opcodes | visual | linum }]\n"
 		"       %1$s %2$s dump jited  PROG [{ file FILE | opcodes | linum }]\n"
 		"       %1$s %2$s pin   PROG FILE\n"
@@ -2281,6 +2332,7 @@ static const struct cmd cmds[] = {
 	{ "tracelog",	do_tracelog },
 	{ "run",	do_run },
 	{ "profile",	do_profile },
+	{ "terminate",  do_terminate },
 	{ 0 }
 };
 

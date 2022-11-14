@@ -618,13 +618,18 @@ static __always_inline u32 __bpf_prog_run(const struct bpf_prog *prog,
 					  bpf_dispatcher_fn dfunc)
 {
 	u32 ret;
-
+	u32 cpu_id ;
+	
 	cant_migrate();
+	cpu_id = raw_smp_processor_id();
 	if (static_branch_unlikely(&bpf_stats_enabled_key)) {
 		struct bpf_prog_stats *stats;
 		u64 start = sched_clock();
-
+		if(prog->aux->id!=0)
+			printk("[fd:%d]-[CPU:%d] __bpf_prog_run \n", prog->aux->id,cpu_id);
 		ret = dfunc(ctx, prog->insnsi, prog->bpf_func);
+		//if(prog->aux->id!=0)
+		//	printk("[%d]- %d - 2 __bpf_prog_run is called\n", prog->aux->id,i);
 		stats = this_cpu_ptr(prog->stats);
 		u64_stats_update_begin(&stats->syncp);
 		stats->cnt++;

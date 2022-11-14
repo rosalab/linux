@@ -99,6 +99,13 @@ int bpf_check_uarg_tail_zero(bpfptr_t uaddr,
 	return res ? 0 : -E2BIG;
 }
 
+static void bpf_die(void*){
+
+        u32 cpu_id ;
+        cpu_id = raw_smp_processor_id();
+        printk("bpf_die called on [CPU:%d]\n", cpu_id);
+}
+
 const struct bpf_map_ops bpf_map_offload_ops = {
 	.map_meta_equal = bpf_map_meta_equal,
 	.map_alloc = bpf_map_offload_map_alloc,
@@ -5536,6 +5543,11 @@ static int __sys_bpf(int cmd, bpfptr_t uattr, unsigned int size)
 		break;
 	case BPF_PROG_BIND_MAP:
 		err = bpf_prog_bind_map(&attr);
+		break;
+	case BPF_PROG_TERMINATE:
+		printk("Reaching herei in syscall");
+		//smp_call_function_single(0, bpf_die ,NULL,1);
+	        //err= smp_call_function_single(1, bpf_die ,NULL,1);
 		break;
 	default:
 		err = -EINVAL;
