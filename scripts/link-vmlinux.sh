@@ -225,7 +225,7 @@ gen_btf()
 		extra_paholeopt="${extra_paholeopt} --skip_encoding_btf_vars"
 	fi
 	if [ "${pahole_ver}" -ge "121" ]; then
-		extra_paholeopt="${extra_paholeopt} --btf_gen_floats"
+		extra_paholeopt="${extra_paholeopt} --btf_gen_floats --skip_encoding_btf_enum64"
 	fi
 
 	info "BTF" ${2}
