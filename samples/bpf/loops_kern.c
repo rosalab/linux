@@ -68,7 +68,7 @@ static int runner2(void* ctx){
 }
 
 
-SEC("kprobe/__sys_connect")
+SEC("tracepoint/syscalls/sys_enter_execve")
 int trace_sys_connect(struct pt_regs *ctx)
 {
 	bpf_printk("Inside trace_sys_connect_\n");

@@ -2320,6 +2320,18 @@ out:
 	return err;
 }
 
+static int do_terminate(int argc, char **argv){
+       __u32 id = 0;
+       int err;
+       int fd;
+
+       if (argc)
+               return BAD_ARG();
+
+       bpf_prog_terminate(10);
+       
+       return 0;
+}
 #endif /* BPFTOOL_WITHOUT_SKELETONS */
 
 static int do_help(int argc, char **argv)
@@ -2330,7 +2342,7 @@ static int do_help(int argc, char **argv)
 	}
 
 	fprintf(stderr,
-		"Usage: %1$s %2$s { show | list } [PROG]\n"
+		"Usage: %1$s %2$s { show | list | terminate } [PROG]\n"
 		"       %1$s %2$s dump xlated PROG [{ file FILE | opcodes | visual | linum }]\n"
 		"       %1$s %2$s dump jited  PROG [{ file FILE | opcodes | linum }]\n"
 		"       %1$s %2$s pin   PROG FILE\n"
@@ -2388,6 +2400,7 @@ static const struct cmd cmds[] = {
 	{ "tracelog",	do_tracelog },
 	{ "run",	do_run },
 	{ "profile",	do_profile },
+	{ "terminate",  do_terminate },
 	{ 0 }
 };
 

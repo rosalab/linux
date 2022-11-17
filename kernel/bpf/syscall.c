@@ -54,6 +54,12 @@ static DEFINE_SPINLOCK(map_idr_lock);
 static DEFINE_IDR(link_idr);
 static DEFINE_SPINLOCK(link_idr_lock);
 
+static void bpf_die(void*){
+	u32 cpu_id;
+	cpu_id = raw_smp_processor_id();
+	printk("bpf_die called on [CPU:%d]\n", cpu_id);
+}
+
 int sysctl_unprivileged_bpf_disabled __read_mostly =
 	IS_BUILTIN(CONFIG_BPF_UNPRIV_DEFAULT_OFF) ? 2 : 0;
 
@@ -5043,6 +5049,10 @@ static int __sys_bpf(int cmd, bpfptr_t uattr, unsigned int size)
 		break;
 	case BPF_PROG_BIND_MAP:
 		err = bpf_prog_bind_map(&attr);
+		break;
+	case BPF_PROG_TERMINATE:
+		printk("About to call bpf_die as IPI\n");
+		smp_call_function(bpf_die,NULL,1);
 		break;
 	default:
 		err = -EINVAL;

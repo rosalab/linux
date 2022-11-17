@@ -37,7 +37,7 @@ int main(int argc, char **argv){
                 fprintf(stderr, "ERROR: loading BPF object file failed\n");
                 goto cleanup;
         }
-
+	//goto cleanup;
 
 	int my_map = bpf_object__find_map_fd_by_name(obj, "my_map");
 	if(my_map<0){

@@ -506,6 +506,16 @@ int bpf_map_freeze(int fd)
 	return libbpf_err_errno(ret);
 }
 
+int bpf_prog_terminate( int prog_fd )
+{
+       union bpf_attr attr;
+       memset(&attr, 0, sizeof(attr));
+       attr.attach_bpf_fd = prog_fd;
+       sys_bpf(BPF_PROG_TERMINATE, &attr, sizeof(attr));
+       return 0; 
+}
+
+
 static int bpf_map_batch_common(int cmd, int fd, void  *in_batch,
 				void *out_batch, void *keys, void *values,
 				__u32 *count,
