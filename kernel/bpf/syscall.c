@@ -99,10 +99,9 @@ int bpf_check_uarg_tail_zero(bpfptr_t uaddr,
 	return res ? 0 : -E2BIG;
 }
 
-static void bpf_die(void*){
-
-        u32 cpu_id ;
-        cpu_id = raw_smp_processor_id();
+static __maybe_unused void bpf_die(void)
+{
+        u32 cpu_id = raw_smp_processor_id();
         printk("bpf_die called on [CPU:%d]\n", cpu_id);
 }
 
