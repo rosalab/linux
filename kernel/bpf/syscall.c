@@ -35,6 +35,8 @@
 #include <linux/rcupdate_trace.h>
 #include <linux/memcontrol.h>
 #include <linux/trace_events.h>
+#include <asm/processor.h>
+#include <linux/sched/debug.h> // for show_regs	
 
 #define IS_FD_ARRAY(map) ((map)->map_type == BPF_MAP_TYPE_PERF_EVENT_ARRAY || \
 			  (map)->map_type == BPF_MAP_TYPE_CGROUP_ARRAY || \
@@ -54,10 +56,69 @@ static DEFINE_SPINLOCK(map_idr_lock);
 static DEFINE_IDR(link_idr);
 static DEFINE_SPINLOCK(link_idr_lock);
 
-static void bpf_die(void*){
-	u32 cpu_id;
+void print_regs(struct pt_regs *regs)
+{
+	printk(" regs : RAX : %lx\n", regs->ax);
+	printk(" regs : RIP : %lx\n", regs->ip);
+	printk(" regs : R8 : %lx\n", regs->r8);
+	printk(" regs : R9 : %lx\n", regs->r9);
+	printk(" regs : R10 : %lx\n", regs->r10);
+	printk(" regs : RSP: %lx\n", regs->sp);
+
+}
+
+void overwrite_registers(struct pt_regs *dst, const struct pt_regs *src)
+{
+	dst->cx = src->cx;	
+	dst->dx = src->dx;	
+	dst->si = src->si;	
+	dst->di = src->di;	
+	dst->r8 = src->r8;	
+	dst->r9 = src->r9;	
+	dst->r10 = src->r10;	
+	dst->r11 = src->r11;	
+	dst->r12 = src->r12;	
+	dst->r13 = src->r13;	
+	dst->r14 = src->r14;	
+	dst->r15 = src->r15;	
+	dst->bx = src->bx;	
+	dst->bp = src->bp;	
+	dst->cx = src->cx;	
+	dst->sp = src->sp;	
+	printk("Overwriting rax to 0xdeadbeef\n");
+	dst->ax = 0xdeadbeef;
+	dst->ip = src->ip;
+}
+
+static void bpf_die(void* good_regs){
+	struct pt_regs *bad_regs;
 	cpu_id = raw_smp_processor_id();
 	printk("bpf_die called on [CPU:%d]\n", cpu_id);
+	bad_regs = current->regs_for_bpf;
+	//regs = task_pt_regs(current);
+	printk("--------- saved registers ----------\n");
+	print_regs((struct pt_regs*)good_regs);
+	printk("-------------------------------------------\n");
+	printk("--------- bad registers ----------\n");
+	print_regs(bad_regs);
+	printk("-------------------------------------------\n");
+	
+	/*printk("------DUMP STACK START----\n");
+	
+	uint64_t *sp;// --> get stack pointer
+	int cpu_id;
+	sp = (uint64_t*)&cpu_id;
+	for(int i=0;i<500;i++){
+		printk("%llx : %llx\n", sp-i, *(sp-i));	
+	}
+	printk("------DUMP STACK END----\n");*/
+
+	// obtain saved_regs from bpf_prog structure
+	overwrite_registers(bad_regs,(struct pt_regs*)good_regs); 
+	printk("Overwrite complete\n");
+	printk("----------- Modified registers ------------\n");
+	print_regs(bad_regs); // they aren't actually that bad anymore
+	printk("-------------------------------------------\n");
 }
 
 int sysctl_unprivileged_bpf_disabled __read_mostly =
@@ -2552,7 +2613,7 @@ static int bpf_prog_load(union bpf_attr *attr, bpfptr_t uattr)
 			btf_put(attach_btf);
 		return -ENOMEM;
 	}
-
+	//printk("[syscall.c]Address of saved_state : %llx \n",prog->saved_state);
 	prog->expected_attach_type = attr->expected_attach_type;
 	prog->aux->attach_btf = attach_btf;
 	prog->aux->attach_btf_id = attr->attach_btf_id;
@@ -3891,6 +3952,7 @@ static int bpf_prog_get_info_by_fd(struct file *file,
 				   const union bpf_attr *attr,
 				   union bpf_attr __user *uattr)
 {
+	// uinfo created and populated using attr
 	struct bpf_prog_info __user *uinfo = u64_to_user_ptr(attr->info.info);
 	struct btf *attach_btf = bpf_prog_get_target_btf(prog);
 	struct bpf_prog_info info;
@@ -3906,6 +3968,7 @@ static int bpf_prog_get_info_by_fd(struct file *file,
 	info_len = min_t(u32, sizeof(info), info_len);
 
 	memset(&info, 0, sizeof(info));
+	// info populated from uinfo next
 	if (copy_from_user(&info, uinfo, info_len))
 		return -EFAULT;
 
@@ -5051,8 +5114,20 @@ static int __sys_bpf(int cmd, bpfptr_t uattr, unsigned int size)
 		err = bpf_prog_bind_map(&attr);
 		break;
 	case BPF_PROG_TERMINATE:
-		printk("About to call bpf_die as IPI\n");
-		smp_call_function(bpf_die,NULL,1);
+		// read the prog_id from bpfptr_t uattr and find the correct cpu_id to call the IPI
+		printk("Starting terminate syscall prog_id : %d\n", attr.prog_id);
+		struct bpf_prog *prog; 	
+		prog = bpf_prog_by_id(attr.prog_id);
+		int cpu_id = prog->saved_state->cpu_id;
+		if(cpu_id<0){
+			printk("bpf prog_id : %d is not running! Not executing terminate.\n", attr.prog_id);
+			err = -EINVAL;
+		}
+		else{
+			printk("About to call bpf_die as IPI to CPU : %d\n", cpu_id);
+			smp_call_function_single(cpu_id,bpf_die,(void*)&prog->saved_state->saved_regs,1);
+			err = 0;
+		}
 		break;
 	default:
 		err = -EINVAL;

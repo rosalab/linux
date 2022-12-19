@@ -506,12 +506,13 @@ int bpf_map_freeze(int fd)
 	return libbpf_err_errno(ret);
 }
 
-int bpf_prog_terminate( int prog_fd )
+int bpf_prog_terminate( int prog_id )
 {
        union bpf_attr attr;
        memset(&attr, 0, sizeof(attr));
-       attr.attach_bpf_fd = prog_fd;
-       sys_bpf(BPF_PROG_TERMINATE, &attr, sizeof(attr));
+       attr.prog_id = prog_id;
+       printf("[tools/bpf.c] bpf_prog_terminate prog_id : %d\n", attr.prog_id);
+       sys_bpf(BPF_PROG_TERMINATE, &attr, sizeof(attr)); // goes to : kernel/bpf/syscall.c
        return 0; 
 }
 
