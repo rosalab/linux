@@ -17,7 +17,7 @@
 #include <sys/stat.h>
 #include <sys/syscall.h>
 #include <dirent.h>
-
+//#include <asm/processor.h>
 #include <linux/err.h>
 #include <linux/perf_event.h>
 #include <linux/sizes.h>
@@ -2321,14 +2321,11 @@ out:
 }
 
 static int do_terminate(int argc, char **argv){
-       __u32 id = 0;
-       int err;
-       int fd;
-
-       if (argc)
+       int prog_id;
+       if (argc==0)
                return BAD_ARG();
-
-       bpf_prog_terminate(10);
+       prog_id = atoi(argv[0]);
+       bpf_prog_terminate(prog_id); // goes to : tools/lib/bpf/bpf.c 
        
        return 0;
 }

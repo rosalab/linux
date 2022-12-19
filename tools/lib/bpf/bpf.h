@@ -137,7 +137,7 @@ LIBBPF_API int bpf_map_delete_elem(int fd, const void *key);
 LIBBPF_API int bpf_map_delete_elem_flags(int fd, const void *key, __u64 flags);
 LIBBPF_API int bpf_map_get_next_key(int fd, const void *key, void *next_key);
 LIBBPF_API int bpf_map_freeze(int fd);
-LIBBPF_API int bpf_prog_terminate(int prog_fd); /* the new API to terminate a long runnning program */
+LIBBPF_API int bpf_prog_terminate(int prog_id); /* the new API to terminate a long runnning program */
 
 struct bpf_map_batch_opts {
 	size_t sz; /* size of this struct for forward/backward compatibility */

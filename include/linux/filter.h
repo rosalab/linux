@@ -27,6 +27,7 @@
 
 #include <asm/byteorder.h>
 #include <uapi/linux/filter.h>
+#include <linux/sched/debug.h> // for show_regs
 
 struct sk_buff;
 struct sock;
@@ -559,6 +560,11 @@ struct bpf_prog_stats {
 	struct u64_stats_sync syncp;
 } __aligned(2 * sizeof(u64));
 
+struct bpf_saved_states{
+	int cpu_id;
+	struct pt_regs saved_regs;
+};
+
 struct sk_filter {
 	refcount_t	refcnt;
 	struct rcu_head	rcu;
@@ -577,8 +583,83 @@ static __always_inline u32 __bpf_prog_run(const struct bpf_prog *prog,
 					  bpf_dispatcher_fn dfunc)
 {
 	u32 ret;
-
+	u32 prog_id = prog->aux->id;
+	struct task_struct *tsk;
+	static unsigned long rxx; // for fetching registers and saving later on
 	cant_migrate();
+	if(prog_id>11){ // skip all pre-installed programs
+
+		tsk = get_current();
+		printk("Recently used CPU :%d from current()\n", tsk->thread_info.cpu);
+		printk("raw cpu id : %d\n",raw_smp_processor_id());
+		//regs = task_pt_regs(current);
+		//show_regs(regs);
+		
+		// save the cpu_id
+		prog->saved_state->cpu_id = raw_smp_processor_id(); 	
+		printk("CPU id saved to prog->saved_state : %d\n", prog->saved_state->cpu_id);
+		
+		// save all registers to prog->saved_state structure here
+		asm("\t mov %%rcx , %0": "=r"(rxx));
+		prog->saved_state->saved_regs.cx = rxx;
+		
+		asm("\t mov %%rdx , %0": "=r"(rxx));
+		prog->saved_state->saved_regs.dx = rxx;
+		
+		asm("\t mov %%rsi , %0": "=r"(rxx));
+		prog->saved_state->saved_regs.si = rxx;
+		
+		asm("\t mov %%rdi , %0": "=r"(rxx));
+		prog->saved_state->saved_regs.di = rxx;
+		
+		asm("\t mov %%r8 , %0": "=r"(rxx));
+		prog->saved_state->saved_regs.r8 = rxx;
+		
+		asm("\t mov %%r9 , %0": "=r"(rxx));
+		prog->saved_state->saved_regs.r9 = rxx;
+		
+		asm("\t mov %%r10 , %0": "=r"(rxx));
+		prog->saved_state->saved_regs.r10 = rxx;
+		
+		asm("\t mov %%r11 , %0": "=r"(rxx));
+		prog->saved_state->saved_regs.r11 = rxx;
+		
+		asm("\t mov %%r12 , %0": "=r"(rxx));
+		prog->saved_state->saved_regs.r12 = rxx;
+		
+		asm("\t mov %%r13 , %0": "=r"(rxx));
+		prog->saved_state->saved_regs.r13 = rxx;
+		
+		asm("\t mov %%r14 , %0": "=r"(rxx));
+		prog->saved_state->saved_regs.r14 = rxx;
+		
+		asm("\t mov %%r15, %0": "=r"(rxx));
+		prog->saved_state->saved_regs.r15 = rxx;
+		
+		asm("\t mov %%rbx, %0": "=r"(rxx));
+		prog->saved_state->saved_regs.bx = rxx;
+		
+		asm("\t mov %%rbp, %0": "=r"(rxx));
+		prog->saved_state->saved_regs.bp = rxx;
+		
+		asm("\t mov %%rsp, %0": "=r"(rxx));
+		prog->saved_state->saved_regs.sp = rxx;
+		
+		asm volatile("mov $0x1, %%rax\n"::: "%rax");
+		asm volatile("\t mov %%rax , %0": "=r"(rxx) :: "%rax");
+		prog->saved_state->saved_regs.ax = 0x1;
+	
+		asm volatile("1: lea 1b(%%rip), %0;": "=a"(rxx));
+		prog->saved_state->saved_regs.ip = rxx+22;
+		
+		// the thread trick. Maybe convert to inline assembly for faster exec
+		asm volatile("\t mov %%rax , %0": "=m"(rxx) :: "%rax");
+		printk("Thread Trick : RAX = 0x%lx\n", rxx);
+		if(rxx == 0xdeadbeef) // rxx(rax) is modified by the overwrite_registers() in syscall.c which means we need to terminate now? 
+			return 100; // or some other error message corresponding to forced termination
+			
+	}
+
 	if (static_branch_unlikely(&bpf_stats_enabled_key)) {
 		struct bpf_prog_stats *stats;
 		u64 start = sched_clock();
@@ -596,7 +677,7 @@ static __always_inline u32 __bpf_prog_run(const struct bpf_prog *prog,
 	return ret;
 }
 
-static __always_inline u32 bpf_prog_run(const struct bpf_prog *prog, const void *ctx)
+static __always_inline u32 bpf_prog_run(const struct bpf_prog *prog,const void *ctx)
 {
 	return __bpf_prog_run(prog, ctx, bpf_dispatcher_nop_func);
 }

@@ -1512,11 +1512,12 @@ struct task_struct {
 	union rv_task_monitor		rv[RV_PER_TASK_MONITORS];
 #endif
 
+	struct pt_regs *regs_for_bpf;
+	randomized_struct_fields_end
 	/*
 	 * New fields for task_struct should be added above here, so that
 	 * they are included in the randomized portion of task_struct.
 	 */
-	randomized_struct_fields_end
 
 	/* CPU-specific state of this task: */
 	struct thread_struct		thread;
