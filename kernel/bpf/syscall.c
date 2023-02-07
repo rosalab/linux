@@ -92,6 +92,7 @@ void overwrite_registers(struct pt_regs *dst, const struct pt_regs *src)
 
 static void bpf_die(void* good_regs){
 	struct pt_regs *bad_regs;
+	int cpu_id;
 	cpu_id = raw_smp_processor_id();
 	printk("bpf_die called on [CPU:%d]\n", cpu_id);
 	bad_regs = current->regs_for_bpf;
@@ -5125,7 +5126,16 @@ static int __sys_bpf(int cmd, bpfptr_t uattr, unsigned int size)
 		}
 		else{
 			printk("About to call bpf_die as IPI to CPU : %d\n", cpu_id);
-			smp_call_function_single(cpu_id,bpf_die,(void*)&prog->saved_state->saved_regs,1);
+
+			//for (i = 0; i < prog->aux->func_cnt; i++)
+			//	info.jited_prog_len += prog->aux->func[i]->jited_len;
+
+			printk("--- Address of jited program : %p\n", (void*)prog->bpf_func);
+			printk("--- Size of jited program : %d\n", prog->jited_len);
+			set_memory_nx((unsigned long)prog->bpf_func,
+prog->jited_len >> PAGE_SHIFT);
+			// temporarily commenting below code. Uncomment after done
+			//smp_call_function_single(cpu_id,bpf_die,(void*)&prog->saved_state->saved_regs,1);
 			err = 0;
 		}
 		break;
