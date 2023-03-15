@@ -13721,6 +13721,7 @@ static int jit_subprogs(struct bpf_verifier_env *env)
 	 */
 	for (i = 0; i < env->subprog_cnt; i++) {
 		bpf_prog_lock_ro(func[i]);
+		printk("[%s]:%d Adding function to kallsysm",__FILE__,__LINE__);
 		bpf_prog_kallsyms_add(func[i]);
 	}
 
