@@ -671,7 +671,7 @@ void bpf_prog_kallsyms_add(struct bpf_prog *fp)
 	if (!bpf_prog_kallsyms_candidate(fp) ||
 	    !bpf_capable())
 		return;
-
+	printk("[%s : %d] About to add bpf program to ksym table \n", __FILE__, __LINE__);
 	bpf_prog_ksym_set_addr(fp);
 	bpf_prog_ksym_set_name(fp);
 	fp->aux->ksym.prog = true;
@@ -715,7 +715,9 @@ const char *__bpf_address_lookup(unsigned long addr, unsigned long *size,
 		if (off)
 			*off  = addr - symbol_start;
 	}
-	rcu_read_unlock();
+	/*else
+		printk("[%s : %d could not find bpf address in ksym\n", __FILE__,__LINE__);
+	*/rcu_read_unlock();
 
 	return ret;
 }

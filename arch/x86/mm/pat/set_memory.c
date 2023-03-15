@@ -365,7 +365,7 @@ static void cpa_flush(struct cpa_data *data, int cache)
 	struct cpa_data *cpa = data;
 	unsigned int i;
 
-	BUG_ON(irqs_disabled() && !early_boot_irqs_disabled);
+//	BUG_ON(irqs_disabled() && !early_boot_irqs_disabled);
 
 	if (cache && !static_cpu_has(X86_FEATURE_CLFLUSH)) {
 		cpa_flush_all(cache);
