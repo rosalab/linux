@@ -51,6 +51,7 @@ tprogs-y += task_fd_query
 tprogs-y += ibumad
 tprogs-y += hbm
 tprogs-y += loops 
+tprogs-y += trigger_loops 
 
 #tprogs-y += xdp_redirect_cpu
 #tprogs-y += xdp_redirect_map_multi
@@ -113,6 +114,7 @@ xdp_sample_pkts-objs := xdp_sample_pkts_user.o
 ibumad-objs := ibumad_user.o
 hbm-objs := hbm.o $(CGROUP_HELPERS)
 loops-objs := loops_user.o $(TRACE_HELPERS)
+trigger-loops := trigger_loops.o 
 
 xdp_redirect_map_multi-objs := xdp_redirect_map_multi_user.o $(XDP_SAMPLE)
 xdp_redirect_cpu-objs := xdp_redirect_cpu_user.o $(XDP_SAMPLE)
