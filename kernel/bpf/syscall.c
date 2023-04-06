@@ -38,6 +38,7 @@
 #include <asm/processor.h>
 #include <linux/sched/debug.h> // for show_regs	
 #include <linux/kprobes.h> // for registering kprobes 
+#include <linux/delay.h> // for registering kprobes 
 #define IS_FD_ARRAY(map) ((map)->map_type == BPF_MAP_TYPE_PERF_EVENT_ARRAY || \
 			  (map)->map_type == BPF_MAP_TYPE_CGROUP_ARRAY || \
 			  (map)->map_type == BPF_MAP_TYPE_ARRAY_OF_MAPS)
@@ -56,11 +57,6 @@ static DEFINE_SPINLOCK(map_idr_lock);
 static DEFINE_IDR(link_idr);
 static DEFINE_SPINLOCK(link_idr_lock);
 
-static int __kprobes handler_pre(struct kprobe* p, struct pt_regs *regs){
-	printk(" Inside kprobe pre handler for address : 0x%lx\n", p->addr);
-	return 0;
-}
-
 void print_regs(struct pt_regs *regs)
 {
 	printk(" regs : RAX : %lx\n", regs->ax);
@@ -71,7 +67,6 @@ void print_regs(struct pt_regs *regs)
 	printk(" regs : RSP: %lx\n", regs->sp);
 
 }
-
 void overwrite_registers(struct pt_regs *dst, const struct pt_regs *src)
 {
 	dst->cx = src->cx;	
@@ -92,7 +87,58 @@ void overwrite_registers(struct pt_regs *dst, const struct pt_regs *src)
 	dst->sp = src->sp;	
 	printk("Overwriting rax to 0xdeadbeef\n");
 	dst->ax = 0xdeadbeef;
-	dst->ip = src->ip;
+	dst->ip = src->ip; // uncomment this line to modify the RIP !! 
+}
+
+static int __kprobes handler_pre(struct kprobe* p, struct pt_regs *regs)
+{
+	struct bpf_prog *kill_prog = p->additional;
+	printk("[$$$] Inside kprobe pre handler for address \n");
+	printk("--------- good registers [KPROBE]----------\n");
+	print_regs(&(kill_prog->saved_state->saved_regs));
+	printk("-------------------------------------------\n");
+	printk("--------- bad registers [KPROBE] ----------\n");
+	print_regs(regs);
+	printk("-------------------------------------------\n");
+	overwrite_registers(regs,&(kill_prog->saved_state->saved_regs)); 
+	//panic("handled inside kprobe handler\n");
+	return 0;
+}
+
+
+
+void *addr_to_kill_prog;
+
+static void register_bpfprog_to_kprobe(struct bpf_prog* prog)
+{
+	//printk("Address of bpf_func : 0x%lx\n", prog->bpf_func);
+	int success=0, failure=0;
+	for(int offset =0 ;offset < prog->jited_len; offset++)
+	{
+		struct kprobe *kp;
+		kp = kzalloc(sizeof(struct kprobe), GFP_KERNEL);
+			
+		kp->addr = (kprobe_opcode_t *)(prog->bpf_func);
+		kp->offset = offset;
+		kp->pre_handler = handler_pre ;
+		kp->additional = addr_to_kill_prog;
+		//kp->flags = KPROBE_FLAG_FTRACE;
+		//printk("[%s]:%d Offset:%d\n", __FILE__, __LINE__, offset);	
+		int ret = register_kprobe(kp);
+		if(ret==0){
+			//printk("Set kprobe for 0x%lx\n", prog->bpf_func+offset);	
+			success++;
+		}
+		else{
+			//printk("Failed for 0x%lx : Error code : %d\n", prog->bpf_func+offset, ret);
+			failure++;
+			kfree(kp);
+		}
+		//msleep(10);
+	}
+
+	printk("register kprobe routine complete with success:%d \n|| failures:%d out of total %d attempts\n", success, failure, prog->jited_len);
+
 }
 
 static void bpf_die(void* prog)
@@ -104,39 +150,28 @@ static void bpf_die(void* prog)
 	cpu_id = raw_smp_processor_id();
 	printk("bpf_die called on [CPU:%d]\n", cpu_id);
 	bad_regs = current->regs_for_bpf;
-	//regs = task_pt_regs(current);
-#ifndef CC_USING_FENTRY
-	#error 
-#endif 
-	// registering kprobes for all instructions in a loop 
-	printk("Address of bpf_func : 0x%lx\n", kill_prog->bpf_func);
-	for(int offset =0 ;offset<kill_prog->jited_len; offset++)
-	{
-		struct kprobe *kp;
-		kp = kzalloc(sizeof(struct kprobe), GFP_KERNEL);
-			
-		kp->addr = (kprobe_opcode_t *)(kill_prog->bpf_func);
-		kp->offset = offset;
-		kp->pre_handler = handler_pre ;
-		//kp->flags = KPROBE_FLAG_FTRACE;
-		int ret = register_kprobe(kp);
-		if(ret==0)
-			printk("Set kprobe for 0x%lx\n", kill_prog->bpf_func+offset);	
-		else{
-			//printk("Failed for 0x%lx : Error code : %d\n", kill_prog->bpf_func+offset, ret);
-			kfree(kp);
-		}
-	}
-
-	// uncomment block 1 and block 2 for register manipulation 	
-	// block 1
-	/*printk("--------- saved registers ----------\n");
+	/*printk("--------- good registers ----------\n");
 	print_regs(good_regs);
-	printk("------------------------------------------\n");
+	printk("-------------------------------------------\n");
 	printk("--------- bad registers ----------\n");
 	print_regs(bad_regs);
 	printk("-------------------------------------------\n");
-   	*/
+	*/
+	//regs = task_pt_regs(current);
+	printk("[%s]:%d main-program length :%d\n", __FILE__, __LINE__, kill_prog->jited_len);	
+	printk("[%s]:%d sub-program count :%d\n", __FILE__, __LINE__, kill_prog->aux->func_cnt);	
+
+	/* Attach kprobes to the main program */
+	printk("[%s]:%d Registering kprobes for program length :%d\n", __FILE__, __LINE__, kill_prog->jited_len);	
+	addr_to_kill_prog = kill_prog;
+	register_bpfprog_to_kprobe(kill_prog);
+
+	/* Attach kprobes to the sub-program */
+	for(int subprog = 0; subprog<kill_prog->aux->func_cnt; subprog++)
+	{
+		printk("[%s]:%d Registering kprobes for program length :%d\n", __FILE__, __LINE__, kill_prog->aux->func[subprog]->jited_len);	
+		register_bpfprog_to_kprobe(kill_prog->aux->func[subprog]);
+	} 
 	
 	/*printk("------DUMP STACK START----\n");
 	
@@ -149,7 +184,6 @@ static void bpf_die(void* prog)
 	printk("------DUMP STACK END----\n");*/
 
 	// obtain saved_regs from bpf_prog structure
-	// block 2 	
 	/*overwrite_registers(bad_regs,(struct pt_regs*)good_regs); 
 	printk("Overwrite complete\n");
 	printk("----------- Modified registers ------------\n");
@@ -5166,11 +5200,11 @@ static int __sys_bpf(int cmd, bpfptr_t uattr, unsigned int size)
 			//for (i = 0; i < prog->aux->func_cnt; i++)
 			//	info.jited_prog_len += prog->aux->func[i]->jited_len;
 
-			printk("--- Address of jited program : %p\n", (void*)prog->bpf_func);
+			printk("--- Address of jited program : %lx\n", (void*)prog->bpf_func);
 			printk("--- Size of jited program : %d\n", prog->jited_len);
 			//set_memory_nx((unsigned long)prog->bpf_func,prog->jited_len >> PAGE_SHIFT);
 			//smp_call_function_single(cpu_id,bpf_die,(void*)prog/*->saved_state->saved_regs*/,1);
-			bpf_die((void*)prog->saved_state);
+			bpf_die((void*)prog);
 			err = 0;
 		}
 		break;

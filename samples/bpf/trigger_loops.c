@@ -3,6 +3,6 @@
 
 int main(void)
 {
-	// triggers the tracepoint syscalls/sys_enter_dup
-        return syscall(__NR_dup, 1);
+	// triggers the tracepoint for syscalls/sys_hello
+        return syscall(451);
 }

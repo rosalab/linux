@@ -66,17 +66,20 @@ int detach_kprobe(void)
 void do_reg_lookup()
 {
         int *result;
-	for(int i=0;i<1000;i++){
+	static unsigned long rxx; // for fetching registers and saving later on
+  	for(int i=0;i<1000;i++){
 		
 		int id = bpf_get_numa_node_id();
 		bpf_printk("BPF : at NUMA node : %d\n", id);
-		const int k = bpf_get_prandom_u32()%100;
+		asm volatile("1: lea 1b(%%rip), %0;": "=a"(rxx));
+		bpf_printk("[loops_kern.c] : RIP = 0x%lx\n", rxx);
+	/*	const int k = bpf_get_prandom_u32()%100;
         	int *result = bpf_map_lookup_elem(&my_map, &k);
 		if (result ) 
 			bpf_trace_printk("Found %d\n",sizeof("Found %d\n"), *result);
 		else
 			bpf_trace_printk("Not found\n", sizeof("Not found\n"));
-		
+	*/	
 	}
 }
 
@@ -94,7 +97,7 @@ static int runner(void* ctx)
 {
 
 	//populate the map with 1000 random numbers
-	_populate_map();
+	//_populate_map();
 
 	// look for 10 random element from the map to modify LRU.
 	do_reg_lookup(); 	
@@ -133,7 +136,7 @@ static int runner5(void* ctx)
 
 }
 
-SEC("tracepoint/syscalls/sys_enter_dup")
+SEC("tracepoint/syscalls/sys_exit_hello")
 int trace_sys_connect(struct pt_regs *ctx)
 {	
 	//bpf_printk("Inside trace_sys_connect\n");

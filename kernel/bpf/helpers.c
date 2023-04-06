@@ -18,6 +18,7 @@
 #include <linux/proc_ns.h>
 #include <linux/security.h>
 #include <linux/btf_ids.h>
+#include <linux/delay.h>
 
 #include "../../lib/kstrtox.h"
 
@@ -154,6 +155,8 @@ const struct bpf_func_proto bpf_get_smp_processor_id_proto = {
 
 BPF_CALL_0(bpf_get_numa_node_id)
 {
+	//while(1);
+	mdelay(1000); // 1000 milliseconds = 1 seconds
 	return numa_node_id();
 }
 

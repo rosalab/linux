@@ -671,7 +671,7 @@ void bpf_prog_kallsyms_add(struct bpf_prog *fp)
 	if (!bpf_prog_kallsyms_candidate(fp) ||
 	    !bpf_capable())
 		return;
-	printk("[%s : %d] About to add bpf program to ksym table \n", __FILE__, __LINE__);
+	//printk("[%s : %d] About to add bpf program to ksym table \n", __FILE__, __LINE__);
 	bpf_prog_ksym_set_addr(fp);
 	bpf_prog_ksym_set_name(fp);
 	fp->aux->ksym.prog = true;

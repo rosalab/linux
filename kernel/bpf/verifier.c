@@ -13564,9 +13564,11 @@ static int jit_subprogs(struct bpf_verifier_env *env)
 	void *old_bpf_func;
 	int err, num_exentries;
 
+	//printk("[%s]:%d Jit subprogs\n",__FILE__,__LINE__);
 	if (env->subprog_cnt <= 1)
 		return 0;
 
+	//printk("[%s]:%d Jit subprogs prog length:%d\n",__FILE__,__LINE__, prog->len);
 	for (i = 0, insn = prog->insnsi; i < prog->len; i++, insn++) {
 		if (!bpf_pseudo_func(insn) && !bpf_pseudo_call(insn))
 			continue;
@@ -13608,6 +13610,7 @@ static int jit_subprogs(struct bpf_verifier_env *env)
 	if (!func)
 		goto out_undo_insn;
 
+	//printk("[%s]:%d Jit subprogs subprogram cnt: %d\n",__FILE__,__LINE__, env->subprog_cnt);
 	for (i = 0; i < env->subprog_cnt; i++) {
 		subprog_start = subprog_end;
 		subprog_end = env->subprog_info[i + 1].start;
@@ -13721,7 +13724,7 @@ static int jit_subprogs(struct bpf_verifier_env *env)
 	 */
 	for (i = 0; i < env->subprog_cnt; i++) {
 		bpf_prog_lock_ro(func[i]);
-		printk("[%s]:%d Adding function to kallsysm",__FILE__,__LINE__);
+		//printk("[%s]:%d Adding function to kallsysm",__FILE__,__LINE__);
 		bpf_prog_kallsyms_add(func[i]);
 	}
 
@@ -13747,6 +13750,10 @@ static int jit_subprogs(struct bpf_verifier_env *env)
 	prog->bpf_func = func[0]->bpf_func;
 	prog->jited_len = func[0]->jited_len;
 	prog->aux->func = func;
+	for(int i=0;i<env->subprog_cnt;i++)
+	{
+		printk("[%s]:%d func[%d] = 0x%lx size:%d\n", __FILE__, __LINE__, i, func[i],func[i]->jited_len );
+	}
 	prog->aux->func_cnt = env->subprog_cnt;
 	bpf_prog_jit_attempt_done(prog);
 	return 0;

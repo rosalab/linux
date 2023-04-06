@@ -27,7 +27,7 @@ int main(int argc, char **argv)
                 return 0;
         }
 
-        prog = bpf_object__find_program_by_name(obj, "trace_sys_connect");
+        prog = bpf_object__find_program_by_name(obj, "trace_sys_connect"); // tracepoint is sys_hello
         if (!prog) {
                 printf("finding a prog in obj file failed\n");
                 goto cleanup;
@@ -49,10 +49,12 @@ int main(int argc, char **argv)
 
 	link = bpf_program__attach(prog);
         if (libbpf_get_error(link)) {
-                fprintf(stderr, "ERROR: bpf_program__attach failed\n");
+                fprintf(stderr, "ERROR: bpf_program__attach failed : %d\n", libbpf_get_error(link));
                 link = NULL;
                 goto cleanup;
         }
+	else
+		fprintf(stderr, "Attach success\n");
 
 	read_trace_pipe();	
 
