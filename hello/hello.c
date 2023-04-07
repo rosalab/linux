@@ -18,20 +18,11 @@ static int __kprobes handler_pre(struct kprobe* p, struct pt_regs *regs)
         regs->ax = 0xdeadbeef;
 	return 0;
  }
-void test_kprobes(void){
 
-	static unsigned long rxx; // for fetching registers and saving later on
+static void loop(void){
+	volatile unsigned long rxx; // for fetching registers and saving later on
 	int i=0;
-	struct kprobe *kp;
-        kp = kzalloc(sizeof(struct kprobe), GFP_KERNEL);
-        kp->addr = (kprobe_opcode_t *)(test_kprobes);
-        kp->offset = 0x3e;
-        kp->pre_handler = handler_pre ;	
-	unsigned long ret = register_kprobe(kp);
-	if(ret!=0){
-		printk("Failed at register kprobe. Error : 0x%x\n", ret);
-		return;
-	}
+
 	while(1){
 		printk("Looping before.. %d\n",i);// Attaching kprobe here to atleast print "Looping" once. 
 		asm volatile("\t mov %%rax , %0": "=m"(rxx) :: "%rax");	
@@ -40,6 +31,22 @@ void test_kprobes(void){
 		printk("Looping after.. %d\n",i);// Attaching kprobe here to atleast print "Looping" once. 
 		i++;
 	}
+
+}
+
+static void test_kprobes(void){
+
+	struct kprobe *kp;
+        kp = kzalloc(sizeof(struct kprobe), GFP_KERNEL);
+        kp->addr = (kprobe_opcode_t *)(loop);
+        kp->offset = 0x123 - 0xef ;
+        kp->pre_handler = handler_pre ;	
+	unsigned long ret = register_kprobe(kp);
+	if(ret!=0){
+		printk("Failed at register kprobe. Error : 0x%lx\n", ret);
+		return;
+	}
+	loop();
 }
 
 SYSCALL_DEFINE0(hello){
@@ -100,7 +107,7 @@ SYSCALL_DEFINE0(hello){
 	vfree(dest);
 	*/
 
-	//test_kprobes();	
+	test_kprobes();	
 	printk("Exiting from sys_hello!\n");
 	return 0;
 }
