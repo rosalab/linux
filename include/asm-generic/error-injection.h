@@ -36,6 +36,7 @@ void override_function_with_return(struct pt_regs *regs);
 #define ALLOW_ERROR_INJECTION(fname, _etype)
 
 static inline void override_function_with_return(struct pt_regs *regs) { }
+#error("ALLOW ERROR INJECTION is not configured");
 #endif
 #endif
 

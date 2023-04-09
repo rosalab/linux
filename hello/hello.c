@@ -12,11 +12,22 @@ char shellcode[] = {0xf3,0x0f ,0x1e ,0xfa ,0x55 ,0x48 ,0x89 ,0xe5, 0xb8, 0x00, 0
 	printk("Inside tester function for addresses\n");
 	return 0;
 }*/
+static void new_loop_fn(void){
+	printk("Inside new loop fn\n");	
+}
 static int __kprobes handler_pre(struct kprobe* p, struct pt_regs *regs)
 {
-        printk("[$$$] Inside kprobe pre handler for address : 0x%x\n", (unsigned int)*p->addr);
+        printk("[$$$] Inside kprobe pre handler for address : 0x%lx\n", (unsigned long)new_loop_fn);
         regs->ax = 0xdeadbeef;
-	return 0;
+	//regs_set_return_value(regs, 0xfffffff);
+	//regs->ip = regs->ip + 13; //0x181 - 0x13f;
+	//override_function_with_return(regs);
+	/*Note from kernel docs on kprobes : 
+	 If you change the instruction pointer (and set up other related
+         registers) in pre_handler, you must return !0 so that kprobes stops
+         single stepping and just returns to the given address.
+        */
+	return 1;
  }
 
 static void loop(void){
@@ -28,11 +39,12 @@ static void loop(void){
 		asm volatile("\t mov %%rax , %0": "=m"(rxx) :: "%rax");	
 		if(rxx == 0xdeadbeef)
 			return;
-		printk("Looping after.. %d\n",i);// Attaching kprobe here to atleast print "Looping" once. 
+		printk("Looping after.. %d, rax: 0x%lx\n",i,rxx);// Attaching kprobe here to atleast print "Looping" once. 
 		i++;
 	}
 
 }
+
 
 static void test_kprobes(void){
 

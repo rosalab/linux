@@ -155,6 +155,8 @@ static const struct bpf_func_proto bpf_override_return_proto = {
 	.arg1_type	= ARG_PTR_TO_CTX,
 	.arg2_type	= ARG_ANYTHING,
 };
+#else
+#error(""CONFIG BPF KPROBE OVERRIDE not enabled);
 #endif
 
 static __always_inline int
