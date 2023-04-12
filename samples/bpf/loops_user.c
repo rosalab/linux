@@ -49,7 +49,7 @@ int main(int argc, char **argv)
 
 	link = bpf_program__attach(prog);
         if (libbpf_get_error(link)) {
-                fprintf(stderr, "ERROR: bpf_program__attach failed : %d\n", libbpf_get_error(link));
+                fprintf(stderr, "ERROR: bpf_program__attach failed : %ld\n", libbpf_get_error(link));
                 link = NULL;
                 goto cleanup;
         }

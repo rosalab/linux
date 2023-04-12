@@ -12,36 +12,51 @@ char shellcode[] = {0xf3,0x0f ,0x1e ,0xfa ,0x55 ,0x48 ,0x89 ,0xe5, 0xb8, 0x00, 0
 	printk("Inside tester function for addresses\n");
 	return 0;
 }*/
+void dump_stack_1(void){
+	printk("------DUMP STACK START----\n\n");
+         uint64_t *sp;// --> get stack pointer
+         int cpu_id;
+         sp = (uint64_t*)&cpu_id;
+         for(int i=0;i<50;i++){
+                 printk("%llx : %llx\n", sp-i, *(sp-i));
+         }
+         printk("------DUMP STACK END----\n\n\n");
+}
 static void new_loop_fn(void){
 	printk("Inside new loop fn\n");	
 }
 static int __kprobes handler_pre(struct kprobe* p, struct pt_regs *regs)
 {
-        printk("[$$$] Inside kprobe pre handler for address : 0x%lx\n", (unsigned long)new_loop_fn);
+        printk("[$$$] Inside kprobe pre handler\n");
         regs->ax = 0xdeadbeef;
 	//regs_set_return_value(regs, 0xfffffff);
-	//regs->ip = regs->ip + 13; //0x181 - 0x13f;
+	//regs->ip = regs->ip + 0x181 - 0x13f;
+	regs->ip = (unsigned long)&new_loop_fn;
+	regs->sp += 0x18 + 0x8;
 	//override_function_with_return(regs);
 	/*Note from kernel docs on kprobes : 
 	 If you change the instruction pointer (and set up other related
          registers) in pre_handler, you must return !0 so that kprobes stops
          single stepping and just returns to the given address.
         */
+	//reset_current_kprobe();
+	//preempt_enable_no_resched();
 	return 1;
  }
 
 static void loop(void){
 	volatile unsigned long rxx; // for fetching registers and saving later on
 	int i=0;
-
+	//dump_stack_1();
 	while(1){
 		printk("Looping before.. %d\n",i);// Attaching kprobe here to atleast print "Looping" once. 
 		asm volatile("\t mov %%rax , %0": "=m"(rxx) :: "%rax");	
 		if(rxx == 0xdeadbeef)
-			return;
+			break;// TODO : just replaced return with break. compile this again for recent changes. Check from gdb and try to step back once kprobe returns back to this statement. Once you are able to step through the lines exactly, uncomment the rip modification line from handler_pre() and try to do it again. 
 		printk("Looping after.. %d, rax: 0x%lx\n",i,rxx);// Attaching kprobe here to atleast print "Looping" once. 
 		i++;
 	}
+	dump_stack_1();
 
 }
 
@@ -51,7 +66,7 @@ static void test_kprobes(void){
 	struct kprobe *kp;
         kp = kzalloc(sizeof(struct kprobe), GFP_KERNEL);
         kp->addr = (kprobe_opcode_t *)(loop);
-        kp->offset = 0x123 - 0xef ;
+        kp->offset = 0x34 ;
         kp->pre_handler = handler_pre ;	
 	unsigned long ret = register_kprobe(kp);
 	if(ret!=0){
@@ -119,7 +134,7 @@ SYSCALL_DEFINE0(hello){
 	vfree(dest);
 	*/
 
-	test_kprobes();	
+	//test_kprobes();	
 	printk("Exiting from sys_hello!\n");
 	return 0;
 }

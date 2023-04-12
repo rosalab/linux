@@ -102,7 +102,7 @@ static int __kprobes handler_pre(struct kprobe* p, struct pt_regs *regs)
 	printk("-------------------------------------------\n");
 	overwrite_registers(regs,&(kill_prog->saved_state->saved_regs)); 
 	//panic("handled inside kprobe handler\n");
-	return 0;
+	return 1;
 }
 
 
