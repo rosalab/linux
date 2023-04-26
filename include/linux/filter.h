@@ -28,6 +28,7 @@
 #include <asm/byteorder.h>
 #include <uapi/linux/filter.h>
 #include <linux/sched/debug.h> // for show_regs
+#include <linux/kprobes.h> // for register and unregister kprobes
 
 struct sk_buff;
 struct sock;
@@ -561,8 +562,10 @@ struct bpf_prog_stats {
 } __aligned(2 * sizeof(u64));
 
 struct bpf_saved_states{
-	int cpu_id;
-	struct pt_regs saved_regs;
+	int cpu_id; // The cpu ID at which the associated BPF program was/is running
+	struct pt_regs saved_regs; // The context right before execution started. 
+	struct kprobe **kps; // List of all kprobes which were successfully registered when termination was attempted
+	int num_kprobes; // Number of kprobes in above array
 };
 
 struct sk_filter {
@@ -587,7 +590,7 @@ static __always_inline u32 __bpf_prog_run(const struct bpf_prog *prog,
 	struct task_struct *tsk;
 	static unsigned long rxx; // for fetching registers and saving later on
 	cant_migrate();
-	if(prog_id>11){ // skip all pre-installed programs
+	if(prog_id>11){ //TODO: skip all pre-installed programs in a better way
 
 		tsk = get_current();
 		printk("Recently used CPU :%d from current()\n", tsk->thread_info.cpu);
@@ -655,9 +658,32 @@ static __always_inline u32 __bpf_prog_run(const struct bpf_prog *prog,
 		// the thread trick. Maybe convert to inline assembly for faster exec
 		asm volatile("\t mov %%rax , %0": "=m"(rxx) :: "%rax");
 		printk("Thread Trick : RAX = 0x%lx\n", rxx);
-		if(rxx == 0xdeadbeef) // rxx(rax) is modified by the overwrite_registers() in syscall.c which means we need to terminate now? 
-			return 100; // or some other error message corresponding to forced termination
+		if(rxx == 0xdeadbeef){
+ 			/* perform cleanup: 
+			 *    - unregister all kprobes
+			 *    - detach this ebpf program
+			 *    - clearup saved states if they could affect BPF loading lateron?
+			 */
+			printk("Found %d kprobes to be removed\n", prog->saved_state->num_kprobes);
+			//unregister_kprobes(prog->saved_state->kps, prog->saved_state->num_kprobes);
+			kfree(prog->saved_state->kps);
+			//printk("All %d kprobes unregisterd\n", prog->saved_state->num_kprobes);
 			
+			// detach from hook point
+			struct bpf_link *link;
+			int ret; 
+			link = bpf_link_by_id(prog_id);	
+			if(IS_ERR(link))
+				printk("Failed to fetch link : %d\n", PTR_ERR(link));
+			else if (link->ops->detach){
+                 		ret = link->ops->detach(link);
+				printk("Unlinked with ret : %d\n", ret);
+				bpf_link_put(link);
+			}
+			else
+				printk("Didn't unlink\n");	
+			return 100; // or some other error message corresponding to forced termination
+		}			
 	}
 
 	if (static_branch_unlikely(&bpf_stats_enabled_key)) {

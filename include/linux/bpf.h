@@ -1143,7 +1143,7 @@ struct bpf_prog {
 					    const struct bpf_insn *insn);
 	struct bpf_prog_aux	*aux;		/* Auxiliary fields */
 	struct sock_fprog_kern	*orig_prog;	/* Original BPF program */
-	struct bpf_saved_states *saved_state;
+	struct bpf_saved_states *saved_state;  /* Saved data required by Runtime Termination*/
 	/* Instructions for interpreter */
 	union {
 		DECLARE_FLEX_ARRAY(struct sock_filter, insns);
