@@ -193,12 +193,6 @@ static inline u64 tk_clock_read(const struct tk_read_base *tkr)
 	return clock->read(clock);
 }
 
-static noinline int __used
-read_seqcount_latch_retry_helper(const seqcount_latch_t *s, unsigned start)
-{
-	return read_seqcount_retry(&s->seqcount, start);
-}
-
 #ifdef CONFIG_DEBUG_TIMEKEEPING
 #define WARNING_FREQ (HZ*300) /* 5 minute rate-limiting */
 
