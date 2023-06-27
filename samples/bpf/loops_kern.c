@@ -1,4 +1,3 @@
-#define KBUILD_MODNAME "foo"
 #include <linux/ptrace.h>
 #include <linux/version.h>
 #include <uapi/linux/bpf.h>
@@ -11,12 +10,10 @@
 #if defined(CONFIG_FUNCTION_TRACER)
 #define CC_USING_FENTRY
 #endif
-#include <linux/kprobes.h>
 
 #define MAX_DICT_SIZE 1000 
 #define MAX_DICT_VAL  10000
 
-//struct kprobe kp;
 
 struct 
 {
@@ -36,33 +33,6 @@ struct
 } 
 jmp_table SEC(".maps");
 
-/*
-int kpb_pre(struct kprobe *p, struct pt_regs *regs){
-	bpf_printk("Inside pre handler\n");
-	return 0;
-}
-
-int attach_kprobe(void)
-{
-    struct kprobe kp = {
-        .symbol_name = "runner5+0x1", // address of line to attach kprobe to
-        .pre_handler = kpb_pre,
-    };
-    int ret = register_kprobe(&kp);
-    if (ret < 0) {
-        bpf_printk("Failed to register kprobe\n");
-        return ret;
-    }
-    bpf_printk("Kprobe attached successfully\n");
-    return 0;
-}
-
-int detach_kprobe(void)
-{
-    unregister_kprobe(&kp);
-    return 0;
-}
-*/
 void do_reg_lookup()
 {
         int *result;
@@ -135,7 +105,7 @@ static int runner5(void* ctx)
 }
 
 SEC("tracepoint/syscalls/sys_exit_hello")
-int trace_sys_connect(struct pt_regs *ctx)
+int trace_sys_connect1(struct pt_regs *ctx)
 {	
 	//bpf_printk("Inside trace_sys_connect\n");
 	//attach_kprobe();
@@ -173,6 +143,25 @@ int kprobe_execve(struct pt_regs *ctx)
     return 0;
 }
 */
+
+
+#define __ksym __attribute__((section(".ksyms")))
+struct task_struct *bpf_task_acquire(struct task_struct *p) __ksym;
+void bpf_task_release(struct task_struct *p) __ksym;
+
+SEC("tp_btf/task_newtask")
+int trace_sys_connect(struct pt_regs *ctx)
+{	
+	bpf_printk("Testing task_struct kfuncs\n");
+	
+	struct task_struct *current, *acquired;
+
+	current = bpf_get_current_task_btf();
+	acquired = bpf_task_acquire(current);
+	bpf_task_release(acquired);
+	return 0;	
+}
+
 
 char _license[] SEC("license") = "GPL";
 u32 _version SEC("version") = LINUX_VERSION_CODE;

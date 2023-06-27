@@ -55,7 +55,7 @@ int main(int argc, char **argv)
         }
 	else
 		fprintf(stderr, "Attach success\n");
-
+	bpf_link__disconnect(link);
 	read_trace_pipe();	
 
 cleanup:
