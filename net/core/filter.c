@@ -79,7 +79,7 @@
 #include <net/tls.h>
 #include <net/xdp.h>
 #include <net/mptcp.h>
-
+#include<linux/unwind_list.h> // unwinding logic
 static const struct bpf_func_proto *
 bpf_sk_base_func_proto(enum bpf_func_id func_id);
 
@@ -6635,8 +6635,9 @@ bpf_sk_lookup(struct sk_buff *skb, struct bpf_sock_tuple *tuple, u32 len,
 BPF_CALL_5(bpf_skc_lookup_tcp, struct sk_buff *, skb,
 	   struct bpf_sock_tuple *, tuple, u32, len, u64, netns_id, u64, flags)
 {
-	return (unsigned long)bpf_skc_lookup(skb, tuple, len, IPPROTO_TCP,
+	return  (unsigned long)bpf_skc_lookup(skb, tuple, len, IPPROTO_TCP,
 					     netns_id, flags);
+	
 }
 
 static const struct bpf_func_proto bpf_skc_lookup_tcp_proto = {
@@ -6654,8 +6655,26 @@ static const struct bpf_func_proto bpf_skc_lookup_tcp_proto = {
 BPF_CALL_5(bpf_sk_lookup_tcp, struct sk_buff *, skb,
 	   struct bpf_sock_tuple *, tuple, u32, len, u64, netns_id, u64, flags)
 {
-	return (unsigned long)bpf_sk_lookup(skb, tuple, len, IPPROTO_TCP,
+	unsigned long ret =  (unsigned long)bpf_sk_lookup(skb, tuple, len, IPPROTO_TCP,
 					    netns_id, flags);
+
+#ifdef CONFIG_HAVE_BPF_TERMINATION
+	struct unwind_list_obj *node;
+	node = kmalloc(sizeof(*node), GFP_ATOMIC); 
+	if(!node){
+		printk("Memory allocation failed %s:%d\n", __FILE__,__LINE__);
+		return NULL;
+	}
+
+	node->is_reference=true;
+	node->func_addr = bpf_sk_lookup_tcp;
+	node->obj_addr =  ret;
+	pcpu_push_unwindlist(node);
+	printk("Node pushed to unwindlist from bpf_sk_lookup_tcp obj:0x%lx, helper:0x%lx\n", ret, bpf_sk_lookup_tcp);
+#endif
+
+
+	return ret;
 }
 
 static const struct bpf_func_proto bpf_sk_lookup_tcp_proto = {
@@ -6691,6 +6710,21 @@ static const struct bpf_func_proto bpf_sk_lookup_udp_proto = {
 
 BPF_CALL_1(bpf_sk_release, struct sock *, sk)
 {
+
+#ifdef CONFIG_HAVE_BPF_TERMINATION
+	struct unwind_list_obj *node;
+	node = kmalloc(sizeof(*node), GFP_ATOMIC); 
+	if(!node){
+		printk("Memory allocation failed %s:%d\n", __FILE__,__LINE__);
+		return NULL;
+	}
+
+	node->is_reference=true;
+	node->func_addr = bpf_sk_release;
+	node->obj_addr =  sk;
+	pcpu_push_unwindlist(node);
+	printk("Node pushed to unwindlist from bpf_sk_release obj:0x%lx, helper:0x%lx\n", sk, bpf_sk_release);
+#endif
 	if (sk && sk_is_refcounted(sk))
 		sock_gen_put(sk);
 	return 0;

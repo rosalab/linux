@@ -7,6 +7,7 @@
 
 #include <linux/atomic.h>
 #include <linux/bpf.h>
+#include <linux/unwind_list.h>
 #include <linux/refcount.h>
 #include <linux/compat.h>
 #include <linux/skbuff.h>
@@ -590,6 +591,9 @@ static __always_inline u32 __bpf_prog_run(const struct bpf_prog *prog,
 	struct task_struct *tsk;
 	static unsigned long rxx; // for fetching registers and saving later on
 	cant_migrate();
+	// Check and initialize unwind list to be used for termination
+	pcpu_init_unwindlist(); 
+
 	if(prog_id>11){ //TODO: skip all pre-installed programs in a better way
 
 		tsk = get_current();
@@ -700,6 +704,12 @@ static __always_inline u32 __bpf_prog_run(const struct bpf_prog *prog,
 	} else {
 		ret = dfunc(ctx, prog->insnsi, prog->bpf_func);
 	}
+	
+	/* Clear the linkedlist this BPF run would have created as it's no 
+	 * more needed.
+	 */
+	pcpu_reset_unwindlist();
+
 	return ret;
 }
 

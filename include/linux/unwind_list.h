@@ -2,17 +2,24 @@
  * Contains the struct definition and linked list operations for dealing 
  * with abrupt termination of eBPF programs
  */
+#ifndef UNWIND_LIST_H
+#define UNWIND_LIST_H
+
 #include<linux/list.h>
+#include<linux/percpu.h>
+#include<linux/slab.h>
+#include<linux/spinlock.h>
 
 
-struct unwind_list{
-	struct list_head __percpu entry;
+
+struct unwind_list_obj{
+	struct list_head  entry;
 	
 	bool is_reference; // true if this helper/kfunc takes/leaves reference
 	bool is_lock; // true if takes/releases locks
-	unsigned int stored_ip; // the ip within the BPF bytecode where this function is called 
-	unsigned int func_addr; // symbol address of the function in concern
-	unsigned int obj_addr; // address of the lock object or the referenced object
+	unsigned long stored_ip; // the ip within the BPF bytecode where this function is called 
+	unsigned long func_addr; // symbol address of the function in concern
+	unsigned long obj_addr; // address of the lock object or the referenced object
 };
 
 /* 
@@ -26,16 +33,17 @@ struct unwind_list{
 	  overheads.  
  */
 
-struct unwind_list unwind_list;
 
 
 //  init/de-init
-int pcpu_init_unwindlist(); 
-void pcpu_destroy_unwindlist();
-
-// clear off all elems 
-int pcpu_reset_unwindlist(struct unwind_list *);
-
+int pcpu_init_unwindlist(void); 
+// clear off all elems from current CPU's list 
+void pcpu_reset_unwindlist(void);
 //  push/pop 
-//void pcpu_push_unwindlist(struct unwind_list *); 
+void pcpu_push_unwindlist(struct unwind_list_obj *); 
+//void pcpu_destroy_unwindlist(void);
+
+
 //struct unwind_list* pcpu_pop_unwind_list();
+
+#endif // UNWIND_LIST_H
