@@ -4,6 +4,8 @@
 config BPF
 	bool
 
+
+
 # Used by archs to tell that they support BPF JIT compiler plus which
 # flavour. Only one of the two can be selected for a specific arch since
 # eBPF JIT supersedes the cBPF JIT.
@@ -22,6 +24,10 @@ config ARCH_WANT_DEFAULT_BPF_JIT
 	bool
 
 menu "BPF subsystem"
+
+config HAVE_BPF_TERMINATION
+	bool "Enable eBPF runtime termination"
+	depends on BPF
 
 config BPF_SYSCALL
 	bool "Enable bpf() system call"
