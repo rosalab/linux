@@ -36,9 +36,15 @@
 #include <linux/memcontrol.h>
 #include <linux/trace_events.h>
 #include <asm/processor.h>
+
+#ifdef CONFIG_HAVE_BPF_TERMINATION
 #include <linux/sched/debug.h> // for show_regs	
 #include <linux/kprobes.h> // for registering kprobes 
 #include <linux/delay.h> // for registering kprobes 
+
+#define KPROBE_TERMINATION
+#endif
+
 #define IS_FD_ARRAY(map) ((map)->map_type == BPF_MAP_TYPE_PERF_EVENT_ARRAY || \
 			  (map)->map_type == BPF_MAP_TYPE_CGROUP_ARRAY || \
 			  (map)->map_type == BPF_MAP_TYPE_ARRAY_OF_MAPS)
@@ -48,6 +54,8 @@
 			IS_FD_HASH(map))
 
 #define BPF_OBJ_FLAG_MASK   (BPF_F_RDONLY | BPF_F_WRONLY)
+
+
 
 DEFINE_PER_CPU(int, bpf_prog_active);
 static DEFINE_IDR(prog_idr);
@@ -87,8 +95,10 @@ void overwrite_registers(struct pt_regs *dst, const struct pt_regs *src)
 	dst->sp = src->sp;	
 	printk("Overwriting rax to 0xdeadbeef\n");
 	dst->ax = 0xdeadbeef;
-	dst->ip = src->ip; // uncomment this line to modify the RIP !! 
+	dst->ip = src->ip; 
+
 }
+
 
 static int __kprobes handler_pre(struct kprobe* p, struct pt_regs *regs)
 {
@@ -140,6 +150,7 @@ static void register_bpfprog_to_kprobe(struct bpf_prog* prog)
 
 }
 
+
 static void bpf_die(void* prog)
 {
 	struct bpf_prog* kill_prog = prog;	
@@ -147,6 +158,8 @@ static void bpf_die(void* prog)
 	cpu_id = raw_smp_processor_id();
 	printk("bpf_die called on [CPU:%d]\n", cpu_id);
 
+#ifdef CONFIG_HAVE_BPF_TERMINATION 
+#ifdef KPROBE_TERMINATION
 	// initialize kprobes_list with size that of total jited len of this bpf prog
 	int total_program_size=0;
 	total_program_size += kill_prog->jited_len;
@@ -172,6 +185,12 @@ static void bpf_die(void* prog)
 	kill_prog->saved_state->kps = kprobes_list;
 	kill_prog->saved_state->num_kprobes = idx + 1;
 	printk("Added kprobes_list of size:%d to bpf_prog\n", idx+1);
+
+#else // simple boolean termination  
+	kill_prog->saved_state->termination_requested = true;
+
+#endif /* KPROBE_TERMINATION */
+#endif /* CONFIG_HAVE_BPF_TERMINATION */
 }
 
 int sysctl_unprivileged_bpf_disabled __read_mostly =

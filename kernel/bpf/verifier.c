@@ -14125,6 +14125,7 @@ static int do_misc_fixups(struct bpf_verifier_env *env)
 			goto patch_call_imm;
 		}
 
+
 		if (insn->imm == BPF_FUNC_task_storage_get ||
 		    insn->imm == BPF_FUNC_sk_storage_get ||
 		    insn->imm == BPF_FUNC_inode_storage_get) {

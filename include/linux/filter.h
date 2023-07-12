@@ -567,6 +567,7 @@ struct bpf_saved_states{
 	struct pt_regs saved_regs; // The context right before execution started. 
 	struct kprobe **kps; // List of all kprobes which were successfully registered when termination was attempted
 	int num_kprobes; // Number of kprobes in above array
+	bool termination_requested;
 };
 
 struct sk_filter {
@@ -591,9 +592,12 @@ static __always_inline u32 __bpf_prog_run(const struct bpf_prog *prog,
 	struct task_struct *tsk;
 	static unsigned long rxx; // for fetching registers and saving later on
 	cant_migrate();
+
 	// Check and initialize unwind list to be used for termination
 	pcpu_init_unwindlist(); 
-
+	// initialize the task_struct's bpf_prog variable
+	current->bpf_prog = prog; 
+	printk("bpf prog run : size of jitted program : %d\n", prog->jited_len);
 	if(prog_id>11){ //TODO: skip all pre-installed programs in a better way
 
 		tsk = get_current();
@@ -668,17 +672,17 @@ static __always_inline u32 __bpf_prog_run(const struct bpf_prog *prog,
 			 *    - detach this ebpf program
 			 *    - clearup saved states if they could affect BPF loading lateron?
 			 */
+			struct bpf_link *link;
+			int ret; 
 			printk("Found %d kprobes to be removed\n", prog->saved_state->num_kprobes);
 			//unregister_kprobes(prog->saved_state->kps, prog->saved_state->num_kprobes);
 			kfree(prog->saved_state->kps);
 			//printk("All %d kprobes unregisterd\n", prog->saved_state->num_kprobes);
 			
 			// detach from hook point
-			struct bpf_link *link;
-			int ret; 
 			link = bpf_link_by_id(prog_id);	
 			if(IS_ERR(link))
-				printk("Failed to fetch link : %d\n", PTR_ERR(link));
+				printk("Failed to fetch link : %ld\n", PTR_ERR(link));
 			else if (link->ops->detach){
                  		ret = link->ops->detach(link);
 				printk("Unlinked with ret : %d\n", ret);

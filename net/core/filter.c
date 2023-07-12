@@ -6658,8 +6658,12 @@ BPF_CALL_5(bpf_sk_lookup_tcp, struct sk_buff *, skb,
 	unsigned long ret =  (unsigned long)bpf_sk_lookup(skb, tuple, len, IPPROTO_TCP,
 					    netns_id, flags);
 
+	
 #ifdef CONFIG_HAVE_BPF_TERMINATION
+	//if(current->saved_state->termination_requested)
+		
 	struct unwind_list_obj *node;
+	printk("---- bpf_sk_lookup_tcp : size of jitted program : %d\n", current->bpf_prog->jited_len);
 	node = kmalloc(sizeof(*node), GFP_ATOMIC); 
 	if(!node){
 		printk("Memory allocation failed %s:%d\n", __FILE__,__LINE__);
@@ -6713,6 +6717,7 @@ BPF_CALL_1(bpf_sk_release, struct sock *, sk)
 
 #ifdef CONFIG_HAVE_BPF_TERMINATION
 	struct unwind_list_obj *node;
+	printk("---- bpf_sk_release : size of jitted program : %d\n", current->bpf_prog->jited_len);
 	node = kmalloc(sizeof(*node), GFP_ATOMIC); 
 	if(!node){
 		printk("Memory allocation failed %s:%d\n", __FILE__,__LINE__);

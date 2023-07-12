@@ -154,10 +154,10 @@ int trace_sys_connect(struct pt_regs *ctx)
 {	
 	bpf_printk("Testing task_struct kfuncs\n");
 	
-	struct task_struct *current, *acquired;
+	struct task_struct *current1, *acquired;
 
-	current = bpf_get_current_task_btf();
-	acquired = bpf_task_acquire(current);
+	current1 = bpf_get_current_task_btf();
+	acquired = bpf_task_acquire(current1);
 	bpf_task_release(acquired);
 	return 0;	
 }

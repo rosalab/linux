@@ -1467,6 +1467,9 @@ struct task_struct {
 	struct bpf_local_storage __rcu	*bpf_storage;
 	/* Used for BPF run context */
 	struct bpf_run_ctx		*bpf_ctx;
+	/* Used for termination */
+	struct bpf_prog 		*bpf_prog;
+
 #endif
 
 #ifdef CONFIG_GCC_PLUGIN_STACKLEAK
