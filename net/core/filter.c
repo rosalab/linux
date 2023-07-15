@@ -79,7 +79,12 @@
 #include <net/tls.h>
 #include <net/xdp.h>
 #include <net/mptcp.h>
-#include<linux/unwind_list.h> // unwinding logic
+
+#include <asm/unwind.h>  // use the linux ORC based return pointer access
+#include <linux/unwind_list.h> // unwinding logic
+#include <linux/delay.h> // sleep 
+
+
 static const struct bpf_func_proto *
 bpf_sk_base_func_proto(enum bpf_func_id func_id);
 
@@ -6655,7 +6660,35 @@ static const struct bpf_func_proto bpf_skc_lookup_tcp_proto = {
 BPF_CALL_5(bpf_sk_lookup_tcp, struct sk_buff *, skb,
 	   struct bpf_sock_tuple *, tuple, u32, len, u64, netns_id, u64, flags)
 {
-	unsigned long ret =  (unsigned long)bpf_sk_lookup(skb, tuple, len, IPPROTO_TCP,
+	mdelay(2000); // sleep for 8 seconds 
+	unsigned long ret ;
+#if defined(CONFIG_HAVE_BPF_TERMINATION) && !defined(KPROBE_TERMINATION)
+
+#if !defined(CONFIG_UNWINDER_ORC) && !defined(CONFIG_UNWINDER_FRAME_POINTER)
+#error "CONFIG_UNWINDER_ORC or CONFIG_UNWINDER_FRAME_POINTER is needed for boolean termination"
+#endif /* CONFIG_UNWINDER_FRAME_POINTER */ 
+	struct bpf_saved_states *saved_state = current->bpf_prog->saved_state;	
+	printk("bpf_sk_lookup_tcp | current->bpf_prog:0x%lx\n", current->bpf_prog);
+	if(saved_state->termination_requested){
+		struct unwind_state state;
+		unsigned long *ret_addr_p;
+
+		unwind_start(&state, current, NULL, NULL); // initialize the `state`
+		ret_addr_p = unwind_get_return_address_ptr(&state);	
+
+		if(!ret_addr_p ){
+			printk("Bolean termination failed. Frame base pointer was NULL\n");
+			return NULL; // Just return empty to behave as fast path
+		}
+		printk("Debug : bpf_sk_lookup_tcp : base pointer : 0x%lx\n", ret_addr_p);	
+		// modify the return address  
+		*ret_addr_p = saved_state->saved_regs.ip;	 
+		printk("Return address changed to : 0x%lx\n", *ret_addr_p);
+		return 0xdeadbeef;
+	}
+#endif /* CONFIG_HAVE_BPF_TERMINATION  */
+
+	ret =  (unsigned long)bpf_sk_lookup(skb, tuple, len, IPPROTO_TCP,
 					    netns_id, flags);
 
 	
@@ -6676,7 +6709,6 @@ BPF_CALL_5(bpf_sk_lookup_tcp, struct sk_buff *, skb,
 	pcpu_push_unwindlist(node);
 	printk("Node pushed to unwindlist from bpf_sk_lookup_tcp obj:0x%lx, helper:0x%lx\n", ret, bpf_sk_lookup_tcp);
 #endif
-
 
 	return ret;
 }

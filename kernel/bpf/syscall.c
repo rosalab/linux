@@ -42,7 +42,6 @@
 #include <linux/kprobes.h> // for registering kprobes 
 #include <linux/delay.h> // for registering kprobes 
 
-#define KPROBE_TERMINATION
 #endif
 
 #define IS_FD_ARRAY(map) ((map)->map_type == BPF_MAP_TYPE_PERF_EVENT_ARRAY || \
@@ -158,7 +157,6 @@ static void bpf_die(void* prog)
 	cpu_id = raw_smp_processor_id();
 	printk("bpf_die called on [CPU:%d]\n", cpu_id);
 
-#ifdef CONFIG_HAVE_BPF_TERMINATION 
 #ifdef KPROBE_TERMINATION
 	// initialize kprobes_list with size that of total jited len of this bpf prog
 	int total_program_size=0;
@@ -190,7 +188,6 @@ static void bpf_die(void* prog)
 	kill_prog->saved_state->termination_requested = true;
 
 #endif /* KPROBE_TERMINATION */
-#endif /* CONFIG_HAVE_BPF_TERMINATION */
 }
 
 int sysctl_unprivileged_bpf_disabled __read_mostly =
@@ -5185,14 +5182,14 @@ static int __sys_bpf(int cmd, bpfptr_t uattr, unsigned int size)
 	case BPF_PROG_BIND_MAP:
 		err = bpf_prog_bind_map(&attr);
 		break;
+#ifdef CONFIG_HAVE_BPF_TERMINATION 
 	case BPF_PROG_TERMINATE:
 		// read the prog_id from bpfptr_t uattr and find the correct cpu_id to call the IPI
-		printk("Starting terminate syscall prog_id : %d\n", attr.prog_id);
 		struct bpf_prog *prog; 	
+		struct bpf_saved_states *saved_state;
 		prog = bpf_prog_by_id(attr.prog_id);
-		int cpu_id = prog->saved_state->cpu_id;
-		if(cpu_id<0){
-			printk("bpf prog_id : %d is not running! Not executing terminate.\n", attr.prog_id);
+		if(IS_ERR(prog) || !(saved_state=prog->saved_state)){
+			printk("bpf prog_id : %d not supported! Not executing terminate.\n", attr.prog_id);
 			err = -EINVAL;
 		}
 		else{
@@ -5201,6 +5198,8 @@ static int __sys_bpf(int cmd, bpfptr_t uattr, unsigned int size)
 			//for (i = 0; i < prog->aux->func_cnt; i++)
 			//	info.jited_prog_len += prog->aux->func[i]->jited_len;
 
+			printk("Starting terminate syscall prog_id : %d\n", attr.prog_id);
+			int cpu_id = saved_state->cpu_id;
 			printk("--- Address of jited program : %lx\n", (void*)prog->bpf_func);
 			printk("--- Size of jited program : %d\n", prog->jited_len);
 			//set_memory_nx((unsigned long)prog->bpf_func,prog->jited_len >> PAGE_SHIFT);
@@ -5209,6 +5208,7 @@ static int __sys_bpf(int cmd, bpfptr_t uattr, unsigned int size)
 			err = 0;
 		}
 		break;
+#endif /* CONFIG_HAVE_BPF_TERMINATION */
 	default:
 		err = -EINVAL;
 		break;

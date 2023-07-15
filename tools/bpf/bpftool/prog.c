@@ -62,6 +62,7 @@ static const char * const attach_type_strings[] = {
 };
 
 static struct hashmap *prog_table;
+static int do_help(int argc, char **argv);
 
 static enum bpf_attach_type parse_attach_type(const char *str)
 {
@@ -2325,6 +2326,13 @@ static int do_terminate(int argc, char **argv){
        if (argc==0)
                return BAD_ARG();
        prog_id = atoi(argv[0]);
+       if(prog_id == 0){
+		printf("Incorrect prog_id:0\n");
+		do_help(argc, argv);
+		return -1;
+	}
+
+       printf("Calling bpf_prog_terminate with prog id : %d\n", prog_id);
        bpf_prog_terminate(prog_id); // goes to : tools/lib/bpf/bpf.c 
        
        return 0;

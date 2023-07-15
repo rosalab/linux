@@ -31,6 +31,10 @@
 #include <linux/sched/debug.h> // for show_regs
 #include <linux/kprobes.h> // for register and unregister kprobes
 
+#ifdef CONFIG_HAVE_BPF_TERMINATION 
+//#define KPROBE_TERMINATION 
+#endif
+
 struct sk_buff;
 struct sock;
 struct seccomp_data;
@@ -589,7 +593,6 @@ static __always_inline u32 __bpf_prog_run(const struct bpf_prog *prog,
 {
 	u32 ret;
 	u32 prog_id = prog->aux->id;
-	struct task_struct *tsk;
 	static unsigned long rxx; // for fetching registers and saving later on
 	cant_migrate();
 
@@ -597,18 +600,12 @@ static __always_inline u32 __bpf_prog_run(const struct bpf_prog *prog,
 	pcpu_init_unwindlist(); 
 	// initialize the task_struct's bpf_prog variable
 	current->bpf_prog = prog; 
-	printk("bpf prog run : size of jitted program : %d\n", prog->jited_len);
-	if(prog_id>11){ //TODO: skip all pre-installed programs in a better way
+	printk("bpf prog run : 0x%lx, current:0x%lx\n", prog, current);
+	if(prog_id>0){ //TODO: skip all pre-installed programs in a better way
 
-		tsk = get_current();
-		printk("Recently used CPU :%d from current()\n", tsk->thread_info.cpu);
-		printk("raw cpu id : %d\n",raw_smp_processor_id());
-		//regs = task_pt_regs(current);
-		//show_regs(regs);
-		
-		// save the cpu_id
 		prog->saved_state->cpu_id = raw_smp_processor_id(); 	
 		printk("CPU id saved to prog->saved_state : %d\n", prog->saved_state->cpu_id);
+		printk("bpf_saved_state:0x%lx\n",  prog->saved_state);
 		
 		// save all registers to prog->saved_state structure here
 		asm("\t mov %%rcx , %0": "=r"(rxx));
@@ -674,6 +671,11 @@ static __always_inline u32 __bpf_prog_run(const struct bpf_prog *prog,
 			 */
 			struct bpf_link *link;
 			int ret; 
+			printk("current inside termination: 0x%lx\n", current);
+			printk("bpf prog run(current) inside termination: 0x%lx\n", current->bpf_prog);
+			prog = current->bpf_prog; // original prog will get mangled as stack state
+						  // will become wierd due to termination. 
+#ifdef KPROBE_TERMINATION
 			printk("Found %d kprobes to be removed\n", prog->saved_state->num_kprobes);
 			//unregister_kprobes(prog->saved_state->kps, prog->saved_state->num_kprobes);
 			kfree(prog->saved_state->kps);
@@ -690,9 +692,40 @@ static __always_inline u32 __bpf_prog_run(const struct bpf_prog *prog,
 			}
 			else
 				printk("Didn't unlink\n");	
-			return 100; // or some other error message corresponding to forced termination
+#else
+			// restore all callee saved registers : rsp, rbp, rbx, r12, r13, r14, r15
+			 ;
+			printk("prog: 0x%lx\n", prog);
+			printk("saved_state:0x%lx\n",  prog->saved_state);
+			printk("saved_regs:0x%lx\n",  prog->saved_state->saved_regs);
+			printk("r12:0x%lx\n", prog->saved_state->saved_regs.r12);
+			printk("rbx:0x%lx\n", prog->saved_state->saved_regs.bx);
+			printk("rbp:0x%lx\n", prog->saved_state->saved_regs.bp);
+			printk("rsp:0x%lx\n", prog->saved_state->saved_regs.sp);
+
+			/*asm("\t mov %[var], %%r12\n\t":: [var] "m"(prog->saved_state->saved_regs.r12));
+			printk("r12 set!\n");
+			asm("\t mov %[var], %%r13\n\t":: [var] "m"(prog->saved_state->saved_regs.r13));
+			printk("r13 set!\n");
+			asm("\t mov %[var], %%r14\n\t":: [var] "m"(prog->saved_state->saved_regs.r14));
+			printk("r14 set!\n");
+			asm("\t mov %[var], %%r15\n\t":: [var] "m"(prog->saved_state->saved_regs.r15));
+			printk("r15 set!\n");
+			asm("\t mov %[var], %%rbx\n\t":: [var] "m"(prog->saved_state->saved_regs.bx));
+			printk("rbx set!\n");
+			*/
+			asm("\t mov %[var], %%rbp\n\t":: [var] "m"(prog->saved_state->saved_regs.bp));
+			printk("rbp set!\n");
+			asm("\t mov %[var], %%rsp\n\t":: [var] "m"(prog->saved_state->saved_regs.sp));
+			printk("rsp set!\n");
+
+			printk("All callee saved registers complete! Exiting..\n");
+#endif /* KPROBE_TERMINATION */
+			ret = 0; // or some other error message corresponding to forced termination
+			goto out;
 		}			
 	}
+	printk("Before runing the bpf_prog\n");
 
 	if (static_branch_unlikely(&bpf_stats_enabled_key)) {
 		struct bpf_prog_stats *stats;
@@ -709,11 +742,12 @@ static __always_inline u32 __bpf_prog_run(const struct bpf_prog *prog,
 		ret = dfunc(ctx, prog->insnsi, prog->bpf_func);
 	}
 	
+out:
 	/* Clear the linkedlist this BPF run would have created as it's no 
 	 * more needed.
 	 */
+	printk("After runing the bpf_prog\n");
 	pcpu_reset_unwindlist();
-
 	return ret;
 }
 

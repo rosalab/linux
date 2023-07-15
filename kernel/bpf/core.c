@@ -94,7 +94,7 @@ struct bpf_prog *bpf_prog_alloc_no_stats(unsigned int size, gfp_t gfp_extra_flag
 	if (fp == NULL)
 		return NULL;
 
-	saved_state = kzalloc(sizeof(*saved_state), GFP_KERNEL_ACCOUNT | gfp_extra_flags);//malloc(sizeof(*saved_state),GFP_KERNEL_ACCOUNT | gfp_extra_flags);
+	saved_state = kzalloc(sizeof(*saved_state), GFP_KERNEL_ACCOUNT | gfp_extra_flags);
 	if(saved_state == NULL){
 		vfree(fp);
 		return NULL;

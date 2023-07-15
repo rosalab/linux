@@ -70,6 +70,7 @@ void pcpu_reset_unwindlist(void){
 	}
 	*/
 	int cpu = raw_smp_processor_id();
+	printk("Before deleting linkedlist objexcts \n");
 	struct unwind_list_obj *cursor, *temp;
 	list_for_each_entry_safe(cursor, temp, &unwind_list[cpu], entry){
 		printk("Deleting obj:0x%lx, helper:0x%lx\n", cursor->obj_addr, cursor->func_addr);
