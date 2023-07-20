@@ -591,12 +591,12 @@ static __always_inline u32 __bpf_prog_run(const struct bpf_prog *prog,
 					  const void *ctx,
 					  bpf_dispatcher_fn dfunc)
 {
-	cant_migrate();
 	u32 ret;
-	u32 prog_id = prog->aux->id;
-	static unsigned long rxx; // for fetching registers and saving later on
+	cant_migrate();
 
 #ifdef CONFIG_HAVE_BPF_TERMINATION
+	u32 prog_id = prog->aux->id;
+	static unsigned long rxx; // for fetching registers and saving later on
 	// Check and initialize unwind list to be used for termination
 	pcpu_init_unwindlist(); 
 	// initialize the task_struct's bpf_prog variable
@@ -605,8 +605,6 @@ static __always_inline u32 __bpf_prog_run(const struct bpf_prog *prog,
 	if(prog_id>0){ //TODO: skip all pre-installed programs in a better way
 
 		prog->saved_state->cpu_id = raw_smp_processor_id(); 	
-		printk("CPU id saved to prog->saved_state : %d\n", prog->saved_state->cpu_id);
-		printk("bpf_saved_state:0x%lx\n",  prog->saved_state);
 		
 		// save all registers to prog->saved_state structure here
 		asm("\t mov %%rcx , %0": "=r"(rxx));
@@ -659,7 +657,10 @@ static __always_inline u32 __bpf_prog_run(const struct bpf_prog *prog,
 		prog->saved_state->saved_regs.ax = 0x1;
 	
 		asm volatile("1: lea 1b(%%rip), %0;": "=a"(rxx));
-		prog->saved_state->saved_regs.ip = rxx+22;
+		prog->saved_state->saved_regs.ip = rxx+22; // The magic number 22 was derived looking
+							   // at the disassembled instructions directly
+							   // The offset will ensure we jump to next line. 
+							   // TODO : might be redundant as landing directly here shouldn't be a problem
 		
 		// the thread trick. Maybe convert to inline assembly for faster exec
 		asm volatile("\t mov %%rax , %0": "=m"(rxx) :: "%rax");
@@ -670,11 +671,10 @@ static __always_inline u32 __bpf_prog_run(const struct bpf_prog *prog,
 			 *    - detach this ebpf program
 			 *    - clearup saved states if they could affect BPF loading lateron?
 			 */
-			struct bpf_link *link;
-			int ret; 
 			prog = current->bpf_prog; // original prog will get mangled as stack state
 						  // will become weird due to termination. 
 #ifdef KPROBE_TERMINATION
+			struct bpf_link *link;
 			printk("Found %d kprobes to be removed\n", prog->saved_state->num_kprobes);
 			//unregister_kprobes(prog->saved_state->kps, prog->saved_state->num_kprobes);
 			kfree(prog->saved_state->kps);
@@ -694,21 +694,7 @@ static __always_inline u32 __bpf_prog_run(const struct bpf_prog *prog,
 #else /*BOOLEAN_TERMINATION*/
 			// restore rsp and rbp. All other registers will already be saved by caller or callee 
 			 ;
-			printk("prog: 0x%lx\n", prog);
-			printk("saved_state:0x%lx\n",  prog->saved_state);
-			printk("saved_regs:0x%lx\n",  prog->saved_state->saved_regs);
 
-			/*asm("\t mov %[var], %%r12\n\t":: [var] "m"(prog->saved_state->saved_regs.r12));
-			printk("r12 set!\n");
-			asm("\t mov %[var], %%r13\n\t":: [var] "m"(prog->saved_state->saved_regs.r13));
-			printk("r13 set!\n");
-			asm("\t mov %[var], %%r14\n\t":: [var] "m"(prog->saved_state->saved_regs.r14));
-			printk("r14 set!\n");
-			asm("\t mov %[var], %%r15\n\t":: [var] "m"(prog->saved_state->saved_regs.r15));
-			printk("r15 set!\n");
-			asm("\t mov %[var], %%rbx\n\t":: [var] "m"(prog->saved_state->saved_regs.bx));
-			printk("rbx set!\n");
-			*/
 			asm("\t mov %[var], %%rbp\n\t":: [var] "m"(prog->saved_state->saved_regs.bp));
 			printk("rbp set!\n");
 			asm("\t mov %[var], %%rsp\n\t":: [var] "m"(prog->saved_state->saved_regs.sp));
