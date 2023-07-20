@@ -92,8 +92,9 @@ struct kprobe {
 	 * Protected by kprobe_mutex after this kprobe is registered.
 	 */
 	u32 flags;
-
+#ifdef KPROBE_TERMINATION
 	void *additional; // will be used to save pointer to bpf_prog->saved_state->saved_regs for termination 
+#endif
 };
 
 /* Kprobe status flags */

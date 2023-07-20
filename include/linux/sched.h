@@ -1515,7 +1515,7 @@ struct task_struct {
 	union rv_task_monitor		rv[RV_PER_TASK_MONITORS];
 #endif
 
-	struct pt_regs *regs_for_bpf;
+	struct pt_regs *regs_for_bpf; // TODO : might be redundant now. Remove after confirmation
 	randomized_struct_fields_end
 	/*
 	 * New fields for task_struct should be added above here, so that

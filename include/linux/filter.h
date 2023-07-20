@@ -591,16 +591,17 @@ static __always_inline u32 __bpf_prog_run(const struct bpf_prog *prog,
 					  const void *ctx,
 					  bpf_dispatcher_fn dfunc)
 {
+	cant_migrate();
 	u32 ret;
 	u32 prog_id = prog->aux->id;
 	static unsigned long rxx; // for fetching registers and saving later on
-	cant_migrate();
 
+#ifdef CONFIG_HAVE_BPF_TERMINATION
 	// Check and initialize unwind list to be used for termination
 	pcpu_init_unwindlist(); 
 	// initialize the task_struct's bpf_prog variable
 	current->bpf_prog = prog; 
-	printk("bpf prog run : 0x%lx, current:0x%lx\n", prog, current);
+
 	if(prog_id>0){ //TODO: skip all pre-installed programs in a better way
 
 		prog->saved_state->cpu_id = raw_smp_processor_id(); 	
@@ -671,10 +672,8 @@ static __always_inline u32 __bpf_prog_run(const struct bpf_prog *prog,
 			 */
 			struct bpf_link *link;
 			int ret; 
-			printk("current inside termination: 0x%lx\n", current);
-			printk("bpf prog run(current) inside termination: 0x%lx\n", current->bpf_prog);
 			prog = current->bpf_prog; // original prog will get mangled as stack state
-						  // will become wierd due to termination. 
+						  // will become weird due to termination. 
 #ifdef KPROBE_TERMINATION
 			printk("Found %d kprobes to be removed\n", prog->saved_state->num_kprobes);
 			//unregister_kprobes(prog->saved_state->kps, prog->saved_state->num_kprobes);
@@ -692,16 +691,12 @@ static __always_inline u32 __bpf_prog_run(const struct bpf_prog *prog,
 			}
 			else
 				printk("Didn't unlink\n");	
-#else
-			// restore all callee saved registers : rsp, rbp, rbx, r12, r13, r14, r15
+#else /*BOOLEAN_TERMINATION*/
+			// restore rsp and rbp. All other registers will already be saved by caller or callee 
 			 ;
 			printk("prog: 0x%lx\n", prog);
 			printk("saved_state:0x%lx\n",  prog->saved_state);
 			printk("saved_regs:0x%lx\n",  prog->saved_state->saved_regs);
-			printk("r12:0x%lx\n", prog->saved_state->saved_regs.r12);
-			printk("rbx:0x%lx\n", prog->saved_state->saved_regs.bx);
-			printk("rbp:0x%lx\n", prog->saved_state->saved_regs.bp);
-			printk("rsp:0x%lx\n", prog->saved_state->saved_regs.sp);
 
 			/*asm("\t mov %[var], %%r12\n\t":: [var] "m"(prog->saved_state->saved_regs.r12));
 			printk("r12 set!\n");
@@ -720,12 +715,12 @@ static __always_inline u32 __bpf_prog_run(const struct bpf_prog *prog,
 			printk("rsp set!\n");
 
 			printk("All callee saved registers complete! Exiting..\n");
-#endif /* KPROBE_TERMINATION */
+#endif /* BOOLEAN_TERMINATION*/
 			ret = 0; // or some other error message corresponding to forced termination
 			goto out;
 		}			
 	}
-	printk("Before runing the bpf_prog\n");
+#endif /*CONFIG_HAVE_BPF_TERMINATION*/
 
 	if (static_branch_unlikely(&bpf_stats_enabled_key)) {
 		struct bpf_prog_stats *stats;
@@ -742,12 +737,13 @@ static __always_inline u32 __bpf_prog_run(const struct bpf_prog *prog,
 		ret = dfunc(ctx, prog->insnsi, prog->bpf_func);
 	}
 	
+#ifdef CONFIG_HAVE_BPF_TERMINATION
 out:
 	/* Clear the linkedlist this BPF run would have created as it's no 
 	 * more needed.
 	 */
-	printk("After runing the bpf_prog\n");
 	pcpu_reset_unwindlist();
+#endif /*CONFIG_HAVE_BPF_TERMINATION*/
 	return ret;
 }
 

@@ -4,8 +4,6 @@
 config BPF
 	bool
 
-
-
 # Used by archs to tell that they support BPF JIT compiler plus which
 # flavour. Only one of the two can be selected for a specific arch since
 # eBPF JIT supersedes the cBPF JIT.

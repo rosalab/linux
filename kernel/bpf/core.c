@@ -85,8 +85,8 @@ struct bpf_prog *bpf_prog_alloc_no_stats(unsigned int size, gfp_t gfp_extra_flag
 {
 	gfp_t gfp_flags = GFP_KERNEL_ACCOUNT | __GFP_ZERO | gfp_extra_flags;
 	struct bpf_prog_aux *aux;
-	struct bpf_saved_states *saved_state; // creating an instance of our new saved_state structure
 	struct bpf_prog *fp ;
+	struct bpf_saved_states *saved_state; // creating an instance of our new saved_state structure
 
 
 	size = round_up(size, PAGE_SIZE);
@@ -94,17 +94,21 @@ struct bpf_prog *bpf_prog_alloc_no_stats(unsigned int size, gfp_t gfp_extra_flag
 	if (fp == NULL)
 		return NULL;
 
+#ifdef CONFIG_HAVE_BPF_TERMINATION
 	saved_state = kzalloc(sizeof(*saved_state), GFP_KERNEL_ACCOUNT | gfp_extra_flags);
 	if(saved_state == NULL){
 		vfree(fp);
 		return NULL;
 	}	
 	saved_state->cpu_id = -1;
+#endif /*CONFIG_HAVE_BPF_TERMINATION*/ 
 
 	aux = kzalloc(sizeof(*aux), GFP_KERNEL_ACCOUNT | gfp_extra_flags);
 	if (aux == NULL) {
 		vfree(fp);
+#ifdef CONFIG_HAVE_BPF_TERMINATION
 		kfree(saved_state);
+#endif  
 		return NULL;
 	}
 
@@ -117,9 +121,9 @@ struct bpf_prog *bpf_prog_alloc_no_stats(unsigned int size, gfp_t gfp_extra_flag
 
 	fp->pages = size / PAGE_SIZE;
 	fp->aux = aux;
+#ifdef CONFIG_HAVE_BPF_TERMINATION
 	fp->saved_state = saved_state;
-	//printk("Mem allocated and assigned for saved_state in prog{}\n");
-	//printk("cpu_id : %d\n",saved_state->cpu_id);
+#endif  
 	fp->aux->prog = fp;
 	fp->jit_requested = ebpf_jit_enabled();
 	fp->blinding_requested = bpf_jit_blinding_enabled(fp);
@@ -672,7 +676,6 @@ void bpf_prog_kallsyms_add(struct bpf_prog *fp)
 	if (!bpf_prog_kallsyms_candidate(fp) ||
 	    !bpf_capable())
 		return;
-	//printk("[%s : %d] About to add bpf program to ksym table \n", __FILE__, __LINE__);
 	bpf_prog_ksym_set_addr(fp);
 	bpf_prog_ksym_set_name(fp);
 	fp->aux->ksym.prog = true;
@@ -716,9 +719,7 @@ const char *__bpf_address_lookup(unsigned long addr, unsigned long *size,
 		if (off)
 			*off  = addr - symbol_start;
 	}
-	/*else
-		printk("[%s : %d could not find bpf address in ksym\n", __FILE__,__LINE__);
-	*/rcu_read_unlock();
+	rcu_read_unlock();
 
 	return ret;
 }

@@ -64,6 +64,8 @@ static DEFINE_SPINLOCK(map_idr_lock);
 static DEFINE_IDR(link_idr);
 static DEFINE_SPINLOCK(link_idr_lock);
 
+#ifdef KPROBE_TERMINATION
+
 void print_regs(struct pt_regs *regs)
 {
 	printk(" regs : RAX : %lx\n", regs->ax);
@@ -148,7 +150,7 @@ static void register_bpfprog_to_kprobe(struct bpf_prog* prog)
 	printk("register kprobe routine complete with success:%d \n|| failures:%d out of total %d attempts\n", success, failure, prog->jited_len);
 
 }
-
+#endif /* KPROBE_TERMINATION */
 
 static void bpf_die(void* prog)
 {
@@ -5182,8 +5184,8 @@ static int __sys_bpf(int cmd, bpfptr_t uattr, unsigned int size)
 	case BPF_PROG_BIND_MAP:
 		err = bpf_prog_bind_map(&attr);
 		break;
-#ifdef CONFIG_HAVE_BPF_TERMINATION 
 	case BPF_PROG_TERMINATE:
+#ifdef CONFIG_HAVE_BPF_TERMINATION 
 		// read the prog_id from bpfptr_t uattr and find the correct cpu_id to call the IPI
 		struct bpf_prog *prog; 	
 		struct bpf_saved_states *saved_state;
@@ -5207,8 +5209,8 @@ static int __sys_bpf(int cmd, bpfptr_t uattr, unsigned int size)
 			bpf_die((void*)prog);
 			err = 0;
 		}
-		break;
 #endif /* CONFIG_HAVE_BPF_TERMINATION */
+		break;
 	default:
 		err = -EINVAL;
 		break;
