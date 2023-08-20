@@ -32,7 +32,17 @@
 #include <linux/kprobes.h> // for register and unregister kprobes
 
 #ifdef CONFIG_HAVE_BPF_TERMINATION 
+/* All options are given below. Uncomment the required Macro to enable that logic */
 //#define KPROBE_TERMINATION 
+//#define BOOLEAN_TERMINATION
+//#define LIST_CLEANUP
+#define UNWIND_TABLE
+
+#if defined(KPROBE_TERMINATION) && defined(BOOLEAN_TERMINATION)
+#error "Both kprobe termination and boolean can't be true"
+
+#if defined(LIST_CLEANUP) && defined(UNWIND_TABLE)
+#error "Both Linked List cleanup and Unwind table can't be true"
 #endif
 
 struct sk_buff;
@@ -569,9 +579,21 @@ struct bpf_prog_stats {
 struct bpf_saved_states{
 	int cpu_id; // The cpu ID at which the associated BPF program was/is running
 	struct pt_regs saved_regs; // The context right before execution started. 
+#ifdef KPROBE_TERMINATION
 	struct kprobe **kps; // List of all kprobes which were successfully registered when termination was attempted
 	int num_kprobes; // Number of kprobes in above array
+#endif
+
+#ifdef BOOLEAN_TERMINATION 
 	bool termination_requested;
+#endif
+
+#ifdef UNWIND_TABLE
+	struct bpf_release_table *release_table; /* For each instruction, contain a list of
+						    objects to be cleaned up */
+#endif
+
+	/* LIST_CLEANUP data structure saved per-cpu. Ref <linux/unwind_list.h>  */
 };
 
 struct sk_filter {
@@ -598,10 +620,14 @@ static __always_inline u32 __bpf_prog_run(const struct bpf_prog *prog,
 	u32 prog_id = prog->aux->id;
 	static unsigned long rxx; // for fetching registers and saving later on
 	// Check and initialize unwind list to be used for termination
+#ifdef LIST_CLEANUP
 	pcpu_init_unwindlist(); 
+#endif
 	// initialize the task_struct's bpf_prog variable
 	current->bpf_prog = prog; 
 
+	printk("current :0x%lx\n", current); // TODO: deleting these 2 print statements causes kernel OOPs. 
+	printk("current->bpf_prog: 0x%lx\n", current->bpf_prog);
 	if(prog_id>0){ //TODO: skip all pre-installed programs in a better way
 
 		prog->saved_state->cpu_id = raw_smp_processor_id(); 	
@@ -671,39 +697,40 @@ static __always_inline u32 __bpf_prog_run(const struct bpf_prog *prog,
 			 *    - detach this ebpf program
 			 *    - clearup saved states if they could affect BPF loading lateron?
 			 */
+			struct bpf_link *link;
 			prog = current->bpf_prog; // original prog will get mangled as stack state
 						  // will become weird due to termination. 
 #ifdef KPROBE_TERMINATION
-			struct bpf_link *link;
 			printk("Found %d kprobes to be removed\n", prog->saved_state->num_kprobes);
 			//unregister_kprobes(prog->saved_state->kps, prog->saved_state->num_kprobes);
 			kfree(prog->saved_state->kps);
 			//printk("All %d kprobes unregisterd\n", prog->saved_state->num_kprobes);
 			
-			// detach from hook point
-			link = bpf_link_by_id(prog_id);	
-			if(IS_ERR(link))
-				printk("Failed to fetch link : %ld\n", PTR_ERR(link));
-			else if (link->ops->detach){
-                 		ret = link->ops->detach(link);
-				printk("Unlinked with ret : %d\n", ret);
-				bpf_link_put(link);
-			}
-			else
-				printk("Didn't unlink\n");	
-#else /*BOOLEAN_TERMINATION*/
+#elif defined(BOOLEAN_TERMINATION)
 			// restore rsp and rbp. All other registers will already be saved by caller or callee 
-			 ;
+			 prog->saved_state->termination_requested = false;
+			 asm("\t mov %[var], %%rbp\n\t":: [var] "m"(prog->saved_state->saved_regs.bp));
+			 printk("rbp set!\n");
+			 asm("\t mov %[var], %%rsp\n\t":: [var] "m"(prog->saved_state->saved_regs.sp));
+			 printk("rsp set!\n");
 
-			asm("\t mov %[var], %%rbp\n\t":: [var] "m"(prog->saved_state->saved_regs.bp));
-			printk("rbp set!\n");
-			asm("\t mov %[var], %%rsp\n\t":: [var] "m"(prog->saved_state->saved_regs.sp));
-			printk("rsp set!\n");
+			 current->bpf_prog = NULL;
+			 printk("All callee saved registers complete! Exiting..\n");
+#endif 
 
-			printk("All callee saved registers complete! Exiting..\n");
-#endif /* BOOLEAN_TERMINATION*/
-			ret = 0; // or some other error message corresponding to forced termination
-			goto out;
+			// detach from hook point
+			 ret = 0; // or some other error message corresponding to forced termination
+			 link = bpf_link_by_id(prog_id);	
+			 if(IS_ERR(link))
+				 printk("Failed to fetch link : %ld\n", PTR_ERR(link));
+			 else if (link->ops->detach){
+				 ret = link->ops->detach(link);
+				 printk("Unlinked with ret : %d\n", ret);
+				 bpf_link_put(link);
+			 }
+			 else
+				 printk("Didn't unlink\n");	
+			 goto out;
 		}			
 	}
 #endif /*CONFIG_HAVE_BPF_TERMINATION*/
@@ -723,13 +750,13 @@ static __always_inline u32 __bpf_prog_run(const struct bpf_prog *prog,
 		ret = dfunc(ctx, prog->insnsi, prog->bpf_func);
 	}
 	
-#ifdef CONFIG_HAVE_BPF_TERMINATION
+#ifdef LIST_CLEANUP
 out:
 	/* Clear the linkedlist this BPF run would have created as it's no 
 	 * more needed.
 	 */
 	pcpu_reset_unwindlist();
-#endif /*CONFIG_HAVE_BPF_TERMINATION*/
+#endif /*CONFIG_HAVE_BPF_TERMINATION : LIST_CLEANUP*/
 	return ret;
 }
 

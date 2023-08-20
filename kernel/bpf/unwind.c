@@ -13,7 +13,6 @@ DEFINE_SPINLOCK(init_lock);// Global lock to modify the is_initialized variable
 
 __attribute__((__used__))
 int pcpu_init_unwindlist(void){
-#ifdef CONFIG_HAVE_BPF_TERMINATION
 	/*int cpu;
 	for_each_possible_cpu(cpu){
 		unwind_list->entry = alloc_percpu(struct list_head);	
@@ -46,7 +45,6 @@ int pcpu_init_unwindlist(void){
 	is_initialized = true;
 out:
 	spin_unlock(&init_lock);
-#endif
 	return 0;
 }
 
@@ -54,7 +52,6 @@ out:
 // remove all elements from current CPU's unwind list
 __attribute__((__used__))
 void pcpu_reset_unwindlist(void){
-#ifdef CONFIG_HAVE_BPF_TERMINATION
 	// untill list exists and is non empty, call pop 
 	/*struct list_head *tmp, *pos, *head;
 	struct unwind_list *node ;
@@ -72,11 +69,10 @@ void pcpu_reset_unwindlist(void){
 	int cpu = raw_smp_processor_id();
 	struct unwind_list_obj *cursor, *temp;
 	list_for_each_entry_safe(cursor, temp, &unwind_list[cpu], entry){
-		printk("Deleting obj:0x%lx, helper:0x%lx\n", cursor->obj_addr, cursor->func_addr);
+		//printk("Deleting obj:0x%lx, helper:0x%lx\n", cursor->obj_addr, cursor->func_addr);
 		list_del(&cursor->entry);
 		kfree(cursor);
 	}
-#endif
 }
 /*
 void pcpu_destroy_unwindlist(void){
@@ -88,12 +84,10 @@ void pcpu_destroy_unwindlist(void){
 //  push the element to the tail of linked list belonging to this cpu : act like a FIFO queue
 __attribute__((__used__))
 void pcpu_push_unwindlist(struct unwind_list_obj *node){
-#ifdef CONFIG_HAVE_BPF_TERMINATION
 	//struct list_head *head = get_cpu_ptr(unwind_list->entry);
 	int cpu = raw_smp_processor_id();
 	INIT_LIST_HEAD(&node->entry);
 	list_add_tail(&node->entry, &unwind_list[cpu]);	
-#endif
 }
 /*
 // pop the element from this CPU's linked list

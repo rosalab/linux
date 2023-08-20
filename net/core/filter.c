@@ -6660,15 +6660,15 @@ static const struct bpf_func_proto bpf_skc_lookup_tcp_proto = {
 BPF_CALL_5(bpf_sk_lookup_tcp, struct sk_buff *, skb,
 	   struct bpf_sock_tuple *, tuple, u32, len, u64, netns_id, u64, flags)
 {
-	mdelay(2000); // sleep for 8 seconds 
+	//mdelay(2000); // sleep for 2 seconds 
 	unsigned long ret ;
-#if defined(CONFIG_HAVE_BPF_TERMINATION) && !defined(KPROBE_TERMINATION)
+#if defined(BOOLEAN_TERMINATION)
 
 #if !defined(CONFIG_UNWINDER_ORC) && !defined(CONFIG_UNWINDER_FRAME_POINTER)
 #error "CONFIG_UNWINDER_ORC or CONFIG_UNWINDER_FRAME_POINTER is needed for boolean termination"
 #endif /* CONFIG_UNWINDER_FRAME_POINTER */ 
 	struct bpf_saved_states *saved_state = current->bpf_prog->saved_state;	
-	printk("bpf_sk_lookup_tcp | current->bpf_prog:0x%lx\n", current->bpf_prog);
+	//printk("bpf_sk_lookup_tcp | current->bpf_prog:0x%lx\n", current->bpf_prog);
 	if(saved_state->termination_requested){
 		struct unwind_state state;
 		unsigned long *ret_addr_p;
@@ -6680,10 +6680,10 @@ BPF_CALL_5(bpf_sk_lookup_tcp, struct sk_buff *, skb,
 			printk("Bolean termination failed. Frame base pointer was NULL\n");
 			return NULL; // Just return empty to behave as fast path
 		}
-		printk("Debug : bpf_sk_lookup_tcp : base pointer : 0x%lx\n", ret_addr_p);	
+		//printk("Debug : bpf_sk_lookup_tcp : base pointer : 0x%lx\n", ret_addr_p);	
 		// modify the return address  
 		*ret_addr_p = saved_state->saved_regs.ip;	 
-		printk("Return address changed to : 0x%lx\n", *ret_addr_p);
+		//printk("Return address changed to : 0x%lx\n", *ret_addr_p);
 		return 0xdeadbeef;
 	}
 #endif /* CONFIG_HAVE_BPF_TERMINATION  */
@@ -6692,11 +6692,9 @@ BPF_CALL_5(bpf_sk_lookup_tcp, struct sk_buff *, skb,
 					    netns_id, flags);
 
 	
-#ifdef CONFIG_HAVE_BPF_TERMINATION
-	//if(current->saved_state->termination_requested)
+#if defined(LIST_CLEANUP)
 		
 	struct unwind_list_obj *node;
-	printk("---- bpf_sk_lookup_tcp : size of jitted program : %d\n", current->bpf_prog->jited_len);
 	node = kmalloc(sizeof(*node), GFP_ATOMIC); 
 	if(!node){
 		printk("Memory allocation failed %s:%d\n", __FILE__,__LINE__);
@@ -6707,7 +6705,7 @@ BPF_CALL_5(bpf_sk_lookup_tcp, struct sk_buff *, skb,
 	node->func_addr = bpf_sk_lookup_tcp;
 	node->obj_addr =  ret;
 	pcpu_push_unwindlist(node);
-	printk("Node pushed to unwindlist from bpf_sk_lookup_tcp obj:0x%lx, helper:0x%lx\n", ret, bpf_sk_lookup_tcp);
+	//printk("Node pushed to unwindlist from bpf_sk_lookup_tcp obj:0x%lx, helper:0x%lx\n", ret, bpf_sk_lookup_tcp);
 #endif
 
 	return ret;
@@ -6747,7 +6745,7 @@ static const struct bpf_func_proto bpf_sk_lookup_udp_proto = {
 BPF_CALL_1(bpf_sk_release, struct sock *, sk)
 {
 
-#ifdef CONFIG_HAVE_BPF_TERMINATION
+#if defined(LIST_CLEANUP)
 	struct unwind_list_obj *node;
 	printk("---- bpf_sk_release : size of jitted program : %d\n", current->bpf_prog->jited_len);
 	node = kmalloc(sizeof(*node), GFP_ATOMIC); 
@@ -6761,7 +6759,7 @@ BPF_CALL_1(bpf_sk_release, struct sock *, sk)
 	node->obj_addr =  sk;
 	pcpu_push_unwindlist(node);
 	printk("Node pushed to unwindlist from bpf_sk_release obj:0x%lx, helper:0x%lx\n", sk, bpf_sk_release);
-#endif
+#endif /*CONFIG_HAVE_BPF_TERMINATION*/
 	if (sk && sk_is_refcounted(sk))
 		sock_gen_put(sk);
 	return 0;

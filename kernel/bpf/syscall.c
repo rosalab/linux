@@ -36,13 +36,10 @@
 #include <linux/memcontrol.h>
 #include <linux/trace_events.h>
 #include <asm/processor.h>
-
-#ifdef CONFIG_HAVE_BPF_TERMINATION
 #include <linux/sched/debug.h> // for show_regs	
 #include <linux/kprobes.h> // for registering kprobes 
 #include <linux/delay.h> // for registering kprobes 
 
-#endif
 
 #define IS_FD_ARRAY(map) ((map)->map_type == BPF_MAP_TYPE_PERF_EVENT_ARRAY || \
 			  (map)->map_type == BPF_MAP_TYPE_CGROUP_ARRAY || \
@@ -186,7 +183,7 @@ static void bpf_die(void* prog)
 	kill_prog->saved_state->num_kprobes = idx + 1;
 	printk("Added kprobes_list of size:%d to bpf_prog\n", idx+1);
 
-#else // simple boolean termination  
+#elif defined(BOOLEAN_TERMINATION)
 	kill_prog->saved_state->termination_requested = true;
 
 #endif /* KPROBE_TERMINATION */
