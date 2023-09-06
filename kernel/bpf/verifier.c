@@ -4707,6 +4707,7 @@ static int check_mem_access(struct bpf_verifier_env *env, int insn_idx, u32 regn
 	off += reg->off;
 
 	if (reg->type == PTR_TO_MAP_KEY) {
+		printk("[%d] : check_mem_access\n", __LINE__);
 		if (t == BPF_WRITE) {
 			verbose(env, "write to change key R%d not allowed\n", regno);
 			return -EACCES;
@@ -4719,6 +4720,7 @@ static int check_mem_access(struct bpf_verifier_env *env, int insn_idx, u32 regn
 		if (value_regno >= 0)
 			mark_reg_unknown(env, regs, value_regno);
 	} else if (reg->type == PTR_TO_MAP_VALUE) {
+		printk("[%d] : check_mem_access\n", __LINE__);
 		struct bpf_map_value_off_desc *kptr_off_desc = NULL;
 
 		if (t == BPF_WRITE && value_regno >= 0 &&
@@ -4760,6 +4762,7 @@ static int check_mem_access(struct bpf_verifier_env *env, int insn_idx, u32 regn
 			}
 		}
 	} else if (base_type(reg->type) == PTR_TO_MEM) {
+		printk("[%d] : check_mem_access\n", __LINE__);
 		bool rdonly_mem = type_is_rdonly_mem(reg->type);
 
 		if (type_may_be_null(reg->type)) {
@@ -4785,6 +4788,7 @@ static int check_mem_access(struct bpf_verifier_env *env, int insn_idx, u32 regn
 		if (!err && value_regno >= 0 && (t == BPF_READ || rdonly_mem))
 			mark_reg_unknown(env, regs, value_regno);
 	} else if (reg->type == PTR_TO_CTX) {
+		printk("[%d] : check_mem_access\n", __LINE__);
 		enum bpf_reg_type reg_type = SCALAR_VALUE;
 		struct btf *btf = NULL;
 		u32 btf_id = 0;
@@ -4830,7 +4834,6 @@ static int check_mem_access(struct bpf_verifier_env *env, int insn_idx, u32 regn
 		}
 
 	} else if (reg->type == PTR_TO_STACK) {
-		/* Basic bounds checks. */
 		err = check_stack_access_within_bounds(env, regno, off, size, ACCESS_DIRECT, t);
 		if (err)
 			return err;
@@ -7074,6 +7077,43 @@ static int check_reference_leak(struct bpf_verifier_env *env)
 	}
 	return state->acquired_refs ? -EINVAL : 0;
 }
+static int print_references(struct bpf_verifier_env *env){
+	struct bpf_func_state *state = cur_func(env);
+	//struct bpf_reg_state *regs = cur_regs(env);
+	int i;
+	for (i = 0; i < state->acquired_refs; i++) {
+		printk("Unreleased reference id=%d alloc_insn=%d : ",
+			state->refs[i].id, state->refs[i].insn_idx);
+
+		// find the register where this ref_id is present
+		for(int r=0;r<10;r++){
+			u32 regno = BPF_REG_0 + r;
+			struct bpf_reg_state *reg = reg_state(env, regno);
+
+			if(reg->ref_obj_id == state->refs[i].id){
+				printk("saved in R_%d\n", regno);
+				goto next_iter;
+			}
+		}
+		// None of the registers had that reference. So, 
+		// it must be in the stack of this function's stack frame				
+		//struct bpf_verifier_state *vstate = env->cur_state;
+		//struct bpf_func_state *frame = vstate->frame[vstate->curframe];
+		for(int s=0;s<state->allocated_stack / BPF_REG_SIZE; s++){
+			struct bpf_reg_state *reg = &state->stack[s].spilled_ptr;	
+			if(reg->ref_obj_id == state->refs[i].id){
+				printk("saved in stack at (sp-0x%x)\n", (s+1)*BPF_REG_SIZE);
+				goto next_iter;
+			}
+		}
+		printk(" NOT FOUND! Error!\n");
+		return -1;
+			
+next_iter:
+	}
+	return 0;
+	
+}
 
 static int check_bpf_snprintf_call(struct bpf_verifier_env *env,
 				   struct bpf_reg_state *regs)
@@ -7274,8 +7314,10 @@ static int check_helper_call(struct bpf_verifier_env *env, struct bpf_insn *insn
 		err = -EINVAL;
 		if (arg_type_is_dynptr(fn->arg_type[meta.release_regno - BPF_REG_1]))
 			err = unmark_stack_slots_dynptr(env, &regs[meta.release_regno]);
-		else if (meta.ref_obj_id)
+		else if (meta.ref_obj_id){
+			printk("About to call release_reference : %d\n", meta.ref_obj_id);
 			err = release_reference(env, meta.ref_obj_id);
+		}
 		/* meta.ref_obj_id can only be 0 if register that is meant to be
 		 * released is NULL, which must be > R0.
 		 */
@@ -7321,6 +7363,7 @@ static int check_helper_call(struct bpf_verifier_env *env, struct bpf_insn *insn
 		err = check_bpf_snprintf_call(env, regs);
 		break;
 	case BPF_FUNC_loop:
+		// TODO : look into what the update would do to the insn sequence
 		update_loop_inline_state(env, meta.subprogno);
 		err = __check_func_call(env, insn, insn_idx_p, meta.subprogno,
 					set_loop_callback_state);
@@ -7464,6 +7507,7 @@ static int check_helper_call(struct bpf_verifier_env *env, struct bpf_insn *insn
 		/* For release_reference() */
 		regs[BPF_REG_0].ref_obj_id = meta.ref_obj_id;
 	} else if (is_acquire_function(func_id, meta.map_ptr)) {
+		printk("[info] This call is an acquire function..\n");
 		int id = acquire_reference_state(env, insn_idx);
 
 		if (id < 0)
@@ -7645,6 +7689,7 @@ static int check_kfunc_call(struct bpf_verifier_env *env, struct bpf_insn *insn,
 				return id;
 			regs[BPF_REG_0].id = id;
 			regs[BPF_REG_0].ref_obj_id = id;
+			// TODO : register id needs to be saved
 		}
 	} /* else { add_kfunc_call() ensures it is btf_type_is_void(t) } */
 
@@ -12071,6 +12116,12 @@ static int do_check(struct bpf_verifier_env *env)
 	int insn_cnt = env->prog->len;
 	bool do_print_state = false;
 	int prev_insn_idx = -1;
+#ifdef UNWIND_TABLE
+	struct bpf_release_table *release_table; // release table for bpf termination
+	release_table = kzalloc(n*sizeof(struct bpf_release_table), GFP_ATOMIC);
+	// TODO : For each iteration below, call the print_references (better rename it)
+	// to save_references where a new node will be added to the unwind table's linked list. 
+#endif
 
 	for (;;) {
 		struct bpf_insn *insn;
@@ -12093,7 +12144,7 @@ static int do_check(struct bpf_verifier_env *env)
 				env->insn_processed);
 			return -E2BIG;
 		}
-
+		// TODO : do we need to bypass state visited case for a complete list of unwind table?
 		err = is_state_visited(env, env->insn_idx);
 		if (err < 0)
 			return err;
@@ -12179,6 +12230,7 @@ static int do_check(struct bpf_verifier_env *env)
 			/* check that memory (src_reg + off) is readable,
 			 * the state of dst_reg will be updated by this func
 			 */
+
 			err = check_mem_access(env, env->insn_idx, insn->src_reg,
 					       insn->off, BPF_SIZE(insn->code),
 					       BPF_READ, insn->dst_reg, false);
@@ -12206,10 +12258,12 @@ static int do_check(struct bpf_verifier_env *env)
 				return -EINVAL;
 			}
 
+
 		} else if (class == BPF_STX) {
 			enum bpf_reg_type *prev_dst_type, dst_reg_type;
 
 			if (BPF_MODE(insn->code) == BPF_ATOMIC) {
+				printk("Inside BPF_ATOMIC mode\n");
 				err = check_atomic(env, env->insn_idx, insn);
 				if (err)
 					return err;
@@ -12305,6 +12359,12 @@ static int do_check(struct bpf_verifier_env *env)
 					err = check_helper_call(env, insn, &env->insn_idx);
 				if (err)
 					return err;
+				else{
+					printk("Polling references after finishing instr #%d\n", env->insn_idx);
+					err = print_references(env);
+					if(err)
+						return err; 
+				}
 			} else if (opcode == BPF_JA) {
 				if (BPF_SRC(insn->code) != BPF_K ||
 				    insn->imm != 0 ||
@@ -12393,7 +12453,9 @@ process_bpf_exit:
 
 		env->insn_idx++;
 	}
-
+#ifdef UNWIND_TABLE
+	env->prog->saved_state->release_table = release_table; 
+#endif
 	return 0;
 }
 

@@ -82,6 +82,7 @@ void pcpu_destroy_unwindlist(void){
 
 
 //  push the element to the tail of linked list belonging to this cpu : act like a FIFO queue
+// TODO : maybe the attribute((used) is not needed. Let the compiler optimize it away if not used due to kConfigs 
 __attribute__((__used__))
 void pcpu_push_unwindlist(struct unwind_list_obj *node){
 	//struct list_head *head = get_cpu_ptr(unwind_list->entry);
