@@ -12118,6 +12118,7 @@ static int do_check(struct bpf_verifier_env *env)
 	int prev_insn_idx = -1;
 #ifdef UNWIND_TABLE
 	struct bpf_release_table *release_table; // release table for bpf termination
+	// TODO : replace `n` with the number of instructions in the bpf program 
 	release_table = kzalloc(n*sizeof(struct bpf_release_table), GFP_ATOMIC);
 	// TODO : For each iteration below, call the print_references (better rename it)
 	// to save_references where a new node will be added to the unwind table's linked list. 

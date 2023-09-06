@@ -36,14 +36,17 @@
 //#define KPROBE_TERMINATION 
 //#define BOOLEAN_TERMINATION
 //#define LIST_CLEANUP
-#define UNWIND_TABLE
+//#define UNWIND_TABLE
 
 #if defined(KPROBE_TERMINATION) && defined(BOOLEAN_TERMINATION)
 #error "Both kprobe termination and boolean can't be true"
+#endif
 
 #if defined(LIST_CLEANUP) && defined(UNWIND_TABLE)
 #error "Both Linked List cleanup and Unwind table can't be true"
 #endif
+
+#endif /*CONFIG_HAVE_BPF_TERMINATION*/ 
 
 struct sk_buff;
 struct sock;
@@ -745,13 +748,14 @@ static __always_inline u32 __bpf_prog_run(const struct bpf_prog *prog,
 		flags = u64_stats_update_begin_irqsave(&stats->syncp);
 		u64_stats_inc(&stats->cnt);
 		u64_stats_add(&stats->nsecs, sched_clock() - start);
+		printk("bpf prog:%d took %ld ns to run\n", prog_id, sched_clock()-start);
 		u64_stats_update_end_irqrestore(&stats->syncp, flags);
 	} else {
 		ret = dfunc(ctx, prog->insnsi, prog->bpf_func);
 	}
 	
-#ifdef LIST_CLEANUP
 out:
+#ifdef LIST_CLEANUP
 	/* Clear the linkedlist this BPF run would have created as it's no 
 	 * more needed.
 	 */
