@@ -283,7 +283,9 @@ void __bpf_prog_free(struct bpf_prog *fp)
 		kfree(fp->aux->poke_tab);
 		kfree(fp->aux);
 	}
+#ifdef CONFIG_HAVE_BPF_TERMINATION
 	kfree(fp->saved_state);
+#endif  
 	free_percpu(fp->stats);
 	free_percpu(fp->active);
 	vfree(fp);

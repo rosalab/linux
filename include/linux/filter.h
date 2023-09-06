@@ -619,8 +619,8 @@ static __always_inline u32 __bpf_prog_run(const struct bpf_prog *prog,
 	u32 ret;
 	cant_migrate();
 
-#ifdef CONFIG_HAVE_BPF_TERMINATION
 	u32 prog_id = prog->aux->id;
+#ifdef CONFIG_HAVE_BPF_TERMINATION
 	static unsigned long rxx; // for fetching registers and saving later on
 	// Check and initialize unwind list to be used for termination
 #ifdef LIST_CLEANUP

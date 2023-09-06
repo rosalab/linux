@@ -4720,7 +4720,7 @@ static int check_mem_access(struct bpf_verifier_env *env, int insn_idx, u32 regn
 		if (value_regno >= 0)
 			mark_reg_unknown(env, regs, value_regno);
 	} else if (reg->type == PTR_TO_MAP_VALUE) {
-		printk("[%d] : check_mem_access\n", __LINE__);
+		//printk("[%d] : check_mem_access\n", __LINE__);
 		struct bpf_map_value_off_desc *kptr_off_desc = NULL;
 
 		if (t == BPF_WRITE && value_regno >= 0 &&
@@ -4762,7 +4762,7 @@ static int check_mem_access(struct bpf_verifier_env *env, int insn_idx, u32 regn
 			}
 		}
 	} else if (base_type(reg->type) == PTR_TO_MEM) {
-		printk("[%d] : check_mem_access\n", __LINE__);
+		//printk("[%d] : check_mem_access\n", __LINE__);
 		bool rdonly_mem = type_is_rdonly_mem(reg->type);
 
 		if (type_may_be_null(reg->type)) {
@@ -4788,7 +4788,7 @@ static int check_mem_access(struct bpf_verifier_env *env, int insn_idx, u32 regn
 		if (!err && value_regno >= 0 && (t == BPF_READ || rdonly_mem))
 			mark_reg_unknown(env, regs, value_regno);
 	} else if (reg->type == PTR_TO_CTX) {
-		printk("[%d] : check_mem_access\n", __LINE__);
+		//printk("[%d] : check_mem_access\n", __LINE__);
 		enum bpf_reg_type reg_type = SCALAR_VALUE;
 		struct btf *btf = NULL;
 		u32 btf_id = 0;
@@ -12361,7 +12361,7 @@ static int do_check(struct bpf_verifier_env *env)
 				if (err)
 					return err;
 				else{
-					printk("Polling references after finishing instr #%d\n", env->insn_idx);
+					//printk("Polling references after finishing instr #%d\n", env->insn_idx);
 					err = print_references(env);
 					if(err)
 						return err; 
