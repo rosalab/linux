@@ -61,9 +61,8 @@ static DEFINE_SPINLOCK(map_idr_lock);
 static DEFINE_IDR(link_idr);
 static DEFINE_SPINLOCK(link_idr_lock);
 
-#ifdef KPROBE_TERMINATION
 
-void print_regs(struct pt_regs *regs)
+__maybe_unused void print_regs(struct pt_regs *regs)
 {
 	printk(" regs : RAX : %lx\n", regs->ax);
 	printk(" regs : RIP : %lx\n", regs->ip);
@@ -73,7 +72,7 @@ void print_regs(struct pt_regs *regs)
 	printk(" regs : RSP: %lx\n", regs->sp);
 
 }
-void overwrite_registers(struct pt_regs *dst, const struct pt_regs *src)
+__maybe_unused void overwrite_registers(struct pt_regs *dst, const struct pt_regs *src)
 {
 	dst->cx = src->cx;	
 	dst->dx = src->dx;	
@@ -98,7 +97,7 @@ void overwrite_registers(struct pt_regs *dst, const struct pt_regs *src)
 }
 
 
-static int __kprobes handler_pre(struct kprobe* p, struct pt_regs *regs)
+__maybe_unused static int __kprobes handler_pre(struct kprobe* p, struct pt_regs *regs)
 {
 	struct bpf_prog *kill_prog = p->additional;
 	printk("[$$$] Inside kprobe pre handler for address \n");
@@ -119,7 +118,7 @@ void *addr_to_kill_prog;
 struct kprobe **kprobes_list;
 int idx = 0;
 
-static void register_bpfprog_to_kprobe(struct bpf_prog* prog)
+__maybe_unused static void register_bpfprog_to_kprobe(struct bpf_prog* prog) 
 {
 	int success=0, failure=0;
 	for(int offset =0 ;offset < prog->jited_len; offset++)
@@ -147,7 +146,59 @@ static void register_bpfprog_to_kprobe(struct bpf_prog* prog)
 	printk("register kprobe routine complete with success:%d \n|| failures:%d out of total %d attempts\n", success, failure, prog->jited_len);
 
 }
-#endif /* KPROBE_TERMINATION */
+__maybe_unused static int __kprobes dummy_helper(struct kprobe* p, struct pt_regs *regs)
+{
+	printk("[$$$] Inside kprobe pre handler dummy_helper \n");
+	return 0;
+}
+
+/* Instead of attaching kprobes to all instruction, attach to only call insn in the jitted code */
+__maybe_unused static void register_bpfprog_call_insn_to_kprobe(struct bpf_prog* prog)
+{
+	int success=0, failure=0;
+	for(int offset =0 ;offset < prog->jited_len; offset++)
+	{
+		unsigned long addr = prog->bpf_func + offset; 
+		int ret; 
+		if (can_probe(addr)){
+			/*
+			printk("[%d] Can probe!\n", offset);
+			continue;
+			*/
+			struct insn insn; 
+			struct kprobe *kp;
+
+			ret = insn_decode_kernel(&insn, (void *)addr);
+			if (ret < 0)
+				continue ; 
+			/*
+			if (insn.opcode.bytes[0] != CALL_INSN_OPCODE)
+				continue; 
+			*/
+			printk("[%x] : Addr : 0x%lx Insn : 0x%x , can_probe:1\n", offset, addr, insn.opcode.bytes[0]);
+			kp = kzalloc(sizeof(struct kprobe), GFP_KERNEL);
+
+			kp->addr = (kprobe_opcode_t *)(prog->bpf_func);
+			kp->offset = offset;
+			kp->pre_handler = dummy_helper ;
+			ret = register_kprobe(kp);
+			if(ret==0){
+				success++;
+				// push this struct kprobe *kp to the list of successful kprobes
+				idx++; 
+			}
+			else{
+				printk("Failed with error : %d\n", ret);
+				failure++;
+				kfree(kp);
+			}
+		}
+	}
+
+	printk("register kprobe routine complete with success:%d \n|| failures:%d out of total %d attempts\n", success, failure, prog->jited_len);
+
+}
+
 
 static void bpf_die(void* prog)
 {
@@ -185,6 +236,21 @@ static void bpf_die(void* prog)
 
 #elif defined(BOOLEAN_TERMINATION)
 	kill_prog->saved_state->termination_requested = true;
+
+#elif defined(FAST_PATH_TERMINATION)
+	// Instead of simply calling kprobe on each instruction, check for call insn before attaching
+
+	/* Attach kprobes to the main program */
+	printk("[%s]:%d Registering call-insn kprobes for program length :%d\n", __FILE__, __LINE__, kill_prog->jited_len);	
+	addr_to_kill_prog = kill_prog;
+	register_bpfprog_call_insn_to_kprobe(kill_prog);
+
+	/* Attach kprobes to the sub-program */
+	for(int subprog = 0; subprog<kill_prog->aux->func_cnt; subprog++)
+	{
+		printk("[%s]:%d Registering call-insn kprobes for program length :%d\n", __FILE__, __LINE__, kill_prog->aux->func[subprog]->jited_len);	
+		register_bpfprog_call_insn_to_kprobe(kill_prog->aux->func[subprog]);
+	} 
 
 #endif /* KPROBE_TERMINATION */
 }
@@ -5197,8 +5263,9 @@ static int __sys_bpf(int cmd, bpfptr_t uattr, unsigned int size)
 			//for (i = 0; i < prog->aux->func_cnt; i++)
 			//	info.jited_prog_len += prog->aux->func[i]->jited_len;
 
+			int cpu_id;
 			printk("Starting terminate syscall prog_id : %d\n", attr.prog_id);
-			int cpu_id = saved_state->cpu_id;
+			cpu_id = saved_state->cpu_id;
 			printk("--- Address of jited program : %lx\n", (void*)prog->bpf_func);
 			printk("--- Size of jited program : %d\n", prog->jited_len);
 			//set_memory_nx((unsigned long)prog->bpf_func,prog->jited_len >> PAGE_SHIFT);

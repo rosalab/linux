@@ -33,11 +33,11 @@
 
 #ifdef CONFIG_HAVE_BPF_TERMINATION 
 /* All options are given below. Uncomment the required Macro to enable that logic */
-//#define KPROBE_TERMINATION 
+#define KPROBE_TERMINATION 
 //#define BOOLEAN_TERMINATION
 //#define LIST_CLEANUP
 //#define UNWIND_TABLE
-
+//#define FAST_PATH_TERMINATION
 #if defined(KPROBE_TERMINATION) && defined(BOOLEAN_TERMINATION)
 #error "Both kprobe termination and boolean can't be true"
 #endif

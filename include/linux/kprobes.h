@@ -92,9 +92,7 @@ struct kprobe {
 	 * Protected by kprobe_mutex after this kprobe is registered.
 	 */
 	u32 flags;
-#ifdef KPROBE_TERMINATION
 	void *additional; // will be used to save pointer to bpf_prog->saved_state->saved_regs for termination 
-#endif
 };
 
 /* Kprobe status flags */
@@ -416,6 +414,8 @@ static inline struct kprobe_ctlblk *get_kprobe_ctlblk(void)
 
 kprobe_opcode_t *kprobe_lookup_name(const char *name, unsigned int offset);
 kprobe_opcode_t *arch_adjust_kprobe_addr(unsigned long addr, unsigned long offset, bool *on_func_entry);
+
+int can_probe(unsigned long paddr); // Making can_probe available for termination functionality
 
 int register_kprobe(struct kprobe *p);
 void unregister_kprobe(struct kprobe *p);
