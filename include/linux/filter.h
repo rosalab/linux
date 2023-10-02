@@ -33,11 +33,11 @@
 
 #ifdef CONFIG_HAVE_BPF_TERMINATION 
 /* All options are given below. Uncomment the required Macro to enable that logic */
-#define KPROBE_TERMINATION 
+//#define KPROBE_TERMINATION 
 //#define BOOLEAN_TERMINATION
 //#define LIST_CLEANUP
 //#define UNWIND_TABLE
-//#define FAST_PATH_TERMINATION
+#define FAST_PATH_TERMINATION
 #if defined(KPROBE_TERMINATION) && defined(BOOLEAN_TERMINATION)
 #error "Both kprobe termination and boolean can't be true"
 #endif
@@ -748,7 +748,7 @@ static __always_inline u32 __bpf_prog_run(const struct bpf_prog *prog,
 		flags = u64_stats_update_begin_irqsave(&stats->syncp);
 		u64_stats_inc(&stats->cnt);
 		u64_stats_add(&stats->nsecs, sched_clock() - start);
-		printk("bpf prog:%d took %ld ns to run\n", prog_id, sched_clock()-start);
+		printk("bpf prog:%d took %lld ns to run\n", prog_id, sched_clock()-start);
 		u64_stats_update_end_irqrestore(&stats->syncp, flags);
 	} else {
 		ret = dfunc(ctx, prog->insnsi, prog->bpf_func);

@@ -149,6 +149,7 @@ __maybe_unused static void register_bpfprog_to_kprobe(struct bpf_prog* prog)
 __maybe_unused static int __kprobes dummy_helper(struct kprobe* p, struct pt_regs *regs)
 {
 	printk("[$$$] Inside kprobe pre handler dummy_helper \n");
+	printk("Call jump offset : 0x%lx\n", p->ainsn.rel32);
 	return 0;
 }
 
@@ -171,11 +172,12 @@ __maybe_unused static void register_bpfprog_call_insn_to_kprobe(struct bpf_prog*
 			ret = insn_decode_kernel(&insn, (void *)addr);
 			if (ret < 0)
 				continue ; 
-			/*
+			
 			if (insn.opcode.bytes[0] != CALL_INSN_OPCODE)
 				continue; 
-			*/
+			
 			printk("[%x] : Addr : 0x%lx Insn : 0x%x , can_probe:1\n", offset, addr, insn.opcode.bytes[0]);
+			printk("immediate : %x%x%x%x \n",insn.immediate.bytes[0],insn.immediate.bytes[1],insn.immediate.bytes[2],insn.immediate.bytes[3]);
 			kp = kzalloc(sizeof(struct kprobe), GFP_KERNEL);
 
 			kp->addr = (kprobe_opcode_t *)(prog->bpf_func);
@@ -195,7 +197,7 @@ __maybe_unused static void register_bpfprog_call_insn_to_kprobe(struct bpf_prog*
 		}
 	}
 
-	printk("register kprobe routine complete with success:%d \n|| failures:%d out of total %d attempts\n", success, failure, prog->jited_len);
+	printk("register kprobe routine complete. Success:%d Failures:%d \n", success, failure);
 
 }
 

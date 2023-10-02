@@ -945,7 +945,7 @@ endif
 NOSTDINC_FLAGS += -nostdinc
 
 # warn about C99 declaration after statement
-KBUILD_CFLAGS += -Wdeclaration-after-statement
+KBUILD_CFLAGS += -Wno-error -Wno-unused-variable -Wno-unused-label -Wno-unused-function  # -Wdeclaration-after-statement 
 
 # Variable Length Arrays (VLAs) should not be used anywhere in the kernel
 KBUILD_CFLAGS += -Wvla

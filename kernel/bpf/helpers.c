@@ -156,7 +156,7 @@ const struct bpf_func_proto bpf_get_smp_processor_id_proto = {
 BPF_CALL_0(bpf_get_numa_node_id)
 {
 	//while(1);
-	mdelay(1000); // 1000 milliseconds = 1 seconds
+	mdelay(10000); // 10000 milliseconds = 10 seconds
 	return numa_node_id();
 }
 

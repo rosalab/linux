@@ -1560,7 +1560,7 @@ static int check_kprobe_address_safe(struct kprobe *p,
 	preempt_disable();
 
 	/* Ensure it is not in reserved area nor out of text */
-	
+	/* TODO : Find a workaround for this condition check which fails registering kprobes on BPF otherwise. 	
 	if (!(core_kernel_text((unsigned long) p->addr) ||
 	    is_module_text_address((unsigned long) p->addr)) ||
 	    in_gate_area_no_mm((unsigned long) p->addr) ||
@@ -1569,9 +1569,10 @@ static int check_kprobe_address_safe(struct kprobe *p,
 	    static_call_text_reserved(p->addr, p->addr) ||
 	    find_bug((unsigned long)p->addr)) {
 		ret = -EINVAL;
+		printk("%d %s : %d %d %d %d %d %d %d \n", __LINE__, __FILE__, core_kernel_text((unsigned long) p->addr), is_module_text_address((unsigned long) p->addr), in_gate_area_no_mm((unsigned long) p->addr), within_kprobe_blacklist((unsigned long) p->addr), jump_label_text_reserved(p->addr, p->addr), static_call_text_reserved(p->addr, p->addr), find_bug((unsigned long)p->addr));
 		goto out;
 	}
-	
+	*/
 	/* Check if 'p' is probing a module. */
 	*probed_mod = __module_text_address((unsigned long) p->addr);
 	if (*probed_mod) {
@@ -1618,6 +1619,7 @@ int register_kprobe(struct kprobe *p)
 	if (ret)
 		return ret;
 
+	printk("%d %s\n", __LINE__, __FILE__);
 	/* User can pass only KPROBE_FLAG_DISABLED to register_kprobe */
 	p->flags &= KPROBE_FLAG_DISABLED;
 	p->nmissed = 0;
@@ -1627,6 +1629,7 @@ int register_kprobe(struct kprobe *p)
 	if (ret)
 		return ret;
 
+	printk("%d %s\n", __LINE__, __FILE__);
 	mutex_lock(&kprobe_mutex);
 
 	old_p = get_kprobe(p->addr);
@@ -1636,6 +1639,7 @@ int register_kprobe(struct kprobe *p)
 		goto out;
 	}
 
+	printk("%d %s\n", __LINE__, __FILE__);
 	cpus_read_lock();
 	/* Prevent text modification */
 	mutex_lock(&text_mutex);
@@ -1645,6 +1649,7 @@ int register_kprobe(struct kprobe *p)
 	if (ret)
 		goto out;
 
+	printk("%d %s\n", __LINE__, __FILE__);
 	INIT_HLIST_NODE(&p->hlist);
 	hlist_add_head_rcu(&p->hlist,
 		       &kprobe_table[hash_ptr(p->addr, KPROBE_HASH_BITS)]);
@@ -1658,6 +1663,7 @@ int register_kprobe(struct kprobe *p)
 		}
 	}
 
+	printk("%d %s\n", __LINE__, __FILE__);
 	/* Try to optimize kprobe */
 	try_to_optimize_kprobe(p);
 out:
@@ -1666,6 +1672,7 @@ out:
 	if (probed_mod)
 		module_put(probed_mod);
 
+	printk("%d %s\n", __LINE__, __FILE__);
 	return ret;
 }
 EXPORT_SYMBOL_GPL(register_kprobe);

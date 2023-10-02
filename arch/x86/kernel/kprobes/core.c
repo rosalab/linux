@@ -253,7 +253,7 @@ unsigned long recover_probed_instruction(kprobe_opcode_t *buf, unsigned long add
 }
 
 /* Check if paddr is at an instruction boundary */
-static int can_probe(unsigned long paddr)
+int can_probe(unsigned long paddr)
 {
 	unsigned long addr, __addr, offset = 0;
 	struct insn insn;
@@ -732,10 +732,11 @@ static int arch_copy_kprobe(struct kprobe *p)
 int arch_prepare_kprobe(struct kprobe *p)
 {
 	int ret;
-
+	printk("%d %s\n", __LINE__, __FILE__);
 	if (alternatives_text_reserved(p->addr, p->addr))
 		return -EINVAL;
 
+	printk("%d %s\n", __LINE__, __FILE__);
 	if (!can_probe((unsigned long)p->addr))
 		return -EILSEQ;
 
