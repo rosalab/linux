@@ -2409,6 +2409,11 @@ extern const struct bpf_func_proto bpf_unlocked_sk_setsockopt_proto;
 extern const struct bpf_func_proto bpf_unlocked_sk_getsockopt_proto;
 extern const struct bpf_func_proto bpf_find_vma_proto;
 extern const struct bpf_func_proto bpf_loop_proto;
+
+// Adding for termination project
+extern const struct bpf_func_proto bpf_dummy_void_proto ;
+extern const struct bpf_func_proto bpf_dummy_int_proto ;
+
 extern const struct bpf_func_proto bpf_copy_from_user_task_proto;
 extern const struct bpf_func_proto bpf_set_retval_proto;
 extern const struct bpf_func_proto bpf_get_retval_proto;

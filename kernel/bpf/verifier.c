@@ -7222,6 +7222,7 @@ static int check_helper_call(struct bpf_verifier_env *env, struct bpf_insn *insn
 	int i, err, func_id;
 
 	/* find function prototype */
+	printk("check helper call : %x %x\n", insn->code, insn->imm);
 	func_id = insn->imm;
 	if (func_id < 0 || func_id >= __BPF_FUNC_MAX_ID) {
 		verbose(env, "invalid func %s#%d\n", func_id_name(func_id),
@@ -15278,7 +15279,6 @@ int bpf_check(struct bpf_prog **prog, union bpf_attr *attr, bpfptr_t uattr)
 	ret = -ENOMEM;
 	if (!env->explored_states)
 		goto skip_full_check;
-
 	ret = add_subprog_and_kfunc(env);
 	if (ret < 0)
 		goto skip_full_check;
