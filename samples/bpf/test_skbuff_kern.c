@@ -20,7 +20,6 @@ int sk_lookup_success_simple(struct __sk_buff *skb)
 	int x=0;
 	sk = bpf_sk_lookup_tcp(skb, &tuple, sizeof(tuple), BPF_F_CURRENT_NETNS, 0);
 	x += 5;
-
 	sk2 = bpf_sk_lookup_tcp(skb, &tuple, sizeof(tuple), BPF_F_CURRENT_NETNS, 0);
 	bpf_printk("Random stuff\n");
 
@@ -42,8 +41,10 @@ int sk_lookup_success_simple(struct __sk_buff *skb)
 		bpf_sk_release(sk4);
 	if (sk5)
 		bpf_sk_release(sk5);
+
 	if (sk6)
 		bpf_sk_release(sk6);
+
 	return 0;
 }
 

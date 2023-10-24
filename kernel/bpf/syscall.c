@@ -2715,7 +2715,7 @@ static int patch_generator(struct bpf_prog **bpfprog, union bpf_attr *attr, bpfp
 		int ret; 
 		struct bpf_insn *insn = &prog->insnsi[insn_idx] ;
 		u8 class = BPF_CLASS(insn->code);
-		if ( class == BPF_JMP || class == BPF_JMP32) { // TODO : This check could be skipped?
+		if ( class == BPF_JMP || class == BPF_JMP32) { 
 			if (BPF_OP(insn->code)==BPF_CALL){
 				if (insn->src_reg == BPF_PSEUDO_CALL){ /* A function call */
 					// TODO : Get into the sub-prog and recursively call the patch_gen
@@ -2733,25 +2733,38 @@ static int patch_generator(struct bpf_prog **bpfprog, union bpf_attr *attr, bpfp
 					 * 	d) Based on return type, assign relevant dummy helper's address
 					 *	   to the corresponding entry in call_indices.
 					 */
+					// Step a
 					int func_id = insn->imm; // Should be the helper number
 					const struct bpf_func_proto *fn = NULL;
 					int new_helper_id = -1; 
+
+					// Step b : Add more release functions here as needed
+					if (func_id == BPF_FUNC_sk_release )
+						continue;
+
+					// Step c
 					fn = bpf_syscall_verifier_ops.get_func_proto(func_id, prog);
 
-					printk("Offset : 0x%x Helper id : %d\n", insn_idx, func_id);
+					printk("Offset : 0x%x Helper id : %x\n", insn_idx, func_id);
 
-					if(fn==NULL){
-						printk("Failed to get helper proto. Exiting.\n");
-						err = -EPERM;
-						return err; 
+					if(!fn){
+						fn = sk_skb_verifier_ops.get_func_proto(func_id, prog);
+						if(!fn){
+							printk("Failed to get helper proto. Exiting.\n");
+							err = -ENOENT;
+							return err; 
+						}
 					}
 					
+					// Step d
 					enum bpf_return_type ret_type = fn->ret_type;
 					if(ret_type == RET_VOID)	
-						new_helper_id = 208;
+						new_helper_id = BPF_FUNC_dummy_void;
 					else if (ret_type == RET_INTEGER) 
-						new_helper_id = 209;
-					else{ // TODO : Add more dummy helpers for each return type as needed
+						new_helper_id = BPF_FUNC_dummy_int;
+					else if (ret_type == RET_PTR_TO_SOCKET_OR_NULL) 
+						new_helper_id = BPF_FUNC_dummy_ptr_to_socket;
+					else{ // Add dummy helpers for each return type as needed
 						printk("Return type : %d currently not having any replacements. Exiting\n", ret_type);
 						err = -ENOTSUPP;
 						return err;
@@ -2769,18 +2782,12 @@ static int patch_generator(struct bpf_prog **bpfprog, union bpf_attr *attr, bpfp
 	for(int patch_idx = 0 ; patch_idx < num_calls; patch_idx++){
 		printk("------------------------------------------------\n");
 		printk("Generating Patch #%d\n", patch_idx+1);
-		/* Steps : 
-		 * 	a) Identify the helper number
-		 * 	b) Identify return type from the helper's proto
-		 * 	c) Replace the helper number with the corresponding dummy helper 
-		 * 	   with same return type
-		 * 	d) Call bpf_check()
-		 */	
+
 		//struct bpf_insn *insn = &prog->insnsi[patch_idx];
 		struct bpf_prog *prog_clone; 
 		prog_clone = bpf_prog_alloc(bpf_prog_size(prog->len), GFP_USER); 
 		clone_bpf_prog(prog_clone, prog);
-		for(int k =0; k <= patch_idx; k++){
+		for(int k = num_calls-1; k >= patch_idx; k--){ // Start from bottom
 			//printk("[0x%x] %x Previous imm : %x\n", call_indices[k].insn_idx,prog_clone->insnsi[call_indices[k].insn_idx].code, prog_clone->insnsi[call_indices[k].insn_idx].imm);
 			prog_clone->insnsi[call_indices[k].insn_idx].imm = call_indices[k].replacement_helper;
 			//printk("[0x%x] Modified imm : %x\n", call_indices[k].insn_idx, prog_clone->insnsi[call_indices[k].insn_idx].imm);

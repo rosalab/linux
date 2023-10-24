@@ -493,6 +493,7 @@ static bool is_acquire_function(enum bpf_func_id func_id,
 
 	if (func_id == BPF_FUNC_sk_lookup_tcp ||
 	    func_id == BPF_FUNC_sk_lookup_udp ||
+	    func_id == BPF_FUNC_dummy_ptr_to_socket || /*dummy helper for termination*/
 	    func_id == BPF_FUNC_skc_lookup_tcp ||
 	    func_id == BPF_FUNC_ringbuf_reserve ||
 	    func_id == BPF_FUNC_kptr_xchg)
@@ -7316,7 +7317,7 @@ static int check_helper_call(struct bpf_verifier_env *env, struct bpf_insn *insn
 		if (arg_type_is_dynptr(fn->arg_type[meta.release_regno - BPF_REG_1]))
 			err = unmark_stack_slots_dynptr(env, &regs[meta.release_regno]);
 		else if (meta.ref_obj_id){
-			printk("About to call release_reference : %d\n", meta.ref_obj_id);
+			//printk("About to call release_reference : %d\n", meta.ref_obj_id);
 			err = release_reference(env, meta.ref_obj_id);
 		}
 		/* meta.ref_obj_id can only be 0 if register that is meant to be
@@ -7508,7 +7509,7 @@ static int check_helper_call(struct bpf_verifier_env *env, struct bpf_insn *insn
 		/* For release_reference() */
 		regs[BPF_REG_0].ref_obj_id = meta.ref_obj_id;
 	} else if (is_acquire_function(func_id, meta.map_ptr)) {
-		printk("[info] This call is an acquire function..\n");
+		//printk("[info] This call is an acquire function..\n");
 		int id = acquire_reference_state(env, insn_idx);
 
 		if (id < 0)
@@ -12361,12 +12362,14 @@ static int do_check(struct bpf_verifier_env *env)
 					err = check_helper_call(env, insn, &env->insn_idx);
 				if (err)
 					return err;
+#ifdef UNWIND_TABLE
 				else{
 					//printk("Polling references after finishing instr #%d\n", env->insn_idx);
 					err = print_references(env);
 					if(err)
 						return err; 
 				}
+#endif /*UNWIND_TABLE*/
 			} else if (opcode == BPF_JA) {
 				if (BPF_SRC(insn->code) != BPF_K ||
 				    insn->imm != 0 ||
