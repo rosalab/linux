@@ -2,6 +2,7 @@
 
 #include <linux/linkage.h>
 #include <asm/errno.h>
+#include <asm/export.h>
 #include <asm/percpu.h>
 
 	.code64
@@ -52,3 +53,4 @@ SYM_INNER_LABEL(iu_panic_trampoline, SYM_L_GLOBAL)
 	jmp iu_exit
 
 SYM_FUNC_END(iu_dispatcher_func)
+EXPORT_SYMBOL(iu_dispatcher_func)
