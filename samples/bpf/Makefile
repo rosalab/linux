@@ -56,6 +56,12 @@ tprogs-y += xdp_redirect_map_multi
 tprogs-y += xdp_redirect_map
 tprogs-y += xdp_redirect
 tprogs-y += xdp_monitor
+tprogs-y += sid_tailcall_bpf_maxstack
+tprogs-y += sid_tailcall_bpf_maxstack_fentry
+tprogs-y += sid_tailcall_bpf_maxstack_fentry2
+tprogs-y += sid_fentry_test1
+tprogs-y += sid_fentry_test2
+tprogs-y += sid_fentry_test3
 
 # Libbpf dependencies
 LIBBPF_SRC = $(TOOLS_PATH)/lib/bpf
@@ -111,6 +117,12 @@ task_fd_query-objs := task_fd_query_user.o $(TRACE_HELPERS)
 xdp_sample_pkts-objs := xdp_sample_pkts_user.o
 ibumad-objs := ibumad_user.o
 hbm-objs := hbm.o $(CGROUP_HELPERS)
+sid_tailcall_bpf_maxstack-objs := sid_tailcall_bpf_maxstack_user.o $(TRACE_HELPERS) 
+sid_tailcall_bpf_maxstack_fentry-objs := sid_tailcall_bpf_maxstack_fentry_user.o $(TRACE_HELPERS) 
+sid_tailcall_bpf_maxstack_fentry2-objs := sid_tailcall_bpf_maxstack_fentry2_user.o $(TRACE_HELPERS) 
+sid_fentry_test1-objs := sid_fentry_test1_user.o $(TRACE_HELPERS) 
+sid_fentry_test2-objs := sid_fentry_test2_user.o $(TRACE_HELPERS) 
+sid_fentry_test3-objs := sid_fentry_test3_user.o $(TRACE_HELPERS) 
 
 xdp_redirect_map_multi-objs := xdp_redirect_map_multi_user.o $(XDP_SAMPLE)
 xdp_redirect_cpu-objs := xdp_redirect_cpu_user.o $(XDP_SAMPLE)
@@ -173,6 +185,14 @@ always-y += xdp_sample_pkts_kern.o
 always-y += ibumad_kern.o
 always-y += hbm_out_kern.o
 always-y += hbm_edt_kern.o
+always-y += sid_kprobe_interrupt_check_kern.o
+always-y += sid_tailcall_bpf_maxstack_kern.o
+always-y += sid_tailcall_bpf_maxstack_fentry_kern.o
+always-y += sid_tailcall_bpf_maxstack_fentry2_kern.o
+always-y += sid_fentry_test1_kern.o
+always-y += sid_fentry_test2_kern.o
+always-y += sid_fentry_test3_kern.o
+always-y += sid_xdp_sample_prog_kern.o
 
 ifeq ($(ARCH), arm)
 # Strip all except -D__LINUX_ARM_ARCH__ option needed to handle linux
