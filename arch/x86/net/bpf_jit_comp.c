@@ -17,6 +17,9 @@
 #include <asm/nospec-branch.h>
 #include <asm/text-patching.h>
 
+#define STACK_SWITCHING
+
+
 static u8 *emit_code(u8 *ptr, u32 bytes, unsigned int len)
 {
 	if (len == 1)
@@ -1917,6 +1920,7 @@ static int invoke_bpf_prog(const struct btf_func_model *m, u8 **pprog,
 			   struct bpf_tramp_link *l, int stack_size,
 			   int run_ctx_off, bool save_ret)
 {
+
 	u8 *prog = *pprog;
 	u8 *jmp_insn;
 	int ctx_cookie_off = offsetof(struct bpf_tramp_run_ctx, bpf_cookie);
@@ -1925,7 +1929,7 @@ static int invoke_bpf_prog(const struct btf_func_model *m, u8 **pprog,
 
 	/* mov rdi, cookie */
 	emit_mov_imm64(&prog, BPF_REG_1, (long) cookie >> 32, (u32) (long) cookie);
-
+    
 	/* Prepare struct bpf_tramp_run_ctx.
 	 *
 	 * bpf_tramp_run_ctx is already preserved by
@@ -1934,7 +1938,6 @@ static int invoke_bpf_prog(const struct btf_func_model *m, u8 **pprog,
 	 * mov QWORD PTR [rbp - run_ctx_off + ctx_cookie_off], rdi
 	 */
 	emit_stx(&prog, BPF_DW, BPF_REG_FP, BPF_REG_1, -run_ctx_off + ctx_cookie_off);
-
 	/* arg1: mov rdi, progs[i] */
 	emit_mov_imm64(&prog, BPF_REG_1, (long) p >> 32, (u32) (long) p);
 	/* arg2: lea rsi, [rbp - ctx_cookie_off] */
@@ -1960,11 +1963,10 @@ static int invoke_bpf_prog(const struct btf_func_model *m, u8 **pprog,
 		emit_mov_imm64(&prog, BPF_REG_2,
 			       (long) p->insnsi >> 32,
 			       (u32) (long) p->insnsi);
-	/* call JITed bpf program or interpreter */
+    /* call JITed bpf program or interpreter */
 	if (emit_rsb_call(&prog, p->bpf_func, prog))
 		return -EINVAL;
-
-	/*
+    /*
 	 * BPF_TRAMP_MODIFY_RETURN trampolines can modify the return
 	 * of the previous call which is then passed on the stack to
 	 * the next BPF program.
@@ -2070,6 +2072,7 @@ static int invoke_bpf_mod_ret(const struct btf_func_model *m, u8 **pprog,
 	return 0;
 }
 
+
 /* Example:
  * __be16 eth_type_trans(struct sk_buff *skb, struct net_device *dev);
  * its 'struct btf_func_model' will be nr_args=2
@@ -2130,6 +2133,66 @@ static int invoke_bpf_mod_ret(const struct btf_func_model *m, u8 **pprog,
  * add rsp, 8                      // skip eth_type_trans's frame
  * ret                             // return to its caller
  */
+static int stack_switch_start(void){
+    pr_info("Stack Switching Logic starts here\n");
+
+    void *bpf_stack = NULL, *bpf_stack_base = NULL;
+    // Create a new stack somewhere from vmalloc
+    //pr_info("%s:%s\n",__func__,__LINE__);
+    bpf_stack = __vmalloc_node_range(THREAD_SIZE, THREAD_ALIGN,
+                    VMALLOC_START, VMALLOC_END,
+                    THREADINFO_GFP & ~__GFP_ACCOUNT,
+                    PAGE_KERNEL,
+                    0, current->pref_node_fork, __builtin_return_address(0));
+    //pr_info("%s:%s\n",__func__,__LINE__);
+    if (!bpf_stack)
+        pr_info("Acquiring Stack Memory Failed\n");
+        return -EINVAL;
+
+    //pr_info("%s:%s\n",__func__,__LINE__);
+    // Copy current stack frame in the old stack memory to the new stack memory region.
+    bpf_stack_base = (char *)bpf_stack + 0x4000;
+    
+//    pr_info("%s:%s\n",__func__,__LINE__);
+//    /* saving the old rsp to kernel stack variable*/
+//    asm volatile(
+//            "push %%rsp\n\t"
+//            :
+//            : 
+//            : "memory"
+//            );
+    
+    /* mov new stack to rsp */
+    //pr_info("%s:%s\n",__func__,__LINE__);
+    asm volatile (
+        "movq %0, %%rbp;"
+        :
+        : "r" (bpf_stack_base)
+        : "memory"
+    );
+
+    return 0;
+
+    //pr_info("%s:%s\n",__func__,__LINE__);
+
+}
+
+static void stack_switch_end(void){
+
+//    // Swap new rsp with old
+//    pr_info("%s:%s\n",__func__,__LINE__);
+//    asm volatile (
+//        "movq -8(%%rbp), %%rsp;"
+//        :
+//        : 
+//        : "rsp"
+//    );
+
+
+    //pr_info("%s:%s\n",__func__,__LINE__);
+    pr_info("Stack Switching Logic ends here\n");
+}
+
 int arch_prepare_bpf_trampoline(struct bpf_tramp_image *im, void *image, void *image_end,
 				const struct btf_func_model *m, u32 flags,
 				struct bpf_tramp_links *tlinks,
@@ -2178,40 +2241,67 @@ int arch_prepare_bpf_trampoline(struct bpf_tramp_image *im, void *image, void *i
 	if (save_ret)
 		stack_size += 8;
 
-	stack_size += nr_regs * 8;
+    //pr_info("%s:%d adding return value to stack size: %d", __func__, __LINE__, stack_size);
+	
+    stack_size += nr_regs * 8;
+    //pr_info("%s:%d adding nr_regs to stack size: %d", __func__, __LINE__, stack_size);
+    // offset which takes you to the first argument
 	regs_off = stack_size;
 
 	/* regs count  */
 	stack_size += 8;
+    //pr_info("%s:%d adding 8 bytes to store count of regs used to stack size: %d", __func__, __LINE__, stack_size);
+    // offset which takes you to the arguments count
 	nregs_off = stack_size;
 
+    // leaving this for now because I am not using this in my test fentry program
 	if (flags & BPF_TRAMP_F_IP_ARG)
 		stack_size += 8; /* room for IP address argument */
-
+    // ignoring this as well because this is also equal to nregs_off for my test program
 	ip_off = stack_size;
-
+    // hm, this is weird + 7 adn & ~0x7 doesn't make any difference the result is +8 bytes
 	stack_size += (sizeof(struct bpf_tramp_run_ctx) + 7) & ~0x7;
+    //pr_info("%s:%d after storing size of bpf_tramp_run_ctx to stack size: %d", __func__, __LINE__, stack_size);
+    // offset which takes you to the bpf_tramp_run_ctx
 	run_ctx_off = stack_size;
-
+    // I think this condition will not get executed
 	if (flags & BPF_TRAMP_F_SKIP_FRAME) {
 		/* skip patched call instruction and point orig_call to actual
 		 * body of the kernel function.
 		 */
+        //pr_info("%s:%d just checking if the conditional getting executed", __func__, __LINE__);
 		if (is_endbr(*(u32 *)orig_call))
 			orig_call += ENDBR_INSN_SIZE;
 		orig_call += X86_PATCH_SIZE;
 	}
 
 	prog = image;
-
+    
 	EMIT_ENDBR();
 	/*
 	 * This is the direct-call trampoline, as such it needs accounting
 	 * for the __fentry__ call.
 	 */
 	x86_call_depth_emit_accounting(&prog, NULL);
-	EMIT1(0x55);		 /* push rbp */
-	EMIT3(0x48, 0x89, 0xE5); /* mov rbp, rsp */
+#ifdef STACK_SWITCHING
+    EMIT1(0x54); /* push old rsp */
+    EMIT1(0x55); /* push old rbp */
+   // EMIT3(0x48, 0x89, 0xE1) /* mov rcx, rsp */;
+	if (emit_rsb_call(&prog, stack_switch_start, prog))
+		return -EINVAL;
+
+    EMIT1(0x59); /* pop rcx to store old rsp */
+    EMIT1(0x58); /* pop rax to store old rbp */
+	EMIT3(0x48, 0x89, 0xEC); /* mov rsp, rbp */
+
+	EMIT1(0x50); /* push old rbp */
+    EMIT1(0x51); /* push old rsp */
+    EMIT3(0x48, 0x89, 0xE5);    /* mov rbp, rsp */
+#else
+
+    EMIT1(0x55); /* push rbp */
+    EMIT3(0x48, 0x89, 0xE5);    /* mov rbp, rsp */
+#endif // STACK_SWITCHING init ends here
 	EMIT4(0x48, 0x83, 0xEC, stack_size); /* sub rsp, stack_size */
 	EMIT1(0x53);		 /* push rbx */
 
@@ -2322,7 +2412,26 @@ int arch_prepare_bpf_trampoline(struct bpf_tramp_image *im, void *image, void *i
 		emit_ldx(&prog, BPF_DW, BPF_REG_0, BPF_REG_FP, -8);
 
 	EMIT1(0x5B); /* pop rbx */
-	EMIT1(0xC9); /* leave */
+#ifdef STACK_SWITCHING
+
+	if (emit_call(&prog, stack_switch_end, prog))
+		return -EINVAL;
+//    EMIT1(0x58); /* pop rax */
+//    EMIT1(0x58); /* pop rax */
+//    EMIT1(0x58); /* pop rax */
+//    EMIT1(0x58); /* pop rax */
+//    EMIT1(0x58); /* pop rax */
+//    EMIT1(0x58); /* pop rax */
+    EMIT4(0x48, 0x83, 0xC4, stack_size); /* mov rsp, rsp - stack_size */
+    EMIT1(0x5C); /* pop rsp */
+    EMIT1(0x5D); /* pop rbp */
+#else
+    EMIT1(0xC9);
+#endif // STACK_SWITCHING init ends here
+	
+    //EMIT1(0xC9); /* leave */
+
+    
 	if (flags & BPF_TRAMP_F_SKIP_FRAME)
 		/* skip our return address and return to parent */
 		EMIT4(0x48, 0x83, 0xC4, 8); /* add rsp, 8 */
