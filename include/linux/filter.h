@@ -638,9 +638,10 @@ static __always_inline u32 __bpf_prog_run(const struct bpf_prog *prog,
 		stats->nsecs += sched_clock() - start;
 		u64_stats_update_end(&stats->syncp);
 	} else {
-		u64 initial_time = jiffies;
+		volatile u64 initial_time, completed_time;
+		initial_time = ktime_get_mono_fast_ns();
 		ret = dfunc(ctx, prog->insnsi, prog->bpf_func);
-		u64 completed_time = jiffies;
+		completed_time = ktime_get_mono_fast_ns();
 		printk("BPF dispatcher function overhead: %lu\n", completed_time - initial_time);
 	}
 	return ret;
