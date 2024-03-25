@@ -54,6 +54,7 @@ tprogs-y += ibumad
 tprogs-y += hbm
 tprogs-y += hello
 
+tprogs-y += spinlock_cleanup_benchmark
 tprogs-y += xdp_redirect_cpu
 tprogs-y += xdp_redirect_map_multi
 tprogs-y += xdp_redirect_map
@@ -117,6 +118,7 @@ ibumad-objs := ibumad_user.o
 hbm-objs := hbm.o $(CGROUP_HELPERS)
 hello-objs := hello_user.o $(TRACE_HELPERS)
 
+spinlock_cleanup_benchmark-objs := spinlock_cleanup_benchmark_user.o $(TRACE_HELPERS)
 xdp_redirect_map_multi-objs := xdp_redirect_map_multi_user.o $(XDP_SAMPLE)
 xdp_redirect_cpu-objs := xdp_redirect_cpu_user.o $(XDP_SAMPLE)
 xdp_redirect_map-objs := xdp_redirect_map_user.o $(XDP_SAMPLE)
@@ -126,6 +128,7 @@ xdp_monitor-objs := xdp_monitor_user.o $(XDP_SAMPLE)
 # Tell kbuild to always build the programs
 always-y := $(tprogs-y)
 always-y += hello_kern.o
+always-y += spinlock_cleanup_benchmark_kern.o
 always-y += sockex1_kern.o
 always-y += sockex2_kern.o
 always-y += sockex3_kern.o
