@@ -1858,10 +1858,10 @@ static inline void dirty_sched_domain_sysctl(int cpu)
 
 extern int sched_update_scaling(void);
 
-extern void flush_smp_call_function_from_idle(void);
+extern void flush_smp_call_function_from_idle(struct pt_regs *regs);
 
 #else /* !CONFIG_SMP: */
-static inline void flush_smp_call_function_from_idle(void) { }
+static inline void flush_smp_call_function_from_idle(struct pt_regs *regs) { }
 #endif
 
 #include "stats.h"

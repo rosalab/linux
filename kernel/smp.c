@@ -29,6 +29,8 @@
 #include "smpboot.h"
 #include "sched/smp.h"
 
+#include <linux/filter.h>
+
 #define CSD_TYPE(_csd)	((_csd)->node.u_flags & CSD_FLAG_TYPE_MASK)
 
 #ifdef CONFIG_CSD_LOCK_WAIT_DEBUG
@@ -96,7 +98,7 @@ static DEFINE_PER_CPU_ALIGNED(struct call_function_data, cfd_data);
 
 static DEFINE_PER_CPU_SHARED_ALIGNED(struct llist_head, call_single_queue);
 
-static void flush_smp_call_function_queue(bool warn_cpu_offline);
+static void flush_smp_call_function_queue(struct pt_regs *regs, bool warn_cpu_offline);
 
 int smpcfd_prepare_cpu(unsigned int cpu)
 {
@@ -141,7 +143,7 @@ int smpcfd_dying_cpu(unsigned int cpu)
 	 * ensure that the outgoing CPU doesn't go offline with work
 	 * still pending.
 	 */
-	flush_smp_call_function_queue(false);
+	flush_smp_call_function_queue(task_pt_regs(current), false);
 	irq_work_run();
 	return 0;
 }
@@ -537,11 +539,11 @@ static int generic_exec_single(int cpu, struct __call_single_data *csd)
  * Invoked by arch to handle an IPI for call function single.
  * Must be called with interrupts disabled.
  */
-void generic_smp_call_function_single_interrupt(void)
+void generic_smp_call_function_single_interrupt(struct pt_regs *regs)
 {
 	cfd_seq_store(this_cpu_ptr(&cfd_seq_local)->gotipi, CFD_SEQ_NOCPU,
 		      smp_processor_id(), CFD_SEQ_GOTIPI);
-	flush_smp_call_function_queue(true);
+	flush_smp_call_function_queue(regs, true);
 }
 
 /**
@@ -558,7 +560,7 @@ void generic_smp_call_function_single_interrupt(void)
  * Loop through the call_single_queue and run all the queued callbacks.
  * Must be called with interrupts disabled.
  */
-static void flush_smp_call_function_queue(bool warn_cpu_offline)
+static void flush_smp_call_function_queue(struct pt_regs *regs, bool warn_cpu_offline)
 {
 	call_single_data_t *csd, *csd_next;
 	struct llist_node *entry, *prev;
@@ -625,7 +627,20 @@ static void flush_smp_call_function_queue(bool warn_cpu_offline)
 			}
 
 			csd_lock_record(csd);
-			func(info);
+			if (func==bpf_die){
+				struct termination_data term_data; 
+				void *data;
+				printk("%s sync call to bpf_die\n", __FILE__);
+				term_data.prog = info; // we know that bpf termination call 
+						       // will have prog_struct behind the 
+						      // void *info pointer.
+				term_data.regs = regs;
+				data = &term_data;
+				func(data);
+			}
+			else 
+				func(info);
+
 			csd_unlock(csd);
 			csd_lock_record(NULL);
 		} else {
@@ -660,7 +675,17 @@ static void flush_smp_call_function_queue(bool warn_cpu_offline)
 
 				csd_lock_record(csd);
 				csd_unlock(csd);
-				func(info);
+				if (func==bpf_die){
+					struct termination_data term_data; 
+					void *data;
+					printk("%s !sync call to bpf_die\n", __FILE__);
+					term_data.prog = info; 	
+					term_data.regs = regs;
+					data = &term_data;
+					func(data);
+				}
+				else 
+					func(info);
 				csd_lock_record(NULL);
 			} else if (type == CSD_TYPE_IRQ_WORK) {
 				irq_work_single(csd);
@@ -681,7 +706,7 @@ static void flush_smp_call_function_queue(bool warn_cpu_offline)
 		      smp_processor_id(), CFD_SEQ_HDLEND);
 }
 
-void flush_smp_call_function_from_idle(void)
+void flush_smp_call_function_from_idle(struct pt_regs *regs)
 {
 	unsigned long flags;
 
@@ -691,7 +716,7 @@ void flush_smp_call_function_from_idle(void)
 	cfd_seq_store(this_cpu_ptr(&cfd_seq_local)->idle, CFD_SEQ_NOCPU,
 		      smp_processor_id(), CFD_SEQ_IDLE);
 	local_irq_save(flags);
-	flush_smp_call_function_queue(true);
+	flush_smp_call_function_queue(regs, true);
 	if (local_softirq_pending())
 		do_softirq();
 

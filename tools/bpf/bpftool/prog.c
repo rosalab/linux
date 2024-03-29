@@ -617,53 +617,16 @@ static int do_show(int argc, char **argv)
 
 static int do_terminate(int argc, char**argv)
 {
-	__u32 id = 0;
-	int err;
-	int fd;
-
-	if (argc)
+	int prog_id;
+	int res;
+	if (argc==0)
 		return BAD_ARG();
 
-	bpf_prog_terminate(10);
+	prog_id = atoi(argv[0]);
+	res = bpf_prog_terminate(prog_id); // goes to : tools/lib/bpf/bpf.c 
+
 	
-	return 0;
-	
-	if (json_output)
-		jsonw_start_array(json_wtr);
-	while (true) {
-		err = bpf_prog_get_next_id(id, &id);
-		if (err) {
-			if (errno == ENOENT) {
-				err = 0;
-				break;
-			}
-			p_err("can't get next program: %s%s", strerror(errno),
-			      errno == EINVAL ? " -- kernel too old?" : "");
-			err = -1;
-			break;
-		}
-
-		fd = bpf_prog_get_fd_by_id(id);
-		if (fd < 0) {
-			if (errno == ENOENT)
-				continue;
-			p_err("can't get prog by id (%u): %s",
-			      id, strerror(errno));
-			err = -1;
-			break;
-		}
-
-		err = show_prog(fd);
-		close(fd);
-		if (err)
-			break;
-	}
-
-	if (json_output)
-		jsonw_end_array(json_wtr);
-
-
-	return err;
+	return res;
 }
 
 static int
@@ -2263,6 +2226,7 @@ out:
 	free(profile_tgt_name);
 	return err;
 }
+
 
 #endif /* BPFTOOL_WITHOUT_SKELETONS */
 

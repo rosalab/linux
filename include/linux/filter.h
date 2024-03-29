@@ -566,6 +566,12 @@ struct bpf_mem
 	int total_page;
 };
 
+struct bpf_saved_states{
+	int cpu_id;
+	struct pt_regs saved_regs;
+	u64 unwinder_insn_off;
+	struct bpf_link *link;
+};
 
 struct bpf_prog {
 	u16			pages;		/* Number of allocated pages */
@@ -595,6 +601,7 @@ struct bpf_prog {
 	struct sock_fprog_kern	*orig_prog;	/* Original BPF program */
 	struct bpf_mem 		mem; /* inner-unikernel base program pages */
 	struct bpf_prog		*base; /* inner-unikernel base program */
+	struct bpf_saved_states *saved_state;
 	/* Instructions for interpreter */
 	struct sock_filter	insns[0];
 	struct bpf_insn		insnsi[];
@@ -605,6 +612,9 @@ struct sk_filter {
 	struct rcu_head	rcu;
 	struct bpf_prog	*prog;
 };
+
+
+void bpf_die(void* data); // handler for termination requests 
 
 DECLARE_STATIC_KEY_FALSE(bpf_stats_enabled_key);
 
@@ -622,14 +632,14 @@ static __always_inline u32 __bpf_prog_run(const struct bpf_prog *prog,
 	
 	cant_migrate();
 	cpu_id = raw_smp_processor_id();
+	prog->saved_state->cpu_id = cpu_id; 
+	printk("Inside prog run. Calling BPF function.");
+	if(prog->aux->id!=0)
+		printk("[fd:%d]-[CPU:%d] __bpf_prog_run \n", prog->aux->id,cpu_id);
 	if (static_branch_unlikely(&bpf_stats_enabled_key)) {
 		struct bpf_prog_stats *stats;
 		u64 start = sched_clock();
-		if(prog->aux->id!=0)
-			printk("[fd:%d]-[CPU:%d] __bpf_prog_run \n", prog->aux->id,cpu_id);
 		ret = dfunc(ctx, prog->insnsi, prog->bpf_func);
-		//if(prog->aux->id!=0)
-		//	printk("[%d]- %d - 2 __bpf_prog_run is called\n", prog->aux->id,i);
 		stats = this_cpu_ptr(prog->stats);
 		u64_stats_update_begin(&stats->syncp);
 		stats->cnt++;
@@ -638,6 +648,7 @@ static __always_inline u32 __bpf_prog_run(const struct bpf_prog *prog,
 	} else {
 		ret = dfunc(ctx, prog->insnsi, prog->bpf_func);
 	}
+	prog->saved_state->cpu_id = -1; 
 	return ret;
 }
 

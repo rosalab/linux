@@ -35,6 +35,9 @@
 #include <asm-generic/mman-common.h>
 
 #include <linux/moduleloader.h>
+#include <asm/processor.h>
+#include <linux/sched/debug.h> // for show_regs	
+#include <linux/delay.h> // for msleep
 
 #define IS_FD_ARRAY(map) ((map)->map_type == BPF_MAP_TYPE_PERF_EVENT_ARRAY || \
 			  (map)->map_type == BPF_MAP_TYPE_CGROUP_ARRAY || \
@@ -100,10 +103,53 @@ int bpf_check_uarg_tail_zero(bpfptr_t uaddr,
 	return res ? 0 : -E2BIG;
 }
 
-static __maybe_unused void bpf_die(void)
+static void __bpf_prog_put_noref(struct bpf_prog *prog, bool deferred);
+static void bpf_perf_link_release(struct bpf_link *link);
+
+__maybe_unused void bpf_die(void* data)
 {
-        u32 cpu_id = raw_smp_processor_id();
-        printk("bpf_die called on [CPU:%d]\n", cpu_id);
+	struct termination_data *term_data = data; 	
+	struct pt_regs *regs = term_data->regs;
+	struct bpf_prog *kill_prog = term_data->prog;
+        int cpu_id;
+        int prog_id = kill_prog->aux->id;
+	unsigned int new_address;
+        cpu_id = raw_smp_processor_id();
+        printk("bpf_die called on [CPU:%d] prog:%d\n", cpu_id, prog_id);
+        
+        /* TODO : 
+         * Currently, the delink code is only meant for TRACEPOINT type BPF programs. 
+         * Also, I am explicitly calling refcnt-- operation to make the bpf_prog_put
+         * release the prog_id and all other resources attached to this bpf program. 
+         * So if a program (which would have called bpf_prog_get) has acquired a reference 
+         * and expecting this BPF program to be alive during the operation, will result in 
+         * unexpected failure. 
+        */
+        BUG_ON(kill_prog->saved_state->link == NULL);
+        bpf_perf_link_release(kill_prog->saved_state->link);
+        
+        // detach from hook point
+        while (atomic64_read(&kill_prog->aux->refcnt)>1){
+                atomic64_dec(&kill_prog->aux->refcnt);
+        }       
+        bpf_prog_put(kill_prog);
+        printk("After bpf_prog_put\n");
+
+	// read the location of panic handler and change rip to it
+	// kill_prog->saved_state->saved_regs->ip = <address of panic handler>
+	//printk("Before changing saved ip, location on stack : 0x%lx, old ip: 0x%lx\n",&task_pt_regs(current)->ip, task_pt_regs(current)->ip );
+        printk("Before changing ip, old ip : 0x%lx \n", regs->ip);
+	regs->ip = kill_prog->saved_state->unwinder_insn_off;
+        printk("After changing task_struct's ip to unwinder : 0x%lx \n", regs->ip);
+/*
+	asm volatile(
+		"addq $16, %%rsp\n"
+		"movq $new_address, (%%rsp)\n"
+		: 
+		: "I" (new_address)
+		: "memory"
+	);
+*/
 }
 
 const struct bpf_map_ops bpf_map_offload_ops = {
@@ -2517,6 +2563,11 @@ static int bpf_prog_load_iu(union bpf_attr *attr, bpfptr_t uattr)
 
 	prog->bpf_func = (void *)((u64)base->mem.mem + attr->prog_offset);
 
+	/* Rust unwinder offset */
+	printk("%s %d attr.unwinder_insn_off: 0x%lx\n", __FILE__, __LINE__, attr->unwinder_insn_off);
+	prog->saved_state->unwinder_insn_off = (u64)base->mem.mem + (u64)attr->unwinder_insn_off;
+	printk("%s %d bpf_func : 0x%lx,  unwinder_insn_off: 0x%lx\n", __FILE__, __LINE__,prog->bpf_func, prog->saved_state->unwinder_insn_off);
+
 	err = bpf_prog_alloc_id(prog);
 	if (err)
 		goto free_base;
@@ -3321,6 +3372,7 @@ void bpf_link_init(struct bpf_link *link, enum bpf_link_type type,
 	link->id = 0;
 	link->ops = ops;
 	link->prog = prog;
+	prog->saved_state->link = link;
 }
 
 static void bpf_link_free_id(int id)
@@ -5628,9 +5680,20 @@ static int __sys_bpf(int cmd, bpfptr_t uattr, unsigned int size)
 		err = bpf_prog_bind_map(&attr);
 		break;
 	case BPF_PROG_TERMINATE:
-		printk("Reaching herei in syscall");
-		//smp_call_function_single(0, bpf_die ,NULL,1);
-	        //err= smp_call_function_single(1, bpf_die ,NULL,1);
+		printk("Starting terminate syscall prog_id : %d\n", attr.prog_id);
+		struct bpf_prog *prog; 	
+		int cpu_id;
+		prog = bpf_prog_by_id(attr.prog_id);
+		if (IS_ERR(prog) || (cpu_id = prog->saved_state->cpu_id)<0){
+			printk("bpf prog_id : %d not found or not running! Not executing terminate.\n", attr.prog_id);
+			err = -EINVAL;
+
+		}
+		else{
+			printk("About to call bpf_die as IPI to CPU : %d\n", cpu_id);
+			smp_call_function_single(cpu_id,bpf_die,(void*)prog,1);
+			err = 0;
+		}
 		break;
 	default:
 		err = -EINVAL;
