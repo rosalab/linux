@@ -638,13 +638,13 @@ static __always_inline u32 __bpf_prog_run(const struct bpf_prog *prog,
 		stats->nsecs += sched_clock() - start;
 		u64_stats_update_end(&stats->syncp);
 	} else {
-		volatile u64 initial_time, completed_time;
-		initial_time = ktime_get_mono_fast_ns();
+		/* volatile u64 initial_time, completed_time; */
+		/* initial_time = ktime_get_mono_fast_ns(); */
 		ret = dfunc(ctx, prog->insnsi, prog->bpf_func);
-		completed_time = ktime_get_mono_fast_ns();
-		barrier();
-		if (prog->type == BPF_PROG_TYPE_KPROBE)
-			printk("BPF dispatcher function overhead: %llu\n", completed_time - initial_time);
+		/* completed_time = ktime_get_mono_fast_ns(); */
+		/* barrier(); */
+		/* if (prog->type == BPF_PROG_TYPE_KPROBE) */
+		/* 	printk("BPF dispatcher function overhead: %llu\n", completed_time - initial_time); */
 	}
 	return ret;
 }
