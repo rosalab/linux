@@ -50,6 +50,8 @@
 #define BPF_OBJ_FLAG_MASK   (BPF_F_RDONLY | BPF_F_WRONLY)
 
 DEFINE_PER_CPU(int, bpf_prog_active);
+DEFINE_PER_CPU(unsigned int, bpf_termination_flag); // used by bpf_die to check for BPF's IP before issuing termination
+
 static DEFINE_IDR(prog_idr);
 static DEFINE_SPINLOCK(prog_idr_lock);
 static DEFINE_IDR(map_idr);
@@ -113,7 +115,6 @@ __maybe_unused void bpf_die(void* data)
 	struct bpf_prog *kill_prog = term_data->prog;
         int cpu_id;
         int prog_id = kill_prog->aux->id;
-	unsigned int new_address;
         cpu_id = raw_smp_processor_id();
         printk("bpf_die called on [CPU:%d] prog:%d\n", cpu_id, prog_id);
         
@@ -133,23 +134,16 @@ __maybe_unused void bpf_die(void* data)
                 atomic64_dec(&kill_prog->aux->refcnt);
         }       
         bpf_prog_put(kill_prog);
-        printk("After bpf_prog_put\n");
 
-	// read the location of panic handler and change rip to it
-	// kill_prog->saved_state->saved_regs->ip = <address of panic handler>
-	//printk("Before changing saved ip, location on stack : 0x%lx, old ip: 0x%lx\n",&task_pt_regs(current)->ip, task_pt_regs(current)->ip );
-        printk("Before changing ip, old ip : 0x%lx \n", regs->ip);
-	regs->ip = kill_prog->saved_state->unwinder_insn_off;
-        printk("After changing task_struct's ip to unwinder : 0x%lx \n", regs->ip);
-/*
-	asm volatile(
-		"addq $16, %%rsp\n"
-		"movq $new_address, (%%rsp)\n"
-		: 
-		: "I" (new_address)
-		: "memory"
-	);
-*/
+	if (per_cpu(bpf_termination_flag, cpu_id)  == 0){
+		printk("BPF program not in any helper/panic. Changing its IP\n");
+		regs->ip = kill_prog->saved_state->unwinder_insn_off;
+	}
+	else{
+		printk("BPF program in helper/panic. Changing its termination flag\n");
+	  	per_cpu(bpf_termination_flag, cpu_id) = 2; 
+	}
+
 }
 
 const struct bpf_map_ops bpf_map_offload_ops = {
