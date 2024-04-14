@@ -15205,6 +15205,7 @@ int bpf_check(struct bpf_prog **prog, union bpf_attr *attr, bpfptr_t uattr)
 	int i, len, ret = -EINVAL;
 	bool is_priv;
 
+	printk("[%s:%d] bpf_check begin : attr prog_btf_fd:%d\n", __FILE__, __LINE__, attr->prog_btf_fd);
 	/* no program is valid */
 	if (ARRAY_SIZE(bpf_verifier_ops) == 0)
 		return -EINVAL;
@@ -15289,7 +15290,7 @@ int bpf_check(struct bpf_prog **prog, union bpf_attr *attr, bpfptr_t uattr)
 	ret = check_subprogs(env);
 	if (ret < 0)
 		goto skip_full_check;
-
+	printk("[%s:%d] attr prog_btf_fd:%d\n", __FILE__, __LINE__, attr->prog_btf_fd);
 	ret = check_btf_info(env, attr, uattr);
 	if (ret < 0)
 		goto skip_full_check;

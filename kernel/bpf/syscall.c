@@ -39,6 +39,8 @@
 #include <linux/sched/debug.h> // for show_regs	
 #include <linux/kprobes.h> // for registering kprobes 
 #include <linux/delay.h> // for registering kprobes 
+#include <linux/memory.h> // for mutex_lock(&text_mutex)
+#include <linux/kmemleak.h> // for kmemleak_not_leak
 
 
 #define IS_FD_ARRAY(map) ((map)->map_type == BPF_MAP_TYPE_PERF_EVENT_ARRAY || \
@@ -202,9 +204,11 @@ __maybe_unused static void register_bpfprog_call_insn_to_kprobe(struct bpf_prog*
 }
 
 
-static void bpf_die(void* prog)
+void bpf_die(void* data)
 {
-	struct bpf_prog* kill_prog = prog;	
+	struct termination_data *term_data = data;
+	struct pt_regs *regs = term_data->regs;
+	struct bpf_prog* kill_prog = term_data->prog;	
 	int cpu_id;
 	cpu_id = raw_smp_processor_id();
 	printk("bpf_die called on [CPU:%d]\n", cpu_id);
@@ -2847,7 +2851,9 @@ static int bpf_prog_load(union bpf_attr *attr, bpfptr_t uattr)
 				sizeof(license) - 1) < 0)
 		return -EFAULT;
 	license[sizeof(license) - 1] = 0;
-
+	
+	printk("Starting bpf_prog_load for prog_name:%s\n",attr->prog_name);
+	
 	/* eBPF programs must be GPL compatible to use GPL-ed functions */
 	is_gpl = license_is_gpl_compatible(license);
 
@@ -5455,8 +5461,8 @@ static int __sys_bpf(int cmd, bpfptr_t uattr, unsigned int size)
 			printk("--- Address of jited program : %lx\n", (void*)prog->bpf_func);
 			printk("--- Size of jited program : %d\n", prog->jited_len);
 			//set_memory_nx((unsigned long)prog->bpf_func,prog->jited_len >> PAGE_SHIFT);
-			//smp_call_function_single(cpu_id,bpf_die,(void*)prog/*->saved_state->saved_regs*/,1);
-			bpf_die((void*)prog);
+			smp_call_function_single(cpu_id,bpf_die,(void*)prog,1);
+			//bpf_die((void*)prog);
 			err = 0;
 		}
 #endif /* CONFIG_HAVE_BPF_TERMINATION */
