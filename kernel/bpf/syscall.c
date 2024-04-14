@@ -3064,6 +3064,9 @@ void bpf_link_init(struct bpf_link *link, enum bpf_link_type type,
 	link->id = 0;
 	link->ops = ops;
 	link->prog = prog;
+#ifdef CONFIG_HAVE_BPF_TERMINATION
+	prog->saved_state->link = link; // to be used for delinking when terminating
+#endif
 }
 
 static void bpf_link_free_id(int id)

@@ -88,7 +88,6 @@ struct bpf_prog *bpf_prog_alloc_no_stats(unsigned int size, gfp_t gfp_extra_flag
 	struct bpf_prog *fp ;
 	struct bpf_saved_states *saved_state; // creating an instance of our new saved_state structure
 
-
 	size = round_up(size, PAGE_SIZE);
 	fp = __vmalloc(size, gfp_flags);
 	if (fp == NULL)
@@ -100,7 +99,6 @@ struct bpf_prog *bpf_prog_alloc_no_stats(unsigned int size, gfp_t gfp_extra_flag
 		vfree(fp);
 		return NULL;
 	}	
-	saved_state->cpu_id = -1;
 #endif /*CONFIG_HAVE_BPF_TERMINATION*/ 
 
 	aux = kzalloc(sizeof(*aux), GFP_KERNEL_ACCOUNT | gfp_extra_flags);
@@ -123,7 +121,11 @@ struct bpf_prog *bpf_prog_alloc_no_stats(unsigned int size, gfp_t gfp_extra_flag
 	fp->aux = aux;
 #ifdef CONFIG_HAVE_BPF_TERMINATION
 	fp->saved_state = saved_state;
-#endif  
+	saved_state->cpu_id = -1;
+#ifdef FAST_PATH_TERMINATION
+	fp->saved_state->termination_prog = NULL;
+#endif // FAST_PATH_TERMINATION
+#endif //CONFIG_HAVE_BPF_TERMINATION
 	fp->aux->prog = fp;
 	fp->jit_requested = ebpf_jit_enabled();
 	fp->blinding_requested = bpf_jit_blinding_enabled(fp);

@@ -579,9 +579,19 @@ struct bpf_prog_stats {
 	struct u64_stats_sync syncp;
 } __aligned(2 * sizeof(u64));
 
+
+struct bpf_patch_offsets{
+	u64 old_address;
+	u64 new_address;
+	s64 old_offset; 
+	s64 new_offset;
+	struct list_head list;
+};
+
 struct bpf_saved_states{
 	int cpu_id; // The cpu ID at which the associated BPF program was/is running
 	struct pt_regs saved_regs; // The context right before execution started. 
+	struct bpf_link *link;
 #ifdef KPROBE_TERMINATION
 	struct kprobe **kps; // List of all kprobes which were successfully registered when termination was attempted
 	int num_kprobes; // Number of kprobes in above array
@@ -597,6 +607,13 @@ struct bpf_saved_states{
 #endif
 
 	/* LIST_CLEANUP data structure saved per-cpu. Ref <linux/unwind_list.h>  */
+#if defined(FAST_PATH_TERMINATION)
+	struct bpf_prog *termination_prog;
+	/* Create a table of offsets where the old_offset is what an original BPF program would have
+	 * while the new_offset would the offset which the x86 code should have after patching 
+	 */
+	//struct bpf_patch_offsets bpf_patch_offsets;
+#endif
 };
 
 struct sk_filter {
