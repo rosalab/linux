@@ -135,6 +135,6 @@ SYSCALL_DEFINE0(hello){
 	*/
 
 	//test_kprobes();	
-	printk("Exiting from sys_hello!\n");
-	return 0;
+	//printk("Exiting from sys_hello!\n");
+	return (1+2);
 }

@@ -748,7 +748,10 @@ BPF_CALL_4(bpf_loop, u32, nr_loops, void *, callback_fn, void *, callback_ctx,
 		return -E2BIG;
 
 	for (i = 0; i < nr_loops; i++) {
+		//ktime_t start = ktime_get();
 		ret = callback((u64)i, (u64)(long)callback_ctx, 0, 0, 0);
+		//ktime_t delta = ktime_get() - start; 
+		//printk("bpf_loop iter:[%lld] runtime : [%lld]\n", delta);
 		/* return value: 0 - continue, 1 - stop and return */
 		if (ret)
 			return i + 1;

@@ -6680,6 +6680,7 @@ static int bpf_object_load_prog(struct bpf_object *obj, struct bpf_program *prog
 	bool own_log_buf = true;
 	__u32 log_level = prog->log_level;
 
+	pr_warn("%s %d bpf object load with offload : %d\n", __FILE__, __LINE__, load_attr.prog_ifindex);
 	if (prog->type == BPF_PROG_TYPE_UNSPEC) {
 		/*
 		 * The program type must be set.  Most likely we couldn't find a proper

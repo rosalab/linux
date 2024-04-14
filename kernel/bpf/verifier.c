@@ -7223,7 +7223,7 @@ static int check_helper_call(struct bpf_verifier_env *env, struct bpf_insn *insn
 	int i, err, func_id;
 
 	/* find function prototype */
-	printk("check helper call : %x %x\n", insn->code, insn->imm);
+	//printk("check helper call : %x %x\n", insn->code, insn->imm);
 	func_id = insn->imm;
 	if (func_id < 0 || func_id >= __BPF_FUNC_MAX_ID) {
 		verbose(env, "invalid func %s#%d\n", func_id_name(func_id),
@@ -13813,10 +13813,12 @@ static int jit_subprogs(struct bpf_verifier_env *env)
 	prog->bpf_func = func[0]->bpf_func;
 	prog->jited_len = func[0]->jited_len;
 	prog->aux->func = func;
+	/*
 	for(int i=0;i<env->subprog_cnt;i++)
 	{
 		printk("[%s]:%d func[%d] = 0x%lx size:%d\n", __FILE__, __LINE__, i, func[i],func[i]->jited_len );
 	}
+	*/
 	prog->aux->func_cnt = env->subprog_cnt;
 	bpf_prog_jit_attempt_done(prog);
 	return 0;
@@ -15325,8 +15327,12 @@ skip_full_check:
 		ret = check_max_stack_depth(env);
 
 	/* instruction rewrites happen after this point */
+
+	/* Disabling loop optimization to work on termination of bpf loop iterators. 
+	 * TODO : Uncomment later
 	if (ret == 0)
 		ret = optimize_bpf_loop(env);
+	*/
 
 	if (is_priv) {
 		if (ret == 0)
