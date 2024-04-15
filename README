@@ -60,6 +60,6 @@ will find the new BPF code's location and will jump there.
  * The BPF program should not make you wait for the 2nd `bpf_get_numa_node_id()` helper call because due to the binary patch, 
    the helper will get stubbed out leading to a quick termination. 
 
-Refer the screenshot for expected results : ![Screenshot showing the termination results](/termination_ss.png)
+Refer the screenshot for expected results : ![Screenshot showing the termination results](https://github.com/rosalab/linux/blob/74e29a4ce457046d58c61a71d9647a97c4aa2732/termination_ss.png)
 
 
