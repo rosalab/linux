@@ -118,9 +118,12 @@ int trace_sys_connect1(struct pt_regs *ctx)
 	bpf_printk("Inside trace_sys_connect\n");
 	u32 iter = (1<<2);	
 	bpf_printk("Loop iteration count: %dk\n",iter);
-	bpf_loop(iter, runner, NULL,0);
+	//bpf_loop(iter, runner, NULL,0);
 	//bpf_printk("Exiting trace_sys_connect\n");
-	//int id = bpf_get_numa_node_id();
+	int id = bpf_get_numa_node_id();
+	bpf_printk("numa node run 1 : %d\nStarting another helper call", id);
+	id = bpf_get_numa_node_id();
+	bpf_printk("numa node run 2 : %d\n", id);
 	//bpf_printk("BPF : at NUMA node : %d\n", id);
 	//do_reg_lookup();
 	//detach_kprobe();
@@ -144,7 +147,7 @@ int kprobe_execve(struct pt_regs *ctx)
 }
 */
 
-
+/*
 #define __ksym __attribute__((section(".ksyms")))
 struct task_struct *bpf_task_acquire(struct task_struct *p) __ksym;
 void bpf_task_release(struct task_struct *p) __ksym;
@@ -162,6 +165,7 @@ int trace_sys_connect(struct pt_regs *ctx)
 	return 0;	
 }
 
+*/
 
 char _license[] SEC("license") = "GPL";
 u32 _version SEC("version") = LINUX_VERSION_CODE;
