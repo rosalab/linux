@@ -52,9 +52,9 @@ class Helper(APIElement):
         Break down helper function protocol into smaller chunks: return type,
         name, distincts arguments.
         """
-        arg_re = re.compile('((\w+ )*?(\w+|...))( (\**)(\w+))?$')
+        arg_re = re.compile(r'((\w+ )*?(\w+|...))( (\**)(\w+))?$')
         res = {}
-        proto_re = re.compile('(.+) (\**)(\w+)\(((([^,]+)(, )?){1,5})\)$')
+        proto_re = re.compile(r'(.+) (\**)(\w+)\(((([^,]+)(, )?){1,5})\)$')
 
         capture = proto_re.match(self.proto)
         res['ret_type'] = capture.group(1)
@@ -101,11 +101,11 @@ class HeaderParser(object):
         return Helper(proto=proto, desc=desc, ret=ret)
 
     def parse_symbol(self):
-        p = re.compile(' \* ?(.+)$')
+        p = re.compile(r' \* ?(.+)$')
         capture = p.match(self.line)
         if not capture:
             raise NoSyscallCommandFound
-        end_re = re.compile(' \* ?NOTES$')
+        end_re = re.compile(r' \* ?NOTES$')
         end = end_re.match(self.line)
         if end:
             raise NoSyscallCommandFound
@@ -120,7 +120,7 @@ class HeaderParser(object):
         #   - Same as above, with "const" and/or "struct" in front of type
         #   - "..." (undefined number of arguments, for bpf_trace_printk())
         # There is at least one term ("void"), and at most five arguments.
-        p = re.compile(' \* ?((.+) \**\w+\((((const )?(struct )?(\w+|\.\.\.)( \**\w+)?)(, )?){1,5}\))$')
+        p = re.compile(r' \* ?((.+) \**\w+\((((const )?(struct )?(\w+|\.\.\.)( \**\w+)?)(, )?){1,5}\))$')
         capture = p.match(self.line)
         if not capture:
             raise NoHelperFound
@@ -128,7 +128,7 @@ class HeaderParser(object):
         return capture.group(1)
 
     def parse_desc(self):
-        p = re.compile(' \* ?(?:\t| {5,8})Description$')
+        p = re.compile(r' \* ?(?:\t| {5,8})Description$')
         capture = p.match(self.line)
         if not capture:
             # Helper can have empty description and we might be parsing another
@@ -142,7 +142,7 @@ class HeaderParser(object):
             if self.line == ' *\n':
                 desc += '\n'
             else:
-                p = re.compile(' \* ?(?:\t| {5,8})(?:\t| {8})(.*)')
+                p = re.compile(r' \* ?(?:\t| {5,8})(?:\t| {8})(.*)')
                 capture = p.match(self.line)
                 if capture:
                     desc += capture.group(1) + '\n'
@@ -151,7 +151,7 @@ class HeaderParser(object):
         return desc
 
     def parse_ret(self):
-        p = re.compile(' \* ?(?:\t| {5,8})Return$')
+        p = re.compile(r' \* ?(?:\t| {5,8})Return$')
         capture = p.match(self.line)
         if not capture:
             # Helper can have empty retval and we might be parsing another
@@ -165,7 +165,7 @@ class HeaderParser(object):
             if self.line == ' *\n':
                 ret += '\n'
             else:
-                p = re.compile(' \* ?(?:\t| {5,8})(?:\t| {8})(.*)')
+                p = re.compile(r' \* ?(?:\t| {5,8})(?:\t| {8})(.*)')
                 capture = p.match(self.line)
                 if capture:
                     ret += capture.group(1) + '\n'
@@ -372,7 +372,7 @@ as "Dual BSD/GPL", may be used). Some helper functions are only accessible to
 programs that are compatible with the GNU Privacy License (GPL).
 
 In order to use such helpers, the eBPF program must be loaded with the correct
-license string passed (via **attr**) to the **bpf**\ () system call, and this
+license string passed (via **attr**) to the **bpf**\\ () system call, and this
 generally translates into the C source code of the program containing a line
 similar to the following:
 
@@ -406,7 +406,7 @@ may be interested in:
 * The bpftool utility can be used to probe the availability of helper functions
   on the system (as well as supported program and map types, and a number of
   other parameters). To do so, run **bpftool feature probe** (see
-  **bpftool-feature**\ (8) for details). Add the **unprivileged** keyword to
+  **bpftool-feature**\\ (8) for details). Add the **unprivileged** keyword to
   list features available to unprivileged users.
 
 Compatibility between helper functions and program types can generally be found
@@ -418,23 +418,23 @@ other functions, themselves allowing access to additional helpers. The
 requirement for GPL license is also in those **struct bpf_func_proto**.
 
 Compatibility between helper functions and map types can be found in the
-**check_map_func_compatibility**\ () function in file *kernel/bpf/verifier.c*.
+**check_map_func_compatibility**\\ () function in file *kernel/bpf/verifier.c*.
 
 Helper functions that invalidate the checks on **data** and **data_end**
 pointers for network processing are listed in function
-**bpf_helper_changes_pkt_data**\ () in file *net/core/filter.c*.
+**bpf_helper_changes_pkt_data**\\ () in file *net/core/filter.c*.
 
 SEE ALSO
 ========
 
-**bpf**\ (2),
-**bpftool**\ (8),
-**cgroups**\ (7),
-**ip**\ (8),
-**perf_event_open**\ (2),
-**sendmsg**\ (2),
-**socket**\ (7),
-**tc-bpf**\ (8)'''
+**bpf**\\ (2),
+**bpftool**\\ (8),
+**cgroups**\\ (7),
+**ip**\\ (8),
+**perf_event_open**\\ (2),
+**sendmsg**\\ (2),
+**socket**\\ (7),
+**tc-bpf**\\ (8)'''
         print(footer)
 
     def print_proto(self, helper):
@@ -454,7 +454,7 @@ SEE ALSO
             one_arg = '{}{}'.format(comma, a['type'])
             if a['name']:
                 if a['star']:
-                    one_arg += ' {}**\ '.format(a['star'].replace('*', '\\*'))
+                    one_arg += ' {}**\\ '.format(a['star'].replace('*', '\\*'))
                 else:
                     one_arg += '** '
                 one_arg += '*{}*\\ **'.format(a['name'])
