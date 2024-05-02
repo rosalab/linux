@@ -159,6 +159,7 @@ BPF_CALL_0(bpf_get_numa_node_id)
 	printk("Entering bpf_get_numa_node_id at time : %ld\n", ktime_get_boottime_ns());
 	mdelay(10000); // 10000 milliseconds = 10 seconds
 	printk("Exiting bpf_get_numa_node_id at time : %ld\n", ktime_get_boottime_ns());
+
 	return numa_node_id();
 }
 

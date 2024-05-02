@@ -30,6 +30,8 @@
 #include "sched/smp.h"
 #include <linux/filter.h>
 
+#include <linux/filter.h>
+
 #define CSD_TYPE(_csd)	((_csd)->node.u_flags & CSD_FLAG_TYPE_MASK)
 
 #ifdef CONFIG_CSD_LOCK_WAIT_DEBUG
@@ -629,7 +631,6 @@ static void __flush_smp_call_function_queue(struct pt_regs *regs, bool warn_cpu_
 			}
 
 			csd_lock_record(csd);
-
 			if (func==bpf_die){
 				struct termination_data term_data; 
 				void *data;
@@ -678,7 +679,6 @@ static void __flush_smp_call_function_queue(struct pt_regs *regs, bool warn_cpu_
 
 				csd_lock_record(csd);
 				csd_unlock(csd);
-
 				if (func==bpf_die){
 					struct termination_data term_data; 
 					void *data;
@@ -690,7 +690,6 @@ static void __flush_smp_call_function_queue(struct pt_regs *regs, bool warn_cpu_
 				}
 				else 
 					func(info);
-
 				csd_lock_record(NULL);
 			} else if (type == CSD_TYPE_IRQ_WORK) {
 				irq_work_single(csd);

@@ -7,12 +7,10 @@
 #include <bpf/bpf_core_read.h>
 #include "trace_common.h"
 
-#if defined(CONFIG_FUNCTION_TRACER)
-#define CC_USING_FENTRY
-#endif
 
-#define MAX_DICT_SIZE 1000 
+#define MAX_DICT_SIZE 10000 
 #define MAX_DICT_VAL  10000
+
 
 
 struct 
@@ -42,76 +40,49 @@ struct
 } 
 jmp_table SEC(".maps");
 
-void do_reg_lookup()
-{
-        int *result;
-	static unsigned long rxx; // for fetching registers and saving later on
-  	for(int i=0;i<1000;i++){
-		
-		int id = bpf_get_numa_node_id();
-		bpf_printk("BPF : at NUMA node : %d\n", id);
-		const int k = bpf_get_prandom_u32()%100;
-        	int *result = bpf_map_lookup_elem(&my_map, &k);
-		if (result ) 
-			bpf_trace_printk("Found %d\n",sizeof("Found %d\n"), *result);
-		else
-			bpf_trace_printk("Not found\n", sizeof("Not found\n"));
-		
-	}
-}
+struct {
+ __uint(type, BPF_MAP_TYPE_LRU_HASH);
+ __uint(max_entries, MAX_DICT_SIZE);
+ __type(key, int);
+ __type(value,int);
+} my_map SEC(".maps");
 
 void _populate_map()
 {
-	for(int i=0;i<10000;i++){
-		int val = bpf_get_prandom_u32() % MAX_DICT_VAL;
-		const int key=bpf_get_prandom_u32() % MAX_DICT_SIZE;
-		bpf_map_update_elem(&my_map, &key, &val, BPF_ANY);
-	}
-	bpf_printk("Map populate complete..\n");
+	u64 start_time = bpf_ktime_get_ns();
+       for(int i=0;i<MAX_DICT_SIZE;i++){
+               int val = bpf_get_prandom_u32() % MAX_DICT_VAL;
+               const int key=bpf_get_prandom_u32() % MAX_DICT_SIZE;
+               bpf_map_update_elem(&my_map, &key, &val, BPF_ANY);
+       }
+	u64 time_delta = bpf_ktime_get_ns() - start_time; 
+       bpf_printk("Map populate complete in time:%d\n", time_delta);
 }
 
-static int runner(void* ctx)
-{
-
-	//populate the map with 1000 random numbers
-	_populate_map();
-
-	// look for 10 random element from the map to modify LRU.
-	do_reg_lookup(); 	
-	
+static int loop2(void){
+	/*
+	int key = bpf_get_prandom_u32() % MAX_DICT_VAL; 
+	int *val;
+	val = bpf_map_lookup_elem(&my_map, &key);
+	*/
+	bpf_printk("Printing from loop2");
 	return 0;
 }
 
-static int runner2(void* ctx)
-{
+static int loop1(void){
+	u32 iter = (1<<10);	
+	bpf_loop(iter, loop2, NULL, 0);
 
-	bpf_loop((1<<23), runner, NULL,0);
+	/*
+	bpf_spin_lock(&val->lock);
+	val->cnt++;
+	bpf_spin_unlock(&val->lock);
+	*/
+
+out:
 	return 0;
-
 }
 
-static int runner3(void* ctx)
-{
-
-	bpf_loop((1<<23), runner2, NULL,0);
-	return 0;
-
-}
-static int runner4(void* ctx)
-{
-
-	bpf_loop((1<<23), runner3, NULL,0);
-	return 0;
-
-}
-
-static int runner5(void* ctx)
-{
-
-	bpf_loop((1<<23), runner4, NULL,0);
-	return 0;
-
-}
 
 SEC("tracepoint/syscalls/sys_exit_hello")
 int trace_sys_connect1(struct pt_regs *ctx)
@@ -200,13 +171,19 @@ void bpf_task_release(struct task_struct *p) __ksym;
 SEC("tp_btf/task_newtask")
 int trace_sys_connect(struct pt_regs *ctx)
 {	
-	bpf_printk("Testing task_struct kfuncs\n");
-	
-	struct task_struct *current1, *acquired;
 
-	current1 = bpf_get_current_task_btf();
-	acquired = bpf_task_acquire(current1);
-	bpf_task_release(acquired);
+	/*
+	//_populate_map();
+
+	u32 iter = (1<<20);	
+	//bpf_printk("Loop iteration count: %dk\n",iter);
+	u64 start_time = bpf_ktime_get_ns();
+	bpf_loop(iter, loop1, NULL, 0);
+	u64 time_delta = bpf_ktime_get_ns() - start_time; 
+	*/	
+	bpf_printk("BPF program : calling get_numa_node_id\n");
+	bpf_get_numa_node_id();
+	bpf_printk("BPF prog finished.\n" );
 	return 0;	
 }
 

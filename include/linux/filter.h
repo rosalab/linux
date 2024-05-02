@@ -637,7 +637,6 @@ static __always_inline u32 __bpf_prog_run(const struct bpf_prog *prog,
 {
 	u32 ret;
 	cant_migrate();
-
 	u32 prog_id = prog->aux->id;
 #ifdef CONFIG_HAVE_BPF_TERMINATION
 	static unsigned long rxx; // for fetching registers and saving later on
@@ -650,6 +649,9 @@ static __always_inline u32 __bpf_prog_run(const struct bpf_prog *prog,
 
 	printk("current :0x%lx\n", current); // TODO: deleting these 2 print statements causes kernel OOPs. 
 	printk("current->bpf_prog: 0x%lx\n", current->bpf_prog);
+#if defined(FAST_PATH_TERMINATION)
+	printk("current->bpf_prog termination_prog: 0x%lx\n", current->bpf_prog->saved_state->termination_prog);
+#endif
 	if(prog_id>0){ //TODO: skip all pre-installed programs in a better way
 
 		
@@ -722,7 +724,6 @@ static __always_inline u32 __bpf_prog_run(const struct bpf_prog *prog,
 			 *    - detach this ebpf program
 			 *    - clearup saved states if they could affect BPF loading lateron?
 			 */
-			struct bpf_link *link;
 			prog = current->bpf_prog; // original prog will get mangled as stack state
 						  // will become weird due to termination. 
 #ifdef KPROBE_TERMINATION
@@ -741,6 +742,7 @@ static __always_inline u32 __bpf_prog_run(const struct bpf_prog *prog,
 
 			 current->bpf_prog = NULL;
 			 printk("All callee saved registers complete! Exiting..\n");
+
 #endif 
 
 			// detach from hook point
@@ -758,6 +760,7 @@ static __always_inline u32 __bpf_prog_run(const struct bpf_prog *prog,
 			 else
 				 printk("Didn't unlink\n");	
 			*/
+
 			 goto out;
 		}			
 	}

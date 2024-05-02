@@ -1341,6 +1341,7 @@ union bpf_attr {
 		__u32		kern_version;	/* not used */
 		__u32		prog_flags;
 		char		prog_name[BPF_OBJ_NAME_LEN];
+		__u64		unwinder_insn_off;
 		__u32		prog_ifindex;	/* ifindex of netdev to prep for */
 		/* For some prog types expected attach type must be known at
 		 * load time to verify attach type specific parts of prog

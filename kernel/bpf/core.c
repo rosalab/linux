@@ -99,6 +99,7 @@ struct bpf_prog *bpf_prog_alloc_no_stats(unsigned int size, gfp_t gfp_extra_flag
 		vfree(fp);
 		return NULL;
 	}	
+
 #endif /*CONFIG_HAVE_BPF_TERMINATION*/ 
 
 	aux = kzalloc(sizeof(*aux), GFP_KERNEL_ACCOUNT | gfp_extra_flags);
@@ -120,8 +121,10 @@ struct bpf_prog *bpf_prog_alloc_no_stats(unsigned int size, gfp_t gfp_extra_flag
 	fp->pages = size / PAGE_SIZE;
 	fp->aux = aux;
 #ifdef CONFIG_HAVE_BPF_TERMINATION
+	saved_state->cpu_id = -1;
 	fp->saved_state = saved_state;
 	saved_state->cpu_id = -1;
+
 #ifdef FAST_PATH_TERMINATION
 	fp->saved_state->termination_prog = NULL;
 #endif // FAST_PATH_TERMINATION
