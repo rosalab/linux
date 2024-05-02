@@ -156,11 +156,10 @@ const struct bpf_func_proto bpf_get_smp_processor_id_proto = {
 BPF_CALL_0(bpf_get_numa_node_id)
 {
 	//while(1);
-	unsigned long rxx; 
-	asm volatile("1: lea 1b(%%rip), %0;": "=a"(rxx));	
-	printk("Inside bpf_get_numa_node_id RIP:0x%lx\n", rxx);
-	
-	mdelay(1000); // 1000 milliseconds = 1 second
+	printk("Entering bpf_get_numa_node_id at time : %ld\n", ktime_get_boottime_ns());
+	mdelay(10000); // 10000 milliseconds = 10 seconds
+	printk("Exiting bpf_get_numa_node_id at time : %ld\n", ktime_get_boottime_ns());
+
 	return numa_node_id();
 }
 

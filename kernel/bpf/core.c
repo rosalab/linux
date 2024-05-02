@@ -123,6 +123,8 @@ struct bpf_prog *bpf_prog_alloc_no_stats(unsigned int size, gfp_t gfp_extra_flag
 #ifdef CONFIG_HAVE_BPF_TERMINATION
 	saved_state->cpu_id = -1;
 	fp->saved_state = saved_state;
+	saved_state->cpu_id = -1;
+
 #ifdef FAST_PATH_TERMINATION
 	fp->saved_state->termination_prog = NULL;
 #endif // FAST_PATH_TERMINATION

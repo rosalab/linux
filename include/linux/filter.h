@@ -640,10 +640,10 @@ static __always_inline u32 __bpf_prog_run(const struct bpf_prog *prog,
 	u32 prog_id = prog->aux->id;
 #ifdef CONFIG_HAVE_BPF_TERMINATION
 	static unsigned long rxx; // for fetching registers and saving later on
-	// Check and initialize unwind list to be used for termination
-#ifdef LIST_CLEANUP
-	pcpu_init_unwindlist(); 
-#endif
+	prog->saved_state->cpu_id = raw_smp_processor_id(); // CPU id will be needed by every termination approach
+
+
+#if defined(KPROBE_TERMINATION) || defined(BOOLEAN_TERMINATION) || defined(LIST_CLEANUP)
 	// initialize the task_struct's bpf_prog variable
 	current->bpf_prog = prog; 
 
@@ -654,8 +654,11 @@ static __always_inline u32 __bpf_prog_run(const struct bpf_prog *prog,
 #endif
 	if(prog_id>0){ //TODO: skip all pre-installed programs in a better way
 
-		prog->saved_state->cpu_id = raw_smp_processor_id(); 	
 		
+#ifdef LIST_CLEANUP
+	// Check and initialize unwind list to be used for termination
+	pcpu_init_unwindlist(); 
+#endif
 		// save all registers to prog->saved_state structure here
 		asm("\t mov %%rcx , %0": "=r"(rxx));
 		prog->saved_state->saved_regs.cx = rxx;
@@ -739,11 +742,29 @@ static __always_inline u32 __bpf_prog_run(const struct bpf_prog *prog,
 
 			 current->bpf_prog = NULL;
 			 printk("All callee saved registers complete! Exiting..\n");
-#endif /* BOOLEAN_TERMINATION */
+
+#endif 
+
+			// detach from hook point
+			// TODO : most likely we dont need to detach here as bpf_die is already doing it now
+			/*
+			 ret = 0; // or some other error message corresponding to forced termination
+			 link = bpf_link_by_id(prog_id);	
+			 if(IS_ERR(link))
+				 printk("Failed to fetch link : %ld\n", PTR_ERR(link));
+			 else if (link->ops->detach){
+				 ret = link->ops->detach(link);
+				 printk("Unlinked with ret : %d\n", ret);
+				 bpf_link_put(link);
+			 }
+			 else
+				 printk("Didn't unlink\n");	
+			*/
 
 			 goto out;
 		}			
 	}
+#endif /*defined : KPROBE, BOOLEAN, LIST based termination*/
 #endif /*CONFIG_HAVE_BPF_TERMINATION*/
 
 	if (static_branch_unlikely(&bpf_stats_enabled_key)) {
@@ -761,6 +782,7 @@ static __always_inline u32 __bpf_prog_run(const struct bpf_prog *prog,
 	} else {
 		ret = dfunc(ctx, prog->insnsi, prog->bpf_func);
 	}
+	printk("Exiting bpf_prog_run at time : %ld\n", ktime_get_boottime_ns());
 	
 out:
 #ifdef LIST_CLEANUP

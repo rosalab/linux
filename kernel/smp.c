@@ -28,6 +28,7 @@
 
 #include "smpboot.h"
 #include "sched/smp.h"
+#include <linux/filter.h>
 
 #include <linux/filter.h>
 
@@ -546,7 +547,7 @@ void generic_smp_call_function_single_interrupt(struct pt_regs *regs)
 {
 	cfd_seq_store(this_cpu_ptr(&cfd_seq_local)->gotipi, CFD_SEQ_NOCPU,
 		      smp_processor_id(), CFD_SEQ_GOTIPI);
-	__flush_smp_call_function_queue(regs, true);
+	__flush_smp_call_function_queue(regs,true);
 }
 
 /**
@@ -636,14 +637,13 @@ static void __flush_smp_call_function_queue(struct pt_regs *regs, bool warn_cpu_
 				printk("%s sync call to bpf_die\n", __FILE__);
 				term_data.prog = info; // we know that bpf termination call 
 						       // will have prog_struct behind the 
-						      // void *info pointer.
+						       // void *info pointer.
 				term_data.regs = regs;
 				data = &term_data;
 				func(data);
 			}
 			else 
 				func(info);
-
 
 			csd_unlock(csd);
 			csd_lock_record(NULL);
