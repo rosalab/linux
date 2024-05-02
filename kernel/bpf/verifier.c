@@ -7223,7 +7223,7 @@ static int check_helper_call(struct bpf_verifier_env *env, struct bpf_insn *insn
 	int i, err, func_id;
 
 	/* find function prototype */
-	printk("check helper call : %x %x\n", insn->code, insn->imm);
+	//printk("check helper call : %x %x\n", insn->code, insn->imm);
 	func_id = insn->imm;
 	if (func_id < 0 || func_id >= __BPF_FUNC_MAX_ID) {
 		verbose(env, "invalid func %s#%d\n", func_id_name(func_id),
@@ -12266,7 +12266,6 @@ static int do_check(struct bpf_verifier_env *env)
 			enum bpf_reg_type *prev_dst_type, dst_reg_type;
 
 			if (BPF_MODE(insn->code) == BPF_ATOMIC) {
-				printk("Inside BPF_ATOMIC mode\n");
 				err = check_atomic(env, env->insn_idx, insn);
 				if (err)
 					return err;
@@ -14773,6 +14772,11 @@ static void print_verification_stats(struct bpf_verifier_env *env)
 		env->insn_processed, BPF_COMPLEXITY_LIMIT_INSNS,
 		env->max_states_per_insn, env->total_states,
 		env->peak_states, env->longest_mark_read_walk);
+	printk( "processed %d insns (limit %d) max_states_per_insn %d "
+		"total_states %d peak_states %d mark_read %d\n",
+		env->insn_processed, BPF_COMPLEXITY_LIMIT_INSNS,
+		env->max_states_per_insn, env->total_states,
+		env->peak_states, env->longest_mark_read_walk);
 }
 
 static int check_struct_ops_btf_id(struct bpf_verifier_env *env)
@@ -15205,7 +15209,7 @@ int bpf_check(struct bpf_prog **prog, union bpf_attr *attr, bpfptr_t uattr)
 	int i, len, ret = -EINVAL;
 	bool is_priv;
 
-	printk("[%s:%d] bpf_check begin : attr prog_btf_fd:%d\n", __FILE__, __LINE__, attr->prog_btf_fd);
+	//printk("[%s:%d] bpf_check begin : attr prog_btf_fd:%d\n", __FILE__, __LINE__, attr->prog_btf_fd);
 	/* no program is valid */
 	if (ARRAY_SIZE(bpf_verifier_ops) == 0)
 		return -EINVAL;
@@ -15290,7 +15294,7 @@ int bpf_check(struct bpf_prog **prog, union bpf_attr *attr, bpfptr_t uattr)
 	ret = check_subprogs(env);
 	if (ret < 0)
 		goto skip_full_check;
-	printk("[%s:%d] attr prog_btf_fd:%d\n", __FILE__, __LINE__, attr->prog_btf_fd);
+	//printk("[%s:%d] attr prog_btf_fd:%d\n", __FILE__, __LINE__, attr->prog_btf_fd);
 	ret = check_btf_info(env, attr, uattr);
 	if (ret < 0)
 		goto skip_full_check;

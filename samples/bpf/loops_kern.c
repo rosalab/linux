@@ -17,6 +17,15 @@
 
 struct 
 {
+    __uint(type, BPF_MAP_TYPE_ARRAY);
+    __uint(max_entries, 3); // index 0 : total time, index 1 : total runs, index 3: id
+    __type(key, int);
+    __type(value,int);
+} 
+timer SEC(".maps");
+
+struct 
+{
     __uint(type, BPF_MAP_TYPE_LRU_HASH);
     __uint(max_entries, MAX_DICT_SIZE);
     __type(key, int);
@@ -108,25 +117,61 @@ SEC("tracepoint/syscalls/sys_exit_hello")
 int trace_sys_connect1(struct pt_regs *ctx)
 {	
 	//bpf_printk("Inside trace_sys_connect\n");
-	//attach_kprobe();
 
-
-	//kp.pre_handler = kpb_pre;
-	//kp.addr = (kprobe_opcode_t*)runner5;
-	//register_kprobe(&kp);
-	//asm volatile("nop"); // marker instruction
-	bpf_printk("Inside trace_sys_connect\n");
-	u32 iter = (1<<2);	
-	bpf_printk("Loop iteration count: %dk\n",iter);
+	//bpf_printk("Inside trace_sys_connect\n");
+	//u32 iter = (1<<2);	
+	//bpf_printk("Loop iteration count: %dk\n",iter);
 	//bpf_loop(iter, runner, NULL,0);
-	//bpf_printk("Exiting trace_sys_connect\n");
+	//int id;
 	int id = bpf_get_numa_node_id();
 	bpf_printk("numa node run 1 : %d\nStarting another helper call", id);
 	id = bpf_get_numa_node_id();
+	//id = bpf_get_numa_node_id();
+	//id = bpf_get_numa_node_id();
+	//id = bpf_get_numa_node_id();
 	bpf_printk("numa node run 2 : %d\n", id);
 	//bpf_printk("BPF : at NUMA node : %d\n", id);
-	//do_reg_lookup();
-	//detach_kprobe();
+	//bpf_printk("Exiting trace_sys_connect\n");
+
+/*
+	const int t = 0;
+	const int r = 1;
+	const int id_index = 2;
+	const int val = 0;
+	int *total_time = bpf_map_lookup_elem(&timer, &t);
+	int *total_run = bpf_map_lookup_elem(&timer, &r);
+	bpf_map_update_elem(&timer, &id_index, &val, BPF_ANY);
+	volatile int *id = bpf_map_lookup_elem(&timer, &id_index);
+	if (!id)
+		return 0;
+
+	if (!total_time ){
+		bpf_map_update_elem(&timer, &t, &val, BPF_ANY);
+		total_time = bpf_map_lookup_elem(&timer, &t);
+	}
+	if(!total_time)
+		return 0;
+
+	if (!total_run ){
+		bpf_map_update_elem(&timer, &r, &val, BPF_ANY);
+		total_run = bpf_map_lookup_elem(&timer, &r);
+	}
+
+	if(!total_run)	
+		return 0;
+
+	bpf_printk("initial time : %d, initial run: %d", *total_time, *total_run);
+	int start_time = bpf_ktime_get_ns();
+
+	for(int i=0;i<120000; i++){
+		bpf_printk("At %d", i);
+	}
+
+	int delta = bpf_ktime_get_ns() - start_time; 
+	__sync_add_and_fetch(total_time,delta);
+	__sync_add_and_fetch(total_run,1);
+	bpf_printk("Total time : %d, total run : %d, id:%d\n", *total_time, *total_run,id);
+*/
 	return 0;	
 }
 /*

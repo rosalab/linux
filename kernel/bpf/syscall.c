@@ -247,9 +247,11 @@ void bpf_die(void* data)
 	 * Currently, the delink code is only meant for TRACEPOINT type BPF programs. 
  	 * Also, I am explicitly calling refcnt-- operation to make the bpf_prog_put
 	 * release the prog_id and all other resources attached to this bpf program. 
-	 * So if a program (which would have called bpf_prog_get) has acquired a reference 
-	 * and expecting this BPF program to be alive during the operation, will result in 
-	 * unexpected failure. 
+	 * If a loader program was used to load this BPF program, during its exit, 
+	 * it will try to release and delink again in which case it is currently throwing
+	 * page fault since we have already released that program. 
+	 * We need to find some flag which the exiting loader program is checking before
+	 * attempting to delink the program
 	*/
 	BUG_ON(kill_prog->saved_state->link == NULL); 
 	bpf_perf_link_release(kill_prog->saved_state->link);
@@ -259,7 +261,7 @@ void bpf_die(void* data)
 		atomic64_dec(&kill_prog->aux->refcnt);
 	} 
 	bpf_prog_put(kill_prog);
-	printk("After bpf_prog_put\n");
+	//printk("After bpf_prog_put\n");
 
 #ifdef KPROBE_TERMINATION
 	// initialize kprobes_list with size that of total jited len of this bpf prog
@@ -345,16 +347,18 @@ void bpf_die(void* data)
 		regs->ip = find_offset_in_new_prog(kill_prog->saved_state->termination_prog, kill_prog, addr);
 	}
 	// get rsp	
-	
-	printk("Old bpf program start addr : 0x%lx\n", kill_prog->bpf_func);	
-	printk("Stack : ");
-	printk("\t|----------------------------|\n");
+	// TODO : Instead of just going down 20 levels into the stack, which could mean we miss some 
+	// values that had to be modified in the stack, make it dynamic like the unwind_done kind of
+	// semantics.	
+	//printk("Old bpf program start addr : 0x%lx\n", kill_prog->bpf_func);	
+	//printk("Stack : ");
+	//printk("\t|----------------------------|\n");
 	for(unsigned long i=0;i<20; i++){
 		unsigned long addr = regs->sp+sizeof(unsigned long)*i;
-		printk("0x%lx ==> 0x%lx\n", addr, *(unsigned long*)addr);
+		//printk("0x%lx ==> 0x%lx\n", addr, *(unsigned long*)addr);
 		if (is_bpf_text_address(*(unsigned long*)addr)){
-			printk("0x%lx ==> 0x%lx\n", addr, *(unsigned long*)addr);
-			printk("\t Value is a BPF address");
+			//printk("0x%lx ==> 0x%lx\n", addr, *(unsigned long*)addr);
+			//printk("\t Value is a BPF address");
 			*(unsigned long*)addr = find_offset_in_new_prog(kill_prog->saved_state->termination_prog, kill_prog, *(unsigned long*)addr);
 		}
 	}
@@ -2782,7 +2786,7 @@ static void clone_bpf_prog(struct bpf_prog *dst, const struct bpf_prog *src){
 	bpf_obj_name_cpy(dst->aux->name, src->aux->name, sizeof(src->aux->name));
 
 
-	// TODO : Copy other stuff which is missing here
+	// TODO : Copy other stuff which is missing here such as other subprogs
 #define BPF_MAX_INSN_SIZE	128
 #define BPF_INSN_SAFETY		64
 	u8 temp[BPF_MAX_INSN_SIZE + BPF_INSN_SAFETY];
@@ -2816,7 +2820,8 @@ static void* patch_generator(struct bpf_prog *prog, union bpf_attr *attr, bpfptr
 	//prog = bpf_prog_by_id(attr->prog_id);
 	ret=0xdeadbeef;
 	call_indices = vmalloc(sizeof(call_indices) * prog->len);
-	if(prog->len <10)
+	size_t len = strlen(attr->prog_name);
+	if (len<5) // skip the case of test programs
 		return ret;// this program is probably a test program
 	printk("Running patch_gen for prog name : %s\n", attr->prog_name);
  
@@ -2829,7 +2834,7 @@ static void* patch_generator(struct bpf_prog *prog, union bpf_attr *attr, bpfptr
 	/* Step 1 : Find all call insns 
 	 * Code checks inspired from verifier
 	 */
-	for(int insn_idx =0 ;insn_idx < prog->len; insn_idx++) // Assuming no other sub-prog exists!!
+	for(int insn_idx =0 ;insn_idx < prog->len; insn_idx++) // TODO : (add code for dealing with sub-progs too) Assuming no other sub-prog exists!!
 	{
 		struct bpf_insn *insn = &prog->insnsi[insn_idx] ;
 		u8 class = BPF_CLASS(insn->code);
@@ -3057,9 +3062,15 @@ static int bpf_prog_load(union bpf_attr *attr, bpfptr_t uattr)
 				sizeof(license) - 1) < 0)
 		return -EFAULT;
 	license[sizeof(license) - 1] = 0;
-	
-	printk("Starting bpf_prog_load for prog_name:%s\n",attr->prog_name);
-	
+
+	bool termination_log = false;	
+	u64 verification_time ;
+	size_t len = strlen(attr->prog_name);
+	if (len>4){ // skipping no name case and "test" programs
+		printk("Starting bpf_prog_load for prog_name:%s and len:%d\n",attr->prog_name, len);
+		termination_log = true;
+		verification_time = ktime_get_boottime_ns();
+	}	
 	/* eBPF programs must be GPL compatible to use GPL-ed functions */
 	is_gpl = license_is_gpl_compatible(license);
 
@@ -3130,7 +3141,7 @@ static int bpf_prog_load(union bpf_attr *attr, bpfptr_t uattr)
 	prog->aux->attach_btf_id = attr->attach_btf_id;
 	prog->aux->dst_prog = dst_prog;
 	prog->aux->offload_requested = !!attr->prog_ifindex;
-	printk("[%s]:%d Offload requested : %d\n", __FILE__, __LINE__, prog->aux->offload_requested );	
+	//printk("[%s]:%d Offload requested : %d\n", __FILE__, __LINE__, prog->aux->offload_requested );	
 	prog->aux->sleepable = attr->prog_flags & BPF_F_SLEEPABLE;
 	prog->aux->xdp_has_frags = attr->prog_flags & BPF_F_XDP_HAS_FRAGS;
 
@@ -3178,12 +3189,13 @@ static int bpf_prog_load(union bpf_attr *attr, bpfptr_t uattr)
 	 * bpf_check verifier function and return err if any of the patches fail to verify. 
 	 */
 	struct bpf_prog *patch_prog = bpf_prog_alloc_no_stats(bpf_prog_size(prog->len), GFP_USER); 
-	printk("Creating clone for Fast-path termination : 0x%lx\n", patch_prog);
+	//printk("Creating clone for Fast-path termination : 0x%lx\n", patch_prog);
 	clone_bpf_prog(patch_prog, prog);
 
 	void *ret;
 	ret = patch_generator(patch_prog, attr, uattr); // verify all possible patched program
-	printk("Returned 0x%lx from patch_generator\n", ret);
+	if (termination_log)
+		printk("Returned 0x%lx from patch_generator\n", ret);
 
 	ret = (ret == 0xdeadbeef || ret == NULL ? 0xdeadbeef : bpf_prog_select_runtime(patch_prog, &err)); // Call the JIT
 	if (err < 0)
@@ -3249,6 +3261,10 @@ static int bpf_prog_load(union bpf_attr *attr, bpfptr_t uattr)
 	err = bpf_prog_new_fd(prog);
 	if (err < 0)
 		bpf_prog_put(prog);
+
+	if (termination_log == true)
+		printk("Verification time : %ld ns\n", ktime_get_boottime_ns()-verification_time );
+
 	return err;
 
 free_used_maps:
@@ -5691,15 +5707,22 @@ static int __sys_bpf(int cmd, bpfptr_t uattr, unsigned int size)
 			//	info.jited_prog_len += prog->aux->func[i]->jited_len;
 
 			int cpu_id;
-			printk("Starting terminate syscall prog_id : %d\n", attr.prog_id);
+			u64 start = ktime_get_boottime_ns();
+			printk("Starting terminate syscall prog_id : %d at time : %ld\n", attr.prog_id, start);
 			cpu_id = saved_state->cpu_id;
-			printk("--- Address of jited program : %lx\n", (void*)prog->bpf_func);
-			printk("--- Size of jited program : %d\n", prog->jited_len);
+			//printk("--- Address of jited program : %lx\n", (void*)prog->bpf_func);
+			//printk("--- Size of jited program : %d\n", prog->jited_len);
 			//set_memory_nx((unsigned long)prog->bpf_func,prog->jited_len >> PAGE_SHIFT);
 			smp_call_function_single(cpu_id,bpf_die,(void*)prog,1);
+			u64 end = ktime_get_boottime_ns();
+			printk("Finished termination syscall at time : %ld\n", end);
+			printk("IPI + Termination handler took : %ld ns\n", end-start);
 			//bpf_die((void*)prog);
 			err = 0;
 		}
+#else
+		printk("CONFIG_HAVE_BPF_TERMINATION is disabled!\n");
+		err = -EINVAL;
 #endif /* CONFIG_HAVE_BPF_TERMINATION */
 		break;
 	default:

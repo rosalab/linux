@@ -156,7 +156,9 @@ const struct bpf_func_proto bpf_get_smp_processor_id_proto = {
 BPF_CALL_0(bpf_get_numa_node_id)
 {
 	//while(1);
+	printk("Entering bpf_get_numa_node_id at time : %ld\n", ktime_get_boottime_ns());
 	mdelay(10000); // 10000 milliseconds = 10 seconds
+	printk("Exiting bpf_get_numa_node_id at time : %ld\n", ktime_get_boottime_ns());
 	return numa_node_id();
 }
 
