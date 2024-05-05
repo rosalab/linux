@@ -5782,6 +5782,19 @@ union bpf_attr {
  *		0 on success.
  *
  *		**-ENOENT** if the bpf_local_storage cannot be found.
+ *
+ * long bpf_tx_begin(void)
+ *	Description
+ *		Start a BPF transaction block. 
+ *	Return
+ *		Void.
+ *
+ * long bpf_tx_end(void)
+ *	Description
+ *		End a BPF transaction block. 
+ *	Return
+ *		Void.
+ *
  */
 #define ___BPF_FUNC_MAPPER(FN, ctx...)			\
 	FN(unspec, 0, ##ctx)				\
@@ -5996,6 +6009,8 @@ union bpf_attr {
 	FN(user_ringbuf_drain, 209, ##ctx)		\
 	FN(cgrp_storage_get, 210, ##ctx)		\
 	FN(cgrp_storage_delete, 211, ##ctx)		\
+	FN(tx_begin, 212, ##ctx)			\
+	FN(tx_end, 213, ##ctx)			\
 	/* */
 
 /* backwards-compatibility macros for users of __BPF_FUNC_MAPPER that don't

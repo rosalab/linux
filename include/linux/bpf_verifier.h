@@ -419,6 +419,7 @@ struct bpf_verifier_state {
 	u32 curframe;
 
 	struct bpf_active_lock active_lock;
+	bool active_tx;
 	bool speculative;
 	bool active_rcu_lock;
 	/* If this state was ever pointed-to by other state's loop_entry field

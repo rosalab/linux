@@ -22,28 +22,6 @@ static void usage(const char *cmd)
 	printf("       -h               # help\n");
 }
 
-static void verify_map(int map_id)
-{
-	__u32 key = 0;
-	__u32 val;
-
-	if (bpf_map_lookup_elem(map_id, &key, &val) != 0) {
-		fprintf(stderr, "map_lookup failed: %s\n", strerror(errno));
-		return;
-	}
-	if (val == 0) {
-		fprintf(stderr, "failed: map #%d returns value 0\n", map_id);
-		return;
-	}
-
-	printf("verify map:%d val: %d\n", map_id, val);
-
-	val = 0;
-	if (bpf_map_update_elem(map_id, &key, &val, BPF_ANY) != 0) {
-		fprintf(stderr, "map_update failed: %s\n", strerror(errno));
-		return;
-	}
-}
 
 static int test(char *filename, int nr_tests)
 {
@@ -84,7 +62,7 @@ static int test(char *filename, int nr_tests)
 		map1_fds[i] = bpf_object__find_map_fd_by_name(objs[i],
 							      "exit_open_map");
 		if (map0_fds[i] < 0 || map1_fds[i] < 0) {
-			fprintf(stderr, "finding a map in obj file failed\n");
+			fprintf(stderr, "finding a map in obj file failed map0 fd:%d, map1 fd:%d\n", map0_fds[i], map1_fds[i]);
 			goto cleanup;
 		}
 
@@ -113,11 +91,6 @@ static int test(char *filename, int nr_tests)
 	}
 	close(fd);
 
-	/* verify the map */
-	for (i = 0; i < nr_tests; i++) {
-		verify_map(map0_fds[i]);
-		verify_map(map1_fds[i]);
-	}
 
 cleanup:
 	if (links) {

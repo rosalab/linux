@@ -371,6 +371,30 @@ const struct bpf_func_proto bpf_spin_unlock_proto = {
 	.arg1_btf_id    = BPF_PTR_POISON,
 };
 
+
+// BPF transaction helpers
+BPF_CALL_0(bpf_tx_begin)
+{
+	return 0;
+}
+
+const struct bpf_func_proto bpf_tx_begin_proto = {
+	.func		= bpf_tx_begin,
+	.gpl_only	= false,
+	.ret_type	= RET_VOID,
+};
+
+BPF_CALL_0(bpf_tx_end)
+{
+	return 0;
+}
+
+const struct bpf_func_proto bpf_tx_end_proto = {
+	.func		= bpf_tx_end,
+	.gpl_only	= false,
+	.ret_type	= RET_VOID,
+};
+
 void copy_map_value_locked(struct bpf_map *map, void *dst, void *src,
 			   bool lock_src)
 {
@@ -1730,6 +1754,11 @@ bpf_base_func_proto(enum bpf_func_id func_id, const struct bpf_prog *prog)
 		return &bpf_strtol_proto;
 	case BPF_FUNC_strtoul:
 		return &bpf_strtoul_proto;
+	case BPF_FUNC_tx_begin:
+		return &bpf_tx_begin_proto;
+	case BPF_FUNC_tx_end:
+		return &bpf_tx_end_proto;
+
 	default:
 		break;
 	}

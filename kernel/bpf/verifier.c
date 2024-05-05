@@ -1432,6 +1432,7 @@ static int copy_verifier_state(struct bpf_verifier_state *dst_state,
 	dst_state->curframe = src->curframe;
 	dst_state->active_lock.ptr = src->active_lock.ptr;
 	dst_state->active_lock.id = src->active_lock.id;
+	dst_state->active_tx = src->active_tx;
 	dst_state->branches = src->branches;
 	dst_state->parent = src->parent;
 	dst_state->first_insn_idx = src->first_insn_idx;
@@ -7454,6 +7455,31 @@ static int check_kfunc_mem_size_reg(struct bpf_verifier_env *env, struct bpf_reg
 	return err;
 }
 
+/* Function to process a tx_(begin/end) helper call in a BPF program
+ * Checks : 
+ *	    1. tx_begin and tx_end should exist in pair.
+ *	    2. Verifier will only allow one tx_begin at a time. 
+ */
+static int check_tx_helper(struct bpf_verifier_env *env, bool is_begin){
+
+	struct bpf_verifier_state *cur = env->cur_state;
+	if (is_begin) {
+		if (cur->active_tx) {
+			verbose(env,
+				"Nesting two bpf_tx_begin are not allowed\n");
+			return -EINVAL;
+		}
+		cur->active_tx = true;
+	} else {
+		if (!cur->active_tx) {
+			verbose(env, "bpf_tx_end without starting a tx block\n");
+			return -EINVAL;
+		}
+		cur->active_tx = false;
+	}
+	return 0;
+}
+
 /* Implementation details:
  * bpf_map_lookup returns PTR_TO_MAP_VALUE_OR_NULL.
  * bpf_obj_new returns PTR_TO_BTF_ID | MEM_ALLOC | PTR_MAYBE_NULL.
@@ -10472,6 +10498,12 @@ static int check_helper_call(struct bpf_verifier_env *env, struct bpf_insn *insn
 	case BPF_FUNC_user_ringbuf_drain:
 		err = push_callback_call(env, insn, insn_idx, meta.subprogno,
 					 set_user_ringbuf_callback_state);
+		break;
+	case BPF_FUNC_tx_begin:
+		err = check_tx_helper(env, true);
+		break;
+	case BPF_FUNC_tx_end:
+		err = check_tx_helper(env, false);
 		break;
 	}
 
@@ -16897,6 +16929,9 @@ static bool states_equal(struct bpf_verifier_env *env,
 	if (!!old->active_lock.id != !!cur->active_lock.id)
 		return false;
 
+	if (old->active_tx != cur->active_tx)
+		return false;
+
 	if (old->active_lock.id &&
 	    !check_ids(old->active_lock.id, cur->active_lock.id, &env->idmap_scratch))
 		return false;
@@ -17849,6 +17884,11 @@ process_bpf_exit_full:
 
 				if (env->cur_state->active_rcu_lock && !env->cur_state->curframe) {
 					verbose(env, "bpf_rcu_read_unlock is missing\n");
+					return -EINVAL;
+				}
+
+				if (env->cur_state->active_tx && !env->cur_state->curframe) {
+					verbose(env, "bpf_tx_end is missing\n");
 					return -EINVAL;
 				}
 
