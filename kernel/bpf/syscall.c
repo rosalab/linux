@@ -5548,6 +5548,14 @@ static int __sys_bpf(int cmd, bpfptr_t uattr, unsigned int size)
 	case BPF_PROG_BIND_MAP:
 		err = bpf_prog_bind_map(&attr);
 		break;
+    case BPF_PROCESS_ENABLE:
+        current->bpf_enable = 1;
+        err = 0;
+        break;
+    case BPF_PROCESS_DISABLE:
+        current->bpf_enable = 0;
+        err = 0;
+        break;
 	default:
 		err = -EINVAL;
 		break;
