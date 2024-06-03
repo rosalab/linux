@@ -96,6 +96,8 @@
 #include <net/compat.h>
 #include <net/wext.h>
 #include <net/cls_cgroup.h>
+// KLP Testing
+#include <net/ip6_route.h>
 
 #include <net/sock.h>
 #include <linux/netfilter.h>
@@ -1702,6 +1704,8 @@ int __sys_socket(int family, int type, int protocol)
 {
 	struct socket *sock;
 	int flags;
+	// adding extra lines of code to test livepatching
+	trigger_func();
 
 	sock = __sys_socket_create(family, type,
 				   update_socket_protocol(family, type, protocol));

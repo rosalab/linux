@@ -3296,8 +3296,16 @@ out:
 	return dst;
 }
 
-static void ip6_dst_gc(struct dst_ops *ops)
+// KLP Testing
+void noinline trigger_func(void)
 {
+	ip6_dst_gc(NULL);
+}
+
+static noinline void ip6_dst_gc(struct dst_ops *ops)
+{
+	pr_info("ip6_dst_gc: Testing the feasibility for live patching\n");
+	return;
 	struct net *net = container_of(ops, struct net, ipv6.ip6_dst_ops);
 	int rt_min_interval = net->ipv6.sysctl.ip6_rt_gc_min_interval;
 	int rt_elasticity = net->ipv6.sysctl.ip6_rt_gc_elasticity;
@@ -3305,6 +3313,7 @@ static void ip6_dst_gc(struct dst_ops *ops)
 	unsigned long rt_last_gc = net->ipv6.ip6_rt_last_gc;
 	unsigned int val;
 	int entries;
+
 
 	if (time_after(rt_last_gc + rt_min_interval, jiffies))
 		goto out;
@@ -3317,6 +3326,16 @@ out:
 	val = atomic_read(&net->ipv6.ip6_rt_gc_expire);
 	atomic_set(&net->ipv6.ip6_rt_gc_expire, val - (val >> rt_elasticity));
 }
+
+/* KLP Testing */
+BTF_SET8_START(klp_bpf_fmodret_ids)
+BTF_ID_FLAGS(func, ip6_dst_gc)
+BTF_SET8_END(klp_bpf_fmodret_ids)
+
+static const struct btf_kfunc_id_set klp_bpf_fmodret_set = {
+	.owner = THIS_MODULE,
+	.set   = &klp_bpf_fmodret_ids,
+};
 
 static int ip6_nh_lookup_table(struct net *net, struct fib6_config *cfg,
 			       const struct in6_addr *gw_addr, u32 tbid,
@@ -6691,6 +6710,15 @@ int __init ip6_route_init(void)
 	ip6_dst_ops_template.kmem_cachep =
 		kmem_cache_create("ip6_dst_cache", sizeof(struct rt6_info), 0,
 				  SLAB_HWCACHE_ALIGN | SLAB_ACCOUNT, NULL);
+	// KLP related stuff
+	pr_info("ip6_route_init: Testing the feasibility for live patching - registeing the BTF ID\n");
+	int err;
+	err = register_btf_fmodret_id_set(&klp_bpf_fmodret_set);
+	if (err) {
+		pr_warn("error while registering fmodret entrypoints: %d", err);
+		return 0;
+	}
+
 	if (!ip6_dst_ops_template.kmem_cachep)
 		goto out;
 

@@ -2366,6 +2366,8 @@ void fib6_run_gc(unsigned long expires, struct net *net, bool force)
 	struct fib6_gc_args gc_args;
 	unsigned long now;
 
+	pr_info("fib6_run_gc: Testing the feasibility for live patching\n");
+
 	if (force) {
 		spin_lock_bh(&net->ipv6.fib6_gc_lock);
 	} else if (!spin_trylock_bh(&net->ipv6.fib6_gc_lock)) {
