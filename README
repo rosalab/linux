@@ -1,18 +1,15 @@
-Linux kernel
-============
+This branch contains a way to skip the kernel function execution in our case that is ip6_dst_gc
+to trigger this function I made some changes to the kernel which is not needed incase we are live patching
 
-There are several guides for kernel developers and users. These guides can
-be rendered in a number of formats, like HTML and PDF. Please read
-Documentation/admin-guide/README.rst first.
+The steps to run the code:
+goto samples/bpf
+make -j `nproc`
+then run the bpf program inside the qemu 
+./sid_klp_fib6_run_gc &
+./trigger_bpf (this will trigger the bpf program)
 
-In order to build the documentation, use ``make htmldocs`` or
-``make pdfdocs``.  The formatted documentation can also be read online at:
+this will not print the print statement in the kernel function as we are using ret value of fmod_ret as 1
+you can change it to return 1 then follow the similar steps
+this time it will execute the function
 
-    https://www.kernel.org/doc/html/latest/
-
-There are various text files in the Documentation/ subdirectory,
-several of them using the reStructuredText markup notation.
-
-Please read the Documentation/process/changes.rst file, as it contains the
-requirements for building and running the kernel, and information about
-the problems which may result by upgrading your kernel.
+PS. you may need to enable dwares4 and dynamic_ftrace if they are not enabled in the config
