@@ -39,6 +39,8 @@
 #define CREATE_TRACE_POINTS
 #include "bpf_trace.h"
 
+#include <linux/ktime.h>
+
 #define bpf_event_rcu_dereference(p)					\
 	rcu_dereference_protected(p, lockdep_is_held(&bpf_event_mutex))
 
@@ -110,7 +112,10 @@ static u64 bpf_uprobe_multi_entry_ip(struct bpf_run_ctx *ctx);
  */
 unsigned int trace_call_bpf(struct trace_event_call *call, void *ctx)
 {
-	unsigned int ret;
+    ktime_t start_time, stop_time, elapsed_time;
+    start_time = ktime_get();
+
+    unsigned int ret;
 
 	cant_sleep();
 
@@ -151,7 +156,11 @@ unsigned int trace_call_bpf(struct trace_event_call *call, void *ctx)
  out:
 	__this_cpu_dec(bpf_prog_active);
 
-	return ret;
+    stop_time = ktime_get();
+    elapsed_time= ktime_sub(stop_time, start_time);
+    printk(KERN_EMERG "microOneIteration elapsedTime for function %s: %lld\n",  __func__, ktime_to_ns(elapsed_time));
+
+    return ret;
 }
 
 #ifdef CONFIG_BPF_KPROBE_OVERRIDE
