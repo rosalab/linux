@@ -39,8 +39,6 @@
 #define CREATE_TRACE_POINTS
 #include "bpf_trace.h"
 
-#include <linux/ktime.h>
-
 #define bpf_event_rcu_dereference(p)					\
 	rcu_dereference_protected(p, lockdep_is_held(&bpf_event_mutex))
 
@@ -96,36 +94,15 @@ static u64 bpf_kprobe_multi_entry_ip(struct bpf_run_ctx *ctx);
 static u64 bpf_uprobe_multi_cookie(struct bpf_run_ctx *ctx);
 static u64 bpf_uprobe_multi_entry_ip(struct bpf_run_ctx *ctx);
 
-/**
- * trace_call_bpf - invoke BPF program
- * @call: tracepoint event
- * @ctx: opaque context pointer
- *
- * kprobe handlers execute BPF programs via this helper.
- * Can be used from static tracepoints in the future.
- *
- * Return: BPF programs always return an integer which is interpreted by
- * kprobe handler as:
- * 0 - return from kprobe (event is filtered out)
- * 1 - store kprobe event into ring buffer
- * Other values are reserved and currently alias to 1
- */
 unsigned int trace_call_bpf(struct trace_event_call *call, void *ctx)
 {
-    ktime_t start_time, stop_time, elapsed_time;
+    ktime_t start_time, stop_time;
     start_time = ktime_get();
 
     unsigned int ret;
 
 	cant_sleep();
-
 	if (unlikely(__this_cpu_inc_return(bpf_prog_active) != 1)) {
-		/*
-		 * since some bpf program is already running on this cpu,
-		 * don't call into another bpf program (same or different)
-		 * and don't send kprobe event into ring-buffer,
-		 * so return zero here
-		 */
 		rcu_read_lock();
 		bpf_prog_inc_misses_counters(rcu_dereference(call->prog_array));
 		rcu_read_unlock();
@@ -133,21 +110,6 @@ unsigned int trace_call_bpf(struct trace_event_call *call, void *ctx)
 		goto out;
 	}
 
-	/*
-	 * Instead of moving rcu_read_lock/rcu_dereference/rcu_read_unlock
-	 * to all call sites, we did a bpf_prog_array_valid() there to check
-	 * whether call->prog_array is empty or not, which is
-	 * a heuristic to speed up execution.
-	 *
-	 * If bpf_prog_array_valid() fetched prog_array was
-	 * non-NULL, we go into trace_call_bpf() and do the actual
-	 * proper rcu_dereference() under RCU lock.
-	 * If it turns out that prog_array is NULL then, we bail out.
-	 * For the opposite, if the bpf_prog_array_valid() fetched pointer
-	 * was NULL, you'll skip the prog_array with the risk of missing
-	 * out of events when it was updated in between this and the
-	 * rcu_dereference() which is accepted risk.
-	 */
 	rcu_read_lock();
 	ret = bpf_prog_run_array(rcu_dereference(call->prog_array),
 				 ctx, bpf_prog_run);
@@ -157,8 +119,8 @@ unsigned int trace_call_bpf(struct trace_event_call *call, void *ctx)
 	__this_cpu_dec(bpf_prog_active);
 
     stop_time = ktime_get();
-    elapsed_time= ktime_sub(stop_time, start_time);
-    printk(KERN_EMERG "microOneIteration elapsedTime for function %s: %lld\n",  __func__, ktime_to_ns(elapsed_time));
+    //store start_time, stop_time in kmalloc using inline function
+
 
     return ret;
 }
