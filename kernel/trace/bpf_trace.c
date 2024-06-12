@@ -400,7 +400,7 @@ static const struct bpf_func_proto bpf_trace_printk_proto = {
 };
 
 // proto not needed since it does not go through the verifier
-BPF_CALL_5(bpf_trace_printk_iu, char *, fmt, u32, fmt_size, u64, arg1,
+BPF_CALL_5(bpf_trace_printk_rex, char *, fmt, u32, fmt_size, u64, arg1,
 		u64, arg2, u64, arg3)
 {
 	u64 args[MAX_TRACE_PRINTK_VARARGS] = { arg1, arg2, arg3 };

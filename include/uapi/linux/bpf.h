@@ -873,8 +873,8 @@ enum bpf_cmd {
 	BPF_ITER_CREATE,
 	BPF_LINK_DETACH,
 	BPF_PROG_BIND_MAP,
-	BPF_PROG_LOAD_IU_BASE,
-	BPF_PROG_LOAD_IU,
+	BPF_PROG_LOAD_REX_BASE,
+	BPF_PROG_LOAD_REX,
 	BPF_PROG_TERMINATE,
 };
 
@@ -952,7 +952,7 @@ enum bpf_prog_type {
 	BPF_PROG_TYPE_LSM,
 	BPF_PROG_TYPE_SK_LOOKUP,
 	BPF_PROG_TYPE_SYSCALL, /* a program that can execute syscalls */
-	BPF_PROG_TYPE_IU_BASE, /* inner-unikernel base prog, no verifier hooks */
+	BPF_PROG_TYPE_REX_BASE, /* inner-unikernel base prog, no verifier hooks */
 };
 
 enum bpf_attach_type {
@@ -1256,13 +1256,13 @@ struct bpf_stack_build_id {
 
 #define BPF_OBJ_NAME_LEN 16U
 
-struct iu_rela_dyn {
+struct rex_rela_dyn {
 	__u64	offset;
 	__u64	info;
 	__u64	addend;
 };
 
-struct iu_dyn_sym {
+struct rex_dyn_sym {
 	__u64	offset;
 	__u64	symbol;
 };

@@ -24,7 +24,7 @@
 #include <linux/percpu-refcount.h>
 #include <linux/bpfptr.h>
 
-#include <asm/iu_unwind.h>
+#include <asm/rex_unwind.h>
 
 struct bpf_verifier_env;
 struct bpf_verifier_log;
