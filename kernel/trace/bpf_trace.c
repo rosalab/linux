@@ -96,8 +96,8 @@ static u64 bpf_uprobe_multi_entry_ip(struct bpf_run_ctx *ctx);
 
 unsigned int trace_call_bpf(struct trace_event_call *call, void *ctx)
 {
-    ktime_t start_time, stop_time;
-    start_time = ktime_get();
+    //ktime_t start_time, stop_time;
+    //start_time = ktime_get();
 
     unsigned int ret;
 
@@ -118,7 +118,7 @@ unsigned int trace_call_bpf(struct trace_event_call *call, void *ctx)
  out:
 	__this_cpu_dec(bpf_prog_active);
 
-    stop_time = ktime_get();
+    //stop_time = ktime_get();
     //store start_time, stop_time in kmalloc using inline function
 
 
