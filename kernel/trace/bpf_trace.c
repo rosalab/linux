@@ -94,10 +94,30 @@ static u64 bpf_kprobe_multi_entry_ip(struct bpf_run_ctx *ctx);
 static u64 bpf_uprobe_multi_cookie(struct bpf_run_ctx *ctx);
 static u64 bpf_uprobe_multi_entry_ip(struct bpf_run_ctx *ctx);
 
+#include <linux/percpu.h>
+#include <asm/atomic.h>
+#include <linux/ktime.h>
+
+#define BUFFER_SIZE 16 // Fixed size
+//sizeof(u64) = 8 bytes in x86-64
+#define NS_PER_CPU_BUF_LEN (BUFFER_SIZE / sizeof(u64)) //total two u64 nanoseconds can be stored
+
+DEFINE_PER_CPU_ALIGNED(u64, per_cpu_buffer);
+
+void read_times(void);
+
+void read_times(void) {
+    u64 *buffer = this_cpu_ptr(&per_cpu_buffer);
+    printk(KERN_INFO "Start Time: %llu nanoseconds, Stop Time: %llu nanoseconds\n",
+            atomic64_read((atomic64_t *)&buffer[0]), atomic64_read((atomic64_t *)&buffer[1]));
+}
+
 unsigned int trace_call_bpf(struct trace_event_call *call, void *ctx)
 {
-    //ktime_t start_time, stop_time;
-    //start_time = ktime_get();
+    u64 *buffer = this_cpu_ptr(&per_cpu_buffer);
+    //eliminate casting overhead
+    //atomic64_set((atomic64_t *)&buffer[0], ktime_get_real_seconds());
+    atomic64_set(&((atomic64_t *)buffer)[0], ktime_get_real_seconds());
 
     unsigned int ret;
 
@@ -118,10 +138,9 @@ unsigned int trace_call_bpf(struct trace_event_call *call, void *ctx)
  out:
 	__this_cpu_dec(bpf_prog_active);
 
-    //stop_time = ktime_get();
-    //store start_time, stop_time in kmalloc using inline function
-
-
+    //atomic64_set((atomic64_t *)&buffer[1], ktime_get_real_seconds());
+    atomic64_set(&((atomic64_t *)buffer)[1], ktime_get_real_seconds());
+    read_times();
     return ret;
 }
 
