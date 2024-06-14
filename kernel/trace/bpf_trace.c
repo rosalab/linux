@@ -140,7 +140,7 @@ unsigned int trace_call_bpf(struct trace_event_call *call, void *ctx)
 
     //atomic64_set((atomic64_t *)&buffer[1], ktime_get_real_seconds());
     atomic64_set(&((atomic64_t *)buffer)[1], ktime_get_real_seconds());
-    read_times();
+    //read_times();
     return ret;
 }
 
