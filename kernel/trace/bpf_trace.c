@@ -98,7 +98,7 @@ static u64 bpf_uprobe_multi_entry_ip(struct bpf_run_ctx *ctx);
 #include <asm/atomic.h>
 #include <linux/ktime.h>
 
-#define BUFFER_SIZE 16 // Fixed size
+/*#define BUFFER_SIZE 16 // Fixed size
 //sizeof(u64) = 8 bytes in x86-64
 #define NS_PER_CPU_BUF_LEN (BUFFER_SIZE / sizeof(u64)) //total two u64 nanoseconds can be stored
 
@@ -110,7 +110,7 @@ void read_times(void) {
     u64 *buffer = this_cpu_ptr(&per_cpu_buffer);
     printk(KERN_INFO "Start Time: %llu nanoseconds, Stop Time: %llu nanoseconds\n",
             atomic64_read((atomic64_t *)&buffer[0]), atomic64_read((atomic64_t *)&buffer[1]));
-}
+}*/
 
 unsigned int trace_call_bpf(struct trace_event_call *call, void *ctx)
 {
