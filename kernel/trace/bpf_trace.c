@@ -2,6 +2,8 @@
 /* Copyright (c) 2011-2015 PLUMgrid, http://plumgrid.com
  * Copyright (c) 2016 Facebook
  */
+#include "read_write_to_heaps.h"
+
 #include <linux/kernel.h>
 #include <linux/types.h>
 #include <linux/slab.h>
@@ -94,35 +96,35 @@ static u64 bpf_kprobe_multi_entry_ip(struct bpf_run_ctx *ctx);
 static u64 bpf_uprobe_multi_cookie(struct bpf_run_ctx *ctx);
 static u64 bpf_uprobe_multi_entry_ip(struct bpf_run_ctx *ctx);
 
-#include <linux/percpu.h>
-#include <asm/atomic.h>
-#include <linux/ktime.h>
-
-/*#define BUFFER_SIZE 16 // Fixed size
-//sizeof(u64) = 8 bytes in x86-64
-#define NS_PER_CPU_BUF_LEN (BUFFER_SIZE / sizeof(u64)) //total two u64 nanoseconds can be stored
-
-DEFINE_PER_CPU_ALIGNED(u64, per_cpu_buffer);
-
-void read_times(void);
-
-void read_times(void) {
-    u64 *buffer = this_cpu_ptr(&per_cpu_buffer);
-    printk(KERN_INFO "Start Time: %llu nanoseconds, Stop Time: %llu nanoseconds\n",
-            atomic64_read((atomic64_t *)&buffer[0]), atomic64_read((atomic64_t *)&buffer[1]));
-}*/
-
+/**
+ * trace_call_bpf - invoke BPF program
+ * @call: tracepoint event
+ * @ctx: opaque context pointer
+ *
+ * kprobe handlers execute BPF programs via this helper.
+ * Can be used from static tracepoints in the future.
+ *
+ * Return: BPF programs always return an integer which is interpreted by
+ * kprobe handler as:
+ * 0 - return from kprobe (event is filtered out)
+ * 1 - store kprobe event into ring buffer
+ * Other values are reserved and currently alias to 1
+ */
 unsigned int trace_call_bpf(struct trace_event_call *call, void *ctx)
 {
-    u64 *buffer = this_cpu_ptr(&per_cpu_buffer);
-    //eliminate casting overhead
-    //atomic64_set((atomic64_t *)&buffer[0], ktime_get_real_seconds());
-    atomic64_set(&((atomic64_t *)buffer)[0], ktime_get_real_seconds());
+	write_times(0, ktime_get_real_seconds());
 
-    unsigned int ret;
+	unsigned int ret;
 
 	cant_sleep();
+
 	if (unlikely(__this_cpu_inc_return(bpf_prog_active) != 1)) {
+		/*
+		 * since some bpf program is already running on this cpu,
+		 * don't call into another bpf program (same or different)
+		 * and don't send kprobe event into ring-buffer,
+		 * so return zero here
+		 */
 		rcu_read_lock();
 		bpf_prog_inc_misses_counters(rcu_dereference(call->prog_array));
 		rcu_read_unlock();
@@ -130,6 +132,21 @@ unsigned int trace_call_bpf(struct trace_event_call *call, void *ctx)
 		goto out;
 	}
 
+	/*
+	 * Instead of moving rcu_read_lock/rcu_dereference/rcu_read_unlock
+	 * to all call sites, we did a bpf_prog_array_valid() there to check
+	 * whether call->prog_array is empty or not, which is
+	 * a heuristic to speed up execution.
+	 *
+	 * If bpf_prog_array_valid() fetched prog_array was
+	 * non-NULL, we go into trace_call_bpf() and do the actual
+	 * proper rcu_dereference() under RCU lock.
+	 * If it turns out that prog_array is NULL then, we bail out.
+	 * For the opposite, if the bpf_prog_array_valid() fetched pointer
+	 * was NULL, you'll skip the prog_array with the risk of missing
+	 * out of events when it was updated in between this and the
+	 * rcu_dereference() which is accepted risk.
+	 */
 	rcu_read_lock();
 	ret = bpf_prog_run_array(rcu_dereference(call->prog_array),
 				 ctx, bpf_prog_run);
@@ -138,10 +155,9 @@ unsigned int trace_call_bpf(struct trace_event_call *call, void *ctx)
  out:
 	__this_cpu_dec(bpf_prog_active);
 
-    //atomic64_set((atomic64_t *)&buffer[1], ktime_get_real_seconds());
-    atomic64_set(&((atomic64_t *)buffer)[1], ktime_get_real_seconds());
-    //read_times();
-    return ret;
+	write_times(1, ktime_get_real_seconds());
+
+	return ret;
 }
 
 #ifdef CONFIG_BPF_KPROBE_OVERRIDE

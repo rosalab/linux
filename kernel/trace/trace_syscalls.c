@@ -1,4 +1,29 @@
 // SPDX-License-Identifier: GPL-2.0
+#include "read_write_to_heaps.h"
+
+u64 *heap_buffer = NULL;
+struct mutex heap_buffer_lock;
+
+void init_heap_buffer(void) {
+	if (!heap_buffer) {
+		heap_buffer = kmalloc(BUFFER_SIZE * sizeof(u64), GFP_KERNEL);
+		if (!heap_buffer) {
+			printk(KERN_ERR "Failed to allocate heap buffer\n");
+			return;
+		}
+		memset(heap_buffer, 0, BUFFER_SIZE * sizeof(u64));
+		mutex_init(&heap_buffer_lock);
+	}
+}
+
+static int __init trace_syscalls_init(void) {
+	init_heap_buffer();
+	return 0;
+}
+
+core_initcall(trace_syscalls_init);
+
+
 #include <trace/syscall.h>
 #include <trace/events/syscalls.h>
 #include <linux/syscalls.h>
@@ -554,6 +579,8 @@ static int perf_call_bpf_enter(struct trace_event_call *call, struct pt_regs *re
 			       struct syscall_metadata *sys_data,
 			       struct syscall_trace_enter *rec)
 {
+	write_times(2, ktime_get_real_seconds());
+
 	struct syscall_tp_t {
 		struct trace_entry ent;
 		int syscall_nr;
@@ -568,6 +595,10 @@ static int perf_call_bpf_enter(struct trace_event_call *call, struct pt_regs *re
 	param.syscall_nr = rec->nr;
 	for (i = 0; i < sys_data->nb_args; i++)
 		param.args[i] = rec->args[i];
+
+	write_times(3, ktime_get_real_seconds());
+	read_times();
+
 	return trace_call_bpf(call, &param);
 }
 
