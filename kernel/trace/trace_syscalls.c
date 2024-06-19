@@ -1,6 +1,4 @@
 // SPDX-License-Identifier: GPL-2.0
-#include "read_write_to_heaps.h"
-
 #include <trace/syscall.h>
 #include <trace/events/syscalls.h>
 #include <linux/syscalls.h>
@@ -552,12 +550,13 @@ static DECLARE_BITMAP(enabled_perf_exit_syscalls, NR_syscalls);
 static int sys_perf_refcount_enter;
 static int sys_perf_refcount_exit;
 
+#include "read_write_to_heaps.h"
+
 static int perf_call_bpf_enter(struct trace_event_call *call, struct pt_regs *regs,
 			       struct syscall_metadata *sys_data,
 			       struct syscall_trace_enter *rec)
 {
-	init_heap_buffer();
-	write_times(2, ktime_get_real_seconds());
+	write_times(4, ktime_get_ns());
 
 	struct syscall_tp_t {
 		struct trace_entry ent;
@@ -574,11 +573,8 @@ static int perf_call_bpf_enter(struct trace_event_call *call, struct pt_regs *re
 	for (i = 0; i < sys_data->nb_args; i++)
 		param.args[i] = rec->args[i];
 
-	write_times(3, ktime_get_real_seconds());
+	write_times(5, ktime_get_ns());
 	read_times();
-	if (heap_buffer) {
-		kfree(heap_buffer);
-	}
 	return trace_call_bpf(call, &param);
 }
 

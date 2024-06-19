@@ -112,7 +112,7 @@ static u64 bpf_uprobe_multi_entry_ip(struct bpf_run_ctx *ctx);
  */
 unsigned int trace_call_bpf(struct trace_event_call *call, void *ctx)
 {
-	write_times(0, ktime_get_real_seconds());
+	write_times(0, ktime_get_ns());
 
 	unsigned int ret;
 
@@ -148,14 +148,17 @@ unsigned int trace_call_bpf(struct trace_event_call *call, void *ctx)
 	 * rcu_dereference() which is accepted risk.
 	 */
 	rcu_read_lock();
+	write_times(1, ktime_get_ns());
 	ret = bpf_prog_run_array(rcu_dereference(call->prog_array),
 				 ctx, bpf_prog_run);
+	write_times(2, ktime_get_ns());
+
 	rcu_read_unlock();
 
  out:
 	__this_cpu_dec(bpf_prog_active);
 
-	write_times(1, ktime_get_real_seconds());
+	write_times(3, ktime_get_ns());
 
 	return ret;
 }
