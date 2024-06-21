@@ -574,7 +574,7 @@ static int perf_call_bpf_enter(struct trace_event_call *call, struct pt_regs *re
 		param.args[i] = rec->args[i];
 
 	write_times(5, ktime_get_ns());
-	read_times();
+	//read_times();
 	return trace_call_bpf(call, &param);
 }
 
