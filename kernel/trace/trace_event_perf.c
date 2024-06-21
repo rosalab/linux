@@ -100,6 +100,8 @@ static int perf_trace_event_reg(struct trace_event_call *tp_event,
 	int ret = -ENOMEM;
 	int cpu;
 
+    printk(KERN_INFO "Register perf event: %s\n", tp_event->name);
+
 	p_event->tp_event = tp_event;
 	if (tp_event->perf_refcount++ > 0)
 		return 0;

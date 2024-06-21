@@ -475,6 +475,8 @@ int tracepoint_probe_register_prio_may_exist(struct tracepoint *tp, void *probe,
 	struct tracepoint_func tp_func;
 	int ret;
 
+    printk(KERN_INFO "Registering tracepoint (may exist): %s\ntp struct addr: %px\nhandler addr: %px\n", tp->name, tp, probe);
+
 	mutex_lock(&tracepoints_mutex);
 	tp_func.func = probe;
 	tp_func.data = data;
@@ -503,6 +505,8 @@ int tracepoint_probe_register_prio(struct tracepoint *tp, void *probe,
 {
 	struct tracepoint_func tp_func;
 	int ret;
+
+    printk(KERN_INFO "Registering tracepoint: %s\ntp struct addr: %px\nhandler addr: %px\n", tp->name, tp, probe);
 
 	mutex_lock(&tracepoints_mutex);
 	tp_func.func = probe;
