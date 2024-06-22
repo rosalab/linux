@@ -8,7 +8,9 @@ extern u64 my_tracing_array[6];
 static void read_times_tracing_timestamps(void) {
     int i;
     for (i = 0; i < 6; ++i) {
-        printk(KERN_INFO "Element %d: %llu\n", i, 2*my_tracing_array[i]);
+        //comment 1
+        //printk(KERN_INFO "Element %d: %llu\n", i, 2*my_tracing_array[i]);
+        printk(KERN_INFO "Element %d: %llu\n", i, my_tracing_array[i]);
     }
 }
 
@@ -28,5 +30,5 @@ module_init(read_tracing_array_init);
 module_exit(read_tracing_array_exit);
 
 MODULE_LICENSE("GPL");
-MODULE_AUTHOR("Your Name");
+MODULE_AUTHOR("Uddhav P. Gautam");
 MODULE_DESCRIPTION("Kernel module to read my_tracing_array from timestamp_to_array");

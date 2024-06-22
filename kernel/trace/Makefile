@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0
 
 # Do not instrument the tracer itself:
+obj-y += ./trace_timestamp/timestamp_to_array.o
 
 ccflags-remove-$(CONFIG_FUNCTION_TRACER) += $(CC_FLAGS_FTRACE)
 
