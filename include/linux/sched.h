@@ -1498,6 +1498,8 @@ struct task_struct {
 	struct bpf_local_storage __rcu	*bpf_storage;
 	/* Used for BPF run context */
 	struct bpf_run_ctx		*bpf_ctx;
+    /* Used for per-process BPF tracing */
+    unsigned bpf_enable;
 #endif
 
 #ifdef CONFIG_GCC_PLUGIN_STACKLEAK
