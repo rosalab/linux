@@ -3,6 +3,7 @@
 obj-m += read_tracing_array.o
 obj-m += ../trace_timestamp/timestamp_to_array.o
 
+# KDIR := ../../../
 KDIR := /lib/modules/$(shell uname -r)/build
 PWD := $(shell pwd)
 

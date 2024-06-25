@@ -2,6 +2,7 @@
 
 obj-m += timestamp_to_array.o
 
+# KDIR := ../../../
 KDIR := /lib/modules/$(shell uname -r)/build
 PWD := $(shell pwd)
 
