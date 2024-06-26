@@ -1,6 +1,4 @@
 // SPDX-License-Identifier: GPL-2.0
-#include "trace_timestamp/timestamp_to_array.h"
-
 #include <trace/syscall.h>
 #include <trace/events/syscalls.h>
 #include <linux/syscalls.h>
@@ -556,7 +554,6 @@ static int perf_call_bpf_enter(struct trace_event_call *call, struct pt_regs *re
 			       struct syscall_metadata *sys_data,
 			       struct syscall_trace_enter *rec)
 {
-    write_times_tracing_timestamps(4, ktime_get_ns());
 	struct syscall_tp_t {
 		struct trace_entry ent;
 		int syscall_nr;
@@ -571,7 +568,6 @@ static int perf_call_bpf_enter(struct trace_event_call *call, struct pt_regs *re
 	param.syscall_nr = rec->nr;
 	for (i = 0; i < sys_data->nb_args; i++)
 		param.args[i] = rec->args[i];
-    write_times_tracing_timestamps(5, ktime_get_ns());
 	return trace_call_bpf(call, &param);
 }
 
