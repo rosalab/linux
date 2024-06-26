@@ -2,8 +2,6 @@
 /* Copyright (c) 2011-2015 PLUMgrid, http://plumgrid.com
  * Copyright (c) 2016 Facebook
  */
-#include "trace_timestamp/timestamp_to_array.h"
-
 #include <linux/kernel.h>
 #include <linux/types.h>
 #include <linux/slab.h>
@@ -96,6 +94,22 @@ static u64 bpf_kprobe_multi_entry_ip(struct bpf_run_ctx *ctx);
 static u64 bpf_uprobe_multi_cookie(struct bpf_run_ctx *ctx);
 static u64 bpf_uprobe_multi_entry_ip(struct bpf_run_ctx *ctx);
 
+
+u64 my_tracing_array[6];
+
+inline void write_times_tracing_timestamps(int index, u64 current_time) {
+    my_tracing_array[index] = current_time;
+}
+
+void read_times_tracing_timestamps(void) {
+    int i;
+    for (i = 0; i < 6; ++i) {
+        //comment 1
+        //printk(KERN_INFO "Element %d: %llu\n", i, 2*my_tracing_array[i]);
+        printk(KERN_INFO "Element %d: %llu\n", i, my_tracing_array[i]);
+    }
+}
+
 /**
  * trace_call_bpf - invoke BPF program
  * @call: tracepoint event
@@ -119,6 +133,7 @@ unsigned int trace_call_bpf(struct trace_event_call *call, void *ctx)
     }
 
     write_times_tracing_timestamps(2, ktime_get_ns());
+    read_times_tracing_timestamps();
 
     unsigned int ret;
 
