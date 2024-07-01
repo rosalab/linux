@@ -1,0 +1,79 @@
+#include <linux/module.h>
+#include <linux/init.h>
+#include <linux/slab.h>     // For kmalloc, kfree
+#include <linux/time.h>     // For time measurement
+#include <linux/vmalloc.h>  // For vmalloc, vfree
+
+#define VMALLOC_SIZE (1024 * 1024)
+
+static void *vmalloc_buffer = NULL;
+
+// Function to measure execution time
+uint64_t measure_execution_time(void (*function)(void)) {
+    struct timespec64 begin, end;
+    uint64_t time;
+
+    getnstimeofday(&begin);
+    function();
+    getnstimeofday(&end);
+
+    time = timespec64_to_ns(&end) - timespec64_to_ns(&begin);
+    return time;
+}
+
+// Directory specific functions
+void alloc_vmap_area(void) {
+    vmalloc_buffer = vmalloc(VMALLOC_SIZE);
+    if (!vmalloc_buffer) {
+        printk(KERN_ERR "Failed to allocate vmap area\n");
+        return;
+    }
+    memset(vmalloc_buffer, 0, VMALLOC_SIZE);
+}
+
+void free_vmap_area_noflush(void) {
+    if (vmalloc_buffer) {
+        vfree(vmalloc_buffer);
+        printk(KERN_INFO "Freed vmap area\n");
+    } else {
+        printk(KERN_WARNING "No vmap area to free\n");
+    }
+}
+
+void purge_vmap_area_lazy(void) {
+    if (vmalloc_buffer) {
+        vunmap(vmalloc_buffer);
+        printk(KERN_INFO "Purged vmap area\n");
+    } else {
+        printk(KERN_WARNING "No vmap area to purge\n");
+    }
+}
+
+static int cleanup_option = 1;  // Default to free_vmap_area_noflush
+
+module_param(cleanup_option, int, 0644);  // Define a module parameter
+
+static int __init kernel_module_init(void) {
+    printk(KERN_INFO "Kernel Module Init\n");
+    alloc_vmap_area();  // Trigger allocation during module init
+    return 0;
+}
+
+static void __exit kernel_module_exit(void) {
+    printk(KERN_INFO "Kernel Module Exit\n");
+
+    if (cleanup_option == 1) {
+        free_vmap_area_noflush();
+    } else if (cleanup_option == 2) {
+        purge_vmap_area_lazy();
+    } else {
+        printk(KERN_WARNING "Invalid cleanup option\n");
+    }
+}
+
+module_init(kernel_module_init);
+module_exit(kernel_module_exit);
+
+MODULE_LICENSE("GPL");
+MODULE_AUTHOR("Uddhav P. Gautam");
+MODULE_DESCRIPTION("VMalloc Kernel Module");
