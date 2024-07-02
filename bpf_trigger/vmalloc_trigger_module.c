@@ -8,17 +8,23 @@
 
 static void *vmalloc_buffer = NULL;
 
+// Function prototypes
+uint64_t measure_execution_time(void (*function)(void));
+void alloc_vmap_area(void);
+void free_vmap_area_noflush(void);
+void purge_vmap_area_lazy(void);
+
 // Function to measure execution time
 uint64_t measure_execution_time(void (*function)(void)) {
-    struct timespec64 begin, end;
-    uint64_t time;
+    ktime_t begin, end;
+    uint64_t time_ns;
 
-    getnstimeofday(&begin);
+    begin = ktime_get();
     function();
-    getnstimeofday(&end);
+    end = ktime_get();
 
-    time = timespec64_to_ns(&end) - timespec64_to_ns(&begin);
-    return time;
+    time_ns = ktime_to_ns(ktime_sub(end, begin));
+    return time_ns;
 }
 
 // Directory specific functions

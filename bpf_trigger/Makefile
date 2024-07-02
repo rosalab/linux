@@ -2,7 +2,8 @@
 MODULE_NAME := vmalloc_trigger_module
 
 # Kernel source tree path (assuming your module source is in linux/ directory)
-KERNEL_SRC := ../
+#KERNEL_SRC := ../
+KERNEL_SRC := /lib/modules/$(shell uname -r)/build
 
 # Flags for the module compilation
 ccflags-y := -I$(KERNEL_SRC)usr/include/ -I$(KERNEL_SRC)tools/lib/ -Wall -O0
