@@ -1,3 +1,13 @@
+/*
+root@q:/moo-kernel/linux/bpf_trigger# insmod vmalloc_trigger_module.ko
+[   86.528924][  T547] vmalloc_trigger_module: loading out-of-tree module taints kernel.
+[   86.530267][  T547] Kernel Module Init
+[   86.530876][  T547] Total end-to-end time is 76567 nanoseconds
+        root@q:/moo-kernel/linux/bpf_trigger# cat /sys/kernel/debug/tracing/trace_pipe
+*/
+
+
+
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/slab.h>     // For kmalloc, kfree
@@ -60,18 +70,23 @@ static int cleanup_option = 1;  // Default to free_vmap_area_noflush
 module_param(cleanup_option, int, 0644);  // Define a module parameter
 
 static int __init kernel_module_init(void) {
+    uint64_t execution_time;
     printk(KERN_INFO "Kernel Module Init\n");
-    alloc_vmap_area();  // Trigger allocation during module init
+    execution_time = measure_execution_time(alloc_vmap_area);
+    printk("Total end-to-end time is %llu nanoseconds\n", execution_time);
     return 0;
 }
 
 static void __exit kernel_module_exit(void) {
+    uint64_t execution_time;
     printk(KERN_INFO "Kernel Module Exit\n");
 
     if (cleanup_option == 1) {
-        free_vmap_area_noflush();
+        execution_time = measure_execution_time(free_vmap_area_noflush);
+        printk("Total end-to-end time is %llu nanoseconds\n", (unsigned long long) execution_time);
     } else if (cleanup_option == 2) {
-        purge_vmap_area_lazy();
+        execution_time = measure_execution_time(purge_vmap_area_lazy);
+        printk("Total end-to-end time is %llu nanoseconds\n", execution_time);
     } else {
         printk(KERN_WARNING "Invalid cleanup option\n");
     }
