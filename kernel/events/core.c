@@ -5970,7 +5970,7 @@ static long _perf_ioctl(struct perf_event *event, unsigned int cmd, unsigned lon
 		if (IS_ERR(prog))
 			return PTR_ERR(prog);
 
-		err = perf_event_set_bpf_prog(event, prog, 0);
+		err = perf_event_set_bpf_prog(event, prog, 0, NULL);
 		if (err) {
 			bpf_prog_put(prog);
 			return err;
@@ -10565,9 +10565,8 @@ static inline bool perf_event_is_tracing(struct perf_event *event)
 extern struct tracepoint __tracepoint_sys_enter;
 extern struct tracepoint __tracepoint_sys_exit;
 
-
 int perf_event_set_bpf_prog(struct perf_event *event, struct bpf_prog *prog,
-			    u64 bpf_cookie)
+			    u64 bpf_cookie, union bpf_attr *attr)
 {
 	bool is_kprobe, is_uprobe, is_tracepoint, is_syscall_tp;
 
@@ -10607,29 +10606,54 @@ int perf_event_set_bpf_prog(struct perf_event *event, struct bpf_prog *prog,
      */
     // TODO: Need to pass the PID info for the attachment to 
     // add to the tracepoint structs
+    
+    if (attr == NULL) return perf_event_attach_bpf_prog(event, prog, bpf_cookie);
+
+    struct tracepoint * tp_struct;
+    // attr is non-null
     if (is_tracepoint) {
-        struct tracepoint * tp_struct = event->tp_event->tp;
-        printk(KERN_INFO "Tracepoint: %s\n", tp_struct->name);
-        tp_struct->hookset[tp_struct->hookset_size] = 12;
+        tp_struct = event->tp_event->tp;
+        //struct tracepoint * tp_struct = event->tp_event->tp;
+        //printk(KERN_INFO "Tracepoint: %s\n", tp_struct->name);
+        //tp_struct->hookset[tp_struct->hookset_size] = 12;
     }
     else if (is_syscall_tp) {
         if (event->tp_event->class == &event_class_syscall_enter) {
-            printk(KERN_INFO "Syscall enter tp\n");
-            struct tracepoint * s_ent = &__tracepoint_sys_enter;
-            printk(KERN_INFO "%s at %px\n", s_ent->name, s_ent);
+            tp_struct = &__tracepoint_sys_enter;
+            //printk(KERN_INFO "Syscall enter tp\n");
+            //struct tracepoint * s_ent = &__tracepoint_sys_enter;
+            //printk(KERN_INFO "%s at %px\n", s_ent->name, s_ent);
         }
         else {
-            printk(KERN_INFO "Syscall exit tp\n");
-            struct tracepoint * s_exit = &__tracepoint_sys_exit;
-            printk(KERN_INFO "%s at %px\n", s_exit->name, s_exit);
+            tp_struct = &__tracepoint_sys_exit;
+            //printk(KERN_INFO "Syscall exit tp\n");
+            //struct tracepoint * s_exit = &__tracepoint_sys_exit;
+            //printk(KERN_INFO "%s at %px\n", s_exit->name, s_exit);
         }
     }
+    printk(KERN_INFO "Tracepoint: %s\n", tp_struct->name);
+    // TOCTOU here potentially
+    u64 pid_size = attr->link_create.hookset_size * sizeof(pid_t);
+    pid_t * pids = (pid_t *)vmalloc(pid_size);
+    if (copy_from_user(pids, (__user pid_t *)attr->link_create.hookset, 
+                       pid_size) != pid_size) {
+        printk(KERN_INFO "Copy pid data from user failed\n");
+	    return perf_event_attach_bpf_prog(event, prog, bpf_cookie);
+    }
 
+    printk(KERN_INFO "Has %llu pids to load\n", pid_size / sizeof(pid_t));
+    for (int i = 0; i < attr->link_create.hookset_size; i++) {
+        if (tp_struct->hookset_size < 10) {
+            tp_struct->hookset[tp_struct->hookset_size] = pids[i];
+            tp_struct->hookset_size++;
+        }
+    }
 
 
 
 	return perf_event_attach_bpf_prog(event, prog, bpf_cookie);
 }
+
 
 void perf_event_free_bpf_prog(struct perf_event *event)
 {
@@ -10651,7 +10675,7 @@ static void perf_event_free_filter(struct perf_event *event)
 }
 
 int perf_event_set_bpf_prog(struct perf_event *event, struct bpf_prog *prog,
-			    u64 bpf_cookie)
+			    u64 bpf_cookie, union bpf_attr *attr)
 {
 	return -ENOENT;
 }
