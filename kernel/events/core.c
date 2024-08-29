@@ -10562,6 +10562,10 @@ static inline bool perf_event_is_tracing(struct perf_event *event)
 	return false;
 }
 
+extern struct tracepoint __tracepoint_sys_enter;
+extern struct tracepoint __tracepoint_sys_exit;
+
+
 int perf_event_set_bpf_prog(struct perf_event *event, struct bpf_prog *prog,
 			    u64 bpf_cookie)
 {
@@ -10597,6 +10601,32 @@ int perf_event_set_bpf_prog(struct perf_event *event, struct bpf_prog *prog,
 		if (prog->aux->max_ctx_offset > off)
 			return -EACCES;
 	}
+
+    /*
+     * Add the desired PIDs to trace at attachment time
+     */
+    // TODO: Need to pass the PID info for the attachment to 
+    // add to the tracepoint structs
+    if (is_tracepoint) {
+        struct tracepoint * tp_struct = event->tp_event->tp;
+        printk(KERN_INFO "Tracepoint: %s\n", tp_struct->name);
+        tp_struct->hookset[tp_struct->hookset_size] = 12;
+    }
+    else if (is_syscall_tp) {
+        if (event->tp_event->class == &event_class_syscall_enter) {
+            printk(KERN_INFO "Syscall enter tp\n");
+            struct tracepoint * s_ent = &__tracepoint_sys_enter;
+            printk(KERN_INFO "%s at %px\n", s_ent->name, s_ent);
+        }
+        else {
+            printk(KERN_INFO "Syscall exit tp\n");
+            struct tracepoint * s_exit = &__tracepoint_sys_exit;
+            printk(KERN_INFO "%s at %px\n", s_exit->name, s_exit);
+        }
+    }
+
+
+
 
 	return perf_event_attach_bpf_prog(event, prog, bpf_cookie);
 }

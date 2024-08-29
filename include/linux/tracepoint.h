@@ -255,10 +255,17 @@ static inline struct tracepoint *tracepoint_ptr_deref(tracepoint_ptr_t *p)
 	extern struct tracepoint __tracepoint_##name;			\
 	static inline void trace_##name(proto)				\
 	{								\
-		if (static_key_false(&__tracepoint_##name.key))		\
-			__DO_TRACE(name,				\
-				TP_ARGS(args),				\
-				TP_CONDITION(cond), 0);			\
+		if (static_key_false(&__tracepoint_##name.key)) {		\
+            int check_pid = current->pid; \
+            for (int i = 0; i < __tracepoint_##name.hookset_size; i++) { \
+                if (check_pid == __tracepoint_##name.hookset[i]) { \
+                    __DO_TRACE(name, \
+                        TP_ARGS(args), \
+                        TP_CONDITION(cond), 0); \
+                    break; \
+                } \
+            } \
+        } \
 		if (IS_ENABLED(CONFIG_LOCKDEP) && (cond)) {		\
 			WARN_ONCE(!rcu_is_watching(),			\
 				  "RCU not watching for tracepoint");	\
