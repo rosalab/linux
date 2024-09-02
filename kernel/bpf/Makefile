@@ -53,7 +53,7 @@ obj-$(CONFIG_BPF_SYSCALL) += relo_core.o
 obj-$(CONFIG_BPF_SYSCALL) += btf_iter.o
 obj-$(CONFIG_BPF_SYSCALL) += btf_relocate.o
 
-obj-$(CONFIG_BPF_SYSCALL) += rex_termination.o
+obj-$(CONFIG_BPF_SYSCALL) += rex.o
 
 # Some source files are common to libbpf.
 vpath %.c $(srctree)/kernel/bpf:$(srctree)/tools/lib/bpf
