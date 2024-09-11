@@ -10641,12 +10641,10 @@ int perf_event_set_bpf_prog(struct perf_event *event, struct bpf_prog *prog,
     pid_t * pids = (pid_t *)vmalloc(pid_size);
     u64 res = copy_from_user(pids, (__user pid_t *)attr->link_create.hookset, 
                        pid_size);
-    printk(KERN_INFO "Res is %llu\n", res);
-    //if (copy_from_user(pids, (__user pid_t *)attr->link_create.hookset, 
-    //                   pid_size) != pid_size) {
-    //    printk(KERN_INFO "Copy pid data from user failed\n");
-	//    return perf_event_attach_bpf_prog(event, prog, bpf_cookie);
-    //}
+    if (res) {
+        printk(KERN_INFO "Copy pid data from user failed\n");
+	    return perf_event_attach_bpf_prog(event, prog, bpf_cookie);
+    }
 
     printk(KERN_INFO "Has %llu pids to load\n", pid_size / sizeof(pid_t));
     for (int i = 0; i < attr->link_create.hookset_size; i++) {
