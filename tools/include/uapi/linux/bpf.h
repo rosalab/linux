@@ -1715,6 +1715,8 @@ union bpf_attr {
 		};
 		__u32		attach_type;	/* attach type */
 		__u32		flags;		/* extra flags */
+        __aligned_u64 hookset; /* PIDs to trace for this link */
+        __u32 hookset_size;    /* Number of PIDs in hookset */
 		union {
 			__u32	target_btf_id;	/* btf_id of target to attach to */
 			struct {

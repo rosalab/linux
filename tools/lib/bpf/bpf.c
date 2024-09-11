@@ -729,12 +729,16 @@ int bpf_link_create(int prog_fd, int target_fd,
 	__u32 target_btf_id, iter_info_len, relative_id;
 	int fd, err, relative_fd;
 	union bpf_attr attr;
+    struct bpf_hookset * hs;
 
 	if (!OPTS_VALID(opts, bpf_link_create_opts))
 		return libbpf_err(-EINVAL);
 
 	iter_info_len = OPTS_GET(opts, iter_info_len, 0);
 	target_btf_id = OPTS_GET(opts, target_btf_id, 0);
+
+    hs = OPTS_GET(opts, hookset, NULL);
+
 
 	/* validate we don't have unexpected combinations of non-zero fields */
 	if (iter_info_len || target_btf_id) {
@@ -749,6 +753,16 @@ int bpf_link_create(int prog_fd, int target_fd,
 	attr.link_create.target_fd = target_fd;
 	attr.link_create.attach_type = attach_type;
 	attr.link_create.flags = OPTS_GET(opts, flags, 0);
+
+    if (hs) {
+        attr.link_create.hookset = (__u64)hs->hookset;
+        attr.link_create.hookset_size = hs->hookset_size; 
+    }
+    else {
+        attr.link_create.hookset = 0;
+        attr.link_create.hookset_size = 0;
+    }
+
 
 	if (target_btf_id) {
 		attr.link_create.target_btf_id = target_btf_id;

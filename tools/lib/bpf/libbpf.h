@@ -19,6 +19,7 @@
 
 #include "libbpf_common.h"
 #include "libbpf_legacy.h"
+#include "bpf.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -475,6 +476,7 @@ struct bpf_perf_event_opts {
 	__u64 bpf_cookie;
 	/* don't use BPF link when attach BPF program */
 	bool force_ioctl_attach;
+    struct bpf_hookset * hookset;
 	size_t :0;
 };
 #define bpf_perf_event_opts__last_field force_ioctl_attach
@@ -1879,6 +1881,12 @@ LIBBPF_API int libbpf_register_prog_handler(const char *sec,
  * multiple threads simultaneously.
  */
 LIBBPF_API int libbpf_unregister_prog_handler(int handler_id);
+
+
+/**
+ * Set the hookset field of the bpf_program struct
+ */
+LIBBPF_API int bpf_program__set_hookset(struct bpf_program *prog, struct bpf_hookset *hookset);
 
 #ifdef __cplusplus
 } /* extern "C" */

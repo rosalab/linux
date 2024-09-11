@@ -35,6 +35,11 @@
 extern "C" {
 #endif
 
+struct bpf_hookset {
+    int * hookset;
+    int hookset_size;
+};
+
 LIBBPF_API int libbpf_set_memlock_rlim(size_t memlock_bytes);
 
 struct bpf_map_create_opts {
@@ -396,6 +401,7 @@ struct bpf_link_create_opts {
 	union bpf_iter_link_info *iter_info;
 	__u32 iter_info_len;
 	__u32 target_btf_id;
+    struct bpf_hookset * hookset; // add +8 to sz
 	union {
 		struct {
 			__u64 bpf_cookie;
@@ -699,6 +705,7 @@ struct bpf_token_create_opts {
  */
 LIBBPF_API int bpf_token_create(int bpffs_fd,
 				struct bpf_token_create_opts *opts);
+
 
 #ifdef __cplusplus
 } /* extern "C" */
