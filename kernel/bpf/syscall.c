@@ -5787,10 +5787,8 @@ static int __sys_bpf(int cmd, bpfptr_t uattr, unsigned int size)
 			err = 0;
 		}
 #else
-		printk("CONFIG_HAVE_BPF_TERMINATION is disabled!\n");
-		err = -EINVAL;
-#endif /* CONFIG_HAVE_BPF_TERMINATION */
-		break;
+		pr_warn("CONFIG_HAVE_BPF_TERMINATION is disabled!\n");
+#endif
 	default:
 		err = -EINVAL;
 		break;
