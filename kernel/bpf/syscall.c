@@ -3245,7 +3245,6 @@ static int bpf_prog_load(union bpf_attr *attr, bpfptr_t uattr)
 	if (err < 0)
 		goto free_used_maps;
 
-	struct bpf_prog *patch_prog = NULL; 
 	patch_prog = bpf_prog_alloc_no_stats(bpf_prog_size(prog->len), GFP_USER); 
 	clone_bpf_prog(patch_prog, prog);
 
@@ -5792,9 +5791,6 @@ static int __sys_bpf(int cmd, bpfptr_t uattr, unsigned int size)
 		err = -EINVAL;
 #endif /* CONFIG_HAVE_BPF_TERMINATION */
 		break;
-#endif /* CONFIG_HAVE_BPF_TERMINATION */
-		pr_warn("CONFIG_HAVE_BPF_TERMINATION not enable");
-		/* fall through */
 	default:
 		err = -EINVAL;
 		break;
