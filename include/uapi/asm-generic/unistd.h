@@ -845,8 +845,14 @@ __SYSCALL(__NR_lsm_list_modules, sys_lsm_list_modules)
 #define __NR_mseal 462
 __SYSCALL(__NR_mseal, sys_mseal)
 
+#define __NR_process_set_color 463
+__SYSCALL(__NR_process_set_color, sys_process_set_color)
+
+#define __NR_process_get_color 464
+__SYSCALL(__NR_process_get_color, sys_process_get_color)
+
 #undef __NR_syscalls
-#define __NR_syscalls 463
+#define __NR_syscalls 465
 
 /*
  * 32 bit systems traditionally used different

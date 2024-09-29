@@ -354,6 +354,9 @@ COND_SYSCALL_COMPAT(ppoll_time32);
 COND_SYSCALL(utimensat_time32);
 COND_SYSCALL(clock_adjtime32);
 
+COND_SYSCALL(process_set_color);
+COND_SYSCALL(process_get_color);
+
 /*
  * The syscalls below are not found in include/uapi/asm-generic/unistd.h
  */

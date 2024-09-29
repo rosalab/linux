@@ -5795,6 +5795,41 @@ SYSCALL_DEFINE3(bpf, int, cmd, union bpf_attr __user *, uattr, unsigned int, siz
 	return __sys_bpf(cmd, USER_BPFPTR(uattr), size);
 }
 
+
+static int __sys_process_set_color(int pid, u64 color)
+{
+    struct task_struct * ts;
+    ts = find_task_by_vpid(pid);
+    if (!ts) {
+        return -1;
+    }
+    ts->process_color = color;
+    return 0;
+}
+
+static int __sys_process_get_color(int pid, u64 __user *ptr)
+{
+    struct task_struct * ts = find_task_by_vpid(pid);
+    if (!ts) {
+        return -1;
+    }
+    
+    if (copy_to_user(ptr, &(ts->process_color), sizeof(u64))) 
+        return -1;
+
+    return 0;
+}
+
+SYSCALL_DEFINE2(process_set_color, int, pid, u64, color)
+{
+    return __sys_process_set_color(pid, color);
+}
+
+SYSCALL_DEFINE2(process_get_color, int, pid, u64 __user *, ptr)
+{
+    return __sys_process_get_color(pid, ptr);
+}
+
 static bool syscall_prog_is_valid_access(int off, int size,
 					 enum bpf_access_type type,
 					 const struct bpf_prog *prog,
