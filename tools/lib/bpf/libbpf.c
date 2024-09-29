@@ -457,7 +457,8 @@ struct bpf_program {
 	enum bpf_attach_type expected_attach_type;
 	int exception_cb_idx;
 
-    struct bpf_hookset * hookset;
+    // Program color rule
+    __u64 color;
 
 	int prog_ifindex;
 	__u32 attach_btf_obj_fd;
@@ -10737,8 +10738,8 @@ struct bpf_link *bpf_program__attach_perf_event_opts(const struct bpf_program *p
 		DECLARE_LIBBPF_OPTS(bpf_link_create_opts, link_opts,
 			.perf_event.bpf_cookie = OPTS_GET(opts, bpf_cookie, 0));
 
-        struct bpf_hookset * hs = prog->hookset;
-        link_opts.hookset = hs;
+        __u64 color = prog->color;
+        link_opts.color = color;
 
 		link_fd = bpf_link_create(prog_fd, pfd, BPF_PERF_EVENT, &link_opts);
 		if (link_fd < 0) {
@@ -13956,8 +13957,8 @@ void bpf_object__destroy_skeleton(struct bpf_object_skeleton *s)
 	free(s);
 }
 
-LIBBPF_API int bpf_program__set_hookset(struct bpf_program *prog, struct bpf_hookset *hookset)
+LIBBPF_API int bpf_program__set_color(struct bpf_program *prog, __u64 color)
 {
-    prog->hookset = hookset;
+    prog->color = color;
     return 0;
 }

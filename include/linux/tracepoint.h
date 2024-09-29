@@ -256,14 +256,11 @@ static inline struct tracepoint *tracepoint_ptr_deref(tracepoint_ptr_t *p)
 	static inline void trace_##name(proto)				\
 	{								\
 		if (static_key_false(&__tracepoint_##name.key)) {		\
-            int check_pid = current->pid; \
-            for (int i = 0; i < __tracepoint_##name.hookset_size; i++) { \
-                if (check_pid == __tracepoint_##name.hookset[i]) { \
-                    __DO_TRACE(name, \
-                        TP_ARGS(args), \
-                        TP_CONDITION(cond), 0); \
-                    break; \
-                } \
+            u64 color = current->process_color; \
+            if (color == __tracepoint_##name.tracepoint_color) { \
+                __DO_TRACE(name, \
+                    TP_ARGS(args), \
+                    TP_CONDITION(cond), 0); \
             } \
         } \
 		if (IS_ENABLED(CONFIG_LOCKDEP) && (cond)) {		\

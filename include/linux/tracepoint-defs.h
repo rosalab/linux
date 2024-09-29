@@ -39,8 +39,7 @@ struct tracepoint {
 	int (*regfunc)(void);
 	void (*unregfunc)(void);
 	struct tracepoint_func __rcu *funcs;
-    pid_t hookset[10]; // Arb limit at 10
-    unsigned int hookset_size;
+    u64 tracepoint_color;
 };
 
 #ifdef CONFIG_HAVE_ARCH_PREL32_RELOCATIONS
