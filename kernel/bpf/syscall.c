@@ -5800,11 +5800,18 @@ static int __sys_process_set_color(int pid, u64 color)
 {
     struct task_struct * ts;
     ts = find_task_by_vpid(pid);
+
     if (!ts) {
         return -1;
     }
-    ts->process_color = color;
-    return 0;
+
+    if (bpf_capable()) {
+        ts->process_color = color;
+        return 0;
+    }
+    else {
+        return -1;
+    }
 }
 
 static int __sys_process_get_color(int pid, u64 __user *ptr)
