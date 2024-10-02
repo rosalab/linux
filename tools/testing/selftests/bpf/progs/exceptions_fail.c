@@ -146,6 +146,13 @@ __noinline static int throwing_subprog(struct __sk_buff *ctx)
 	return 0;
 }
 
+__noinline int throwing_global_subprog(struct __sk_buff *ctx)
+{
+	if (ctx->len)
+		bpf_throw(0);
+	return 0;
+}
+
 SEC("?tc")
 __failure __msg("bpf_rcu_read_unlock is missing")
 int reject_subprog_with_rcu_read_lock(void *ctx)
@@ -175,19 +182,6 @@ int reject_with_rbtree_add_throw(void *ctx)
 	return 0;
 }
 
-SEC("?tc")
-__failure __msg("Unreleased reference")
-int reject_with_reference(void *ctx)
-{
-	struct foo *f;
-
-	f = bpf_obj_new(typeof(*f));
-	if (!f)
-		return 0;
-	bpf_throw(0);
-	return 0;
-}
-
 __noinline static int subprog_ref(struct __sk_buff *ctx)
 {
 	struct foo *f;
@@ -206,7 +200,7 @@ __noinline static int subprog_cb_ref(u32 i, void *ctx)
 }
 
 SEC("?tc")
-__failure __msg("Unreleased reference")
+__failure __msg("cannot be called from callback subprog 1")
 int reject_with_cb_reference(void *ctx)
 {
 	struct foo *f;
@@ -228,7 +222,7 @@ int reject_with_cb(void *ctx)
 }
 
 SEC("?tc")
-__failure __msg("Unreleased reference")
+__success
 int reject_with_subprog_reference(void *ctx)
 {
 	return subprog_ref(ctx) + 1;
@@ -343,6 +337,20 @@ int reject_exception_throw_cb_diff(struct __sk_buff *ctx)
 		bpf_loop(5, loop_cb1, NULL, 0);
 	else
 		bpf_loop(5, loop_cb2, NULL, 0);
+	return 0;
+}
+
+SEC("?tc")
+__success __log_level(2) __msg("exploring program path where exception is thrown")
+int reject_exception_throw_ref_call_throwing_global(struct __sk_buff *ctx)
+{
+	struct { long a; } *p = bpf_obj_new(typeof(*p));
+
+	if (!p)
+		return 0;
+	if (ctx->protocol)
+		throwing_global_subprog(ctx);
+	bpf_obj_drop(p);
 	return 0;
 }
 
