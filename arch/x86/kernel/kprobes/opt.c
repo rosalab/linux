@@ -182,7 +182,10 @@ optimized_callback(struct optimized_kprobe *op, struct pt_regs *regs)
 
 	preempt_disable();
     if (op) {
-        printk(KERN_INFO "In kprobe with color %llu\n", op->kp.kprobe_color);
+        if (op->kp.kprobe_color & current->process_color) {
+            printk(KERN_INFO "Bailout\n");
+            // Need to figure out how to return
+        }
     }
 	if (kprobe_running()) {
 		kprobes_inc_nmissed_count(&op->kp);

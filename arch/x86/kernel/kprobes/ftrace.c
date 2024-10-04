@@ -29,8 +29,12 @@ void kprobe_ftrace_handler(unsigned long ip, unsigned long parent_ip,
 		return;
 
 	p = get_kprobe((kprobe_opcode_t *)ip);
+
     if (p) {
-        printk(KERN_INFO "In kprobe with color %llu\n", p->kprobe_color);
+        if (p->kprobe_color & current->process_color) {
+            printk(KERN_INFO "Bailout\n");
+        }
+        //printk(KERN_INFO "In kprobe with color %llu\n", p->kprobe_color);
     }
 	if (unlikely(!p) || kprobe_disabled(p))
 		goto out;
