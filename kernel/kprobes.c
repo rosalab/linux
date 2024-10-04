@@ -1683,6 +1683,8 @@ int register_kprobe(struct kprobe *p)
 		}
 	}
 
+    p->kprobe_color = 0xfff; 
+
 	/* Try to optimize kprobe */
 	try_to_optimize_kprobe(p);
 out:

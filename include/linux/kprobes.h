@@ -86,6 +86,8 @@ struct kprobe {
 	/* copy of the original instruction */
 	struct arch_specific_insn ainsn;
 
+    /* hookpoint color  */
+    u64 kprobe_color;
 	/*
 	 * Indicates various status flags.
 	 * Protected by kprobe_mutex after this kprobe is registered.
