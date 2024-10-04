@@ -1022,7 +1022,7 @@ int kprobe_int3_handler(struct pt_regs *regs)
 	kcb = get_kprobe_ctlblk();
 	p = get_kprobe(addr);
     if (p) {
-        printk("In kprobe with color %llu\n", p->kprobe_color);
+        printk(KERN_INFO "In kprobe with color %llu\n", p->kprobe_color);
     }
 
 	if (p) {

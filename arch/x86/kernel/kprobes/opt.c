@@ -182,7 +182,7 @@ optimized_callback(struct optimized_kprobe *op, struct pt_regs *regs)
 
 	preempt_disable();
     if (op) {
-        printk("In kprobe with color %llu\n", op->kp.kprobe_color);
+        printk(KERN_INFO "In kprobe with color %llu\n", op->kp.kprobe_color);
     }
 	if (kprobe_running()) {
 		kprobes_inc_nmissed_count(&op->kp);

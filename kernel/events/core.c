@@ -55,6 +55,7 @@
 #include <linux/pgtable.h>
 #include <linux/buildid.h>
 #include <linux/task_work.h>
+#include <linux/kprobes.h>
 
 #include "internal.h"
 
@@ -10609,44 +10610,47 @@ int perf_event_set_bpf_prog(struct perf_event *event, struct bpf_prog *prog,
     
     if (attr == NULL) return perf_event_attach_bpf_prog(event, prog, bpf_cookie);
 
-    struct tracepoint * tp_struct;
-    // attr is non-null
-    if (is_tracepoint) {
-        tp_struct = event->tp_event->tp;
+    if (is_tracepoint || is_syscall_tp) {
+        struct tracepoint * tp_struct;
+        // attr is non-null
+        if (is_tracepoint) {
+            tp_struct = event->tp_event->tp;
+        }
+        else if (is_syscall_tp) {
+            if (event->tp_event->class == &event_class_syscall_enter) {
+                tp_struct = &__tracepoint_sys_enter;
+            }
+            else {
+                tp_struct = &__tracepoint_sys_exit;
+            }
+        }
+        printk(KERN_INFO "Tracepoint: %s\n", tp_struct->name);
+        // TOCTOU here potentially
+        if (attr->link_create.color == 0) {
+	        return perf_event_attach_bpf_prog(event, prog, bpf_cookie);
+        } 
+            
+        tp_struct->tracepoint_color = attr->link_create.color;
+        printk(KERN_INFO "Color is %llu\n", tp_struct->tracepoint_color);
     }
-    else if (is_syscall_tp) {
-        if (event->tp_event->class == &event_class_syscall_enter) {
-            tp_struct = &__tracepoint_sys_enter;
+    else if (is_kprobe) {
+        // TODO implement support for kprobe setting color
+        printk(KERN_INFO "kprobe color setting not implemented yet\n");
+        //mutex_lock(&kprobe_mutex); // need to lock for get_kprobe
+        struct kprobe * kp_struct;
+        if (event->attr.kprobe_func == 0) {
+            kp_struct = get_kprobe((void *)event->attr.kprobe_addr);
         }
         else {
-            tp_struct = &__tracepoint_sys_exit;
+            kp_struct = get_kprobe((void *)event->attr.kprobe_func);
+        }
+        printk(KERN_INFO "kp_struct is %px\n", kp_struct);
+        //mutex_unlock(&kprobe_mutex); 
+        if (kp_struct) {
+            printk(KERN_INFO "Got kprobe struct\n");
         }
     }
-    printk(KERN_INFO "Tracepoint: %s\n", tp_struct->name);
-    // TOCTOU here potentially
-    if (attr->link_create.color == 0) {
-	    return perf_event_attach_bpf_prog(event, prog, bpf_cookie);
-    } 
-        
-    tp_struct->tracepoint_color = attr->link_create.color;
-    printk(KERN_INFO "Color is %llu\n", tp_struct->tracepoint_color);
-    //u64 pid_size = attr->link_create.hookset_size * sizeof(pid_t);
-    //pid_t * pids = (pid_t *)vmalloc(pid_size);
-    //u64 res = copy_from_user(pids, (__user pid_t *)attr->link_create.hookset, 
-    //                   pid_size);
-    //if (res) {
-    //    printk(KERN_INFO "Copy pid data from user failed\n");
-	//    return perf_event_attach_bpf_prog(event, prog, bpf_cookie);
-    //}
 
-    //printk(KERN_INFO "Has %llu pids to load\n", pid_size / sizeof(pid_t));
-    //for (int i = 0; i < attr->link_create.hookset_size; i++) {
-    //    if (tp_struct->hookset_size < 10) {
-    //        printk(KERN_INFO "pid: %d\n", pids[i]);
-    //        tp_struct->hookset[tp_struct->hookset_size] = pids[i];
-    //        tp_struct->hookset_size++;
-    //    }
-    //}
 
 	return perf_event_attach_bpf_prog(event, prog, bpf_cookie);
 }
