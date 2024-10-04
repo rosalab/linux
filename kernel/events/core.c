@@ -10635,20 +10635,25 @@ int perf_event_set_bpf_prog(struct perf_event *event, struct bpf_prog *prog,
     }
     else if (is_kprobe) {
         // TODO implement support for kprobe setting color
-        printk(KERN_INFO "kprobe color setting not implemented yet\n");
+        struct kprobe *kp = event->tp_event->kp;
+        kp->kprobe_color = attr->link_create.color;
+        printk(KERN_INFO "kprobe on symbol: %s and color is %llu\n", kp->symbol_name, kp->kprobe_color);
+        //kprobe_opcode_t * addr = kprobe_lookup_name(event->tp_event->name, 0);
+        //struct kprobe * kp_struct = get_kprobe((void *)addr);
+        //printk(KERN_INFO "kp_struct is %px\n", kp_struct);
+        //printk(KERN_INFO "addr is %px\n", addr);
         //mutex_lock(&kprobe_mutex); // need to lock for get_kprobe
-        struct kprobe * kp_struct;
-        if (event->attr.kprobe_func == 0) {
-            kp_struct = get_kprobe((void *)event->attr.kprobe_addr);
-        }
-        else {
-            kp_struct = get_kprobe((void *)event->attr.kprobe_func);
-        }
-        printk(KERN_INFO "kp_struct is %px\n", kp_struct);
+        //struct kprobe * kp_struct;
+        //if (event->attr.kprobe_func == 0) {
+        //    kp_struct = get_kprobe((void *)event->attr.kprobe_addr);
+        //}
+        //else {
+        //    kp_struct = get_kprobe((void *)event->attr.kprobe_func);
+        //}
         //mutex_unlock(&kprobe_mutex); 
-        if (kp_struct) {
-            printk(KERN_INFO "Got kprobe struct\n");
-        }
+        //if (kp_struct) {
+        //    printk(KERN_INFO "Got kprobe struct\n");
+        //}
     }
 
 
