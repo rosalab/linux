@@ -19,6 +19,7 @@ tprogs-y += tracex4
 tprogs-y += tracex5
 tprogs-y += tracex6
 tprogs-y += tracex7
+tprogs-y += tracex8
 tprogs-y += test_probe_write_user
 tprogs-y += trace_output
 tprogs-y += lathist
@@ -47,6 +48,13 @@ tprogs-y += task_fd_query
 tprogs-y += ibumad
 tprogs-y += hbm
 
+tprogs-y += tracex9
+
+tprogs-y += recursive
+tprogs-y += array_test
+tprogs-y += hash_test
+tprogs-y += static_u64_test
+
 # Libbpf dependencies
 LIBBPF_SRC = $(TOOLS_PATH)/lib/bpf
 LIBBPF_OUTPUT = $(abspath $(BPF_SAMPLES_PATH))/libbpf
@@ -69,6 +77,7 @@ tracex4-objs := tracex4_user.o
 tracex5-objs := tracex5_user.o $(TRACE_HELPERS)
 tracex6-objs := tracex6_user.o
 tracex7-objs := tracex7_user.o
+tracex8-objs := tracex8_user.o
 test_probe_write_user-objs := test_probe_write_user_user.o
 trace_output-objs := trace_output_user.o
 lathist-objs := lathist_user.o
@@ -99,8 +108,16 @@ hbm-objs := hbm.o $(CGROUP_HELPERS)
 
 xdp_router_ipv4-objs := xdp_router_ipv4_user.o $(XDP_SAMPLE)
 
+recursive-objs := recursive_user.o
+array_test-objs := array_test_user.o
+hash_test-objs := hash_test_user.o
+static_u64_test-objs := static_u64_test_user.o
+tracex9-objs := tracex9_user.o $(TRACE_HELPERS)
+
 # Tell kbuild to always build the programs
 always-y := $(tprogs-y)
+always-y += hello_kern.o
+always-y += tracex9_kern.o
 always-y += sockex1_kern.o
 always-y += sockex2_kern.o
 always-y += sockex3_kern.o
@@ -111,6 +128,7 @@ always-y += tracex4.bpf.o
 always-y += tracex5.bpf.o
 always-y += tracex6.bpf.o
 always-y += tracex7.bpf.o
+always-y += tracex8_kern.o
 always-y += sock_flags.bpf.o
 always-y += test_probe_write_user.bpf.o
 always-y += trace_output.bpf.o
@@ -152,6 +170,11 @@ always-y += hbm_edt_kern.o
 
 TPROGS_CFLAGS = $(TPROGS_USER_CFLAGS)
 TPROGS_LDFLAGS = $(TPROGS_USER_LDFLAGS)
+
+always-y += recursive_kern.o
+always-y += array_test_kern.o
+always-y += hash_test_kern.o
+always-y += static_u64_test_kern.o
 
 ifeq ($(ARCH), arm)
 # Strip all except -D__LINUX_ARM_ARCH__ option needed to handle linux

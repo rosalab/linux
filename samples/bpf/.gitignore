@@ -8,6 +8,7 @@ lwt_len_hist
 map_perf_test
 offwaketime
 per_socket_stats_example
+recursive
 sampleip
 sock_example
 sockex1
@@ -37,6 +38,8 @@ tracex4
 tracex5
 tracex6
 tracex7
+tracex8
+tracex9
 xdp_adjust_tail
 xdp_fwd
 xdp_router_ipv4
@@ -49,3 +52,7 @@ iperf.*
 /vmlinux.h
 /bpftool/
 /libbpf/
+hello
+array_test
+hash_test
+static_u64_test
