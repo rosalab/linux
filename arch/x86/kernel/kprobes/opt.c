@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-/*
- *  Kernel Probes Jump Optimization (Optprobes)
+/* *  Kernel Probes Jump Optimization (Optprobes)
  *
  * Copyright (C) IBM Corporation, 2002, 2004
  * Copyright (C) Hitachi Ltd., 2012
@@ -182,9 +181,9 @@ optimized_callback(struct optimized_kprobe *op, struct pt_regs *regs)
 
 	preempt_disable();
     if (op) {
-        if (op->kp.kprobe_color & current->process_color) {
-            printk(KERN_INFO "Bailout\n");
-            // Need to figure out how to return
+        if (!(current->process_color & op->kp.kprobe_color)) {
+            preempt_enable();
+            return;
         }
     }
 	if (kprobe_running()) {
