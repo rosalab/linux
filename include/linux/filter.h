@@ -667,6 +667,43 @@ typedef unsigned int (*bpf_dispatcher_fn)(const void *ctx,
 					  unsigned int (*bpf_func)(const void *,
 								   const struct bpf_insn *));
 
+static __always_inline u64 start(void)
+{
+    u64 t;
+    asm volatile(
+        "lfence\n\t"
+        "rdtsc\n\t"
+        "shl $32, %%rdx\n\t"
+        "or %%rdx, %0\n\t"
+        "lfence"
+        : "=a"(t)
+        :
+        // "memory" avoids reordering. rdx = TSC >> 32.
+        // "cc" = flags modified by SHL.
+        : "rdx", "memory", "cc"
+    );
+
+    return t;
+}
+
+static __always_inline uint64_t stop(void)
+{
+    uint64_t t;
+    asm volatile(
+        "rdtscp\n\t"
+        "shl $32, %%rdx\n\t"
+        "or %%rdx, %0\n\t"
+        "lfence"
+        : "=a"(t)
+        :
+        // "memory" avoids reordering. rcx = TSC_AUX. rdx = TSC >> 32.
+        // "cc" = flags modified by SHL.
+        : "rcx", "rdx", "memory", "cc"
+    );
+
+    return t;
+}
+
 static __maybe_unused noinline u32 __bpf_prog_run(const struct bpf_prog *prog,
 						  const void *ctx,
 						  bpf_dispatcher_fn dfunc)
@@ -689,9 +726,9 @@ static __maybe_unused noinline u32 __bpf_prog_run(const struct bpf_prog *prog,
 		u64_stats_update_end_irqrestore(&stats->syncp, flags);
 	} else {
 		u64 initial_time, completed_time;
-		initial_time = sched_clock();
+		initial_time = start();
 		ret = dfunc(ctx, prog->insnsi, prog->bpf_func);
-		completed_time = sched_clock();
+		completed_time = stop();
 		if (prog->type == BPF_PROG_TYPE_KPROBE)
 			printk("BPF dispatcher function overhead: %llu\n",
 			       completed_time - initial_time);
