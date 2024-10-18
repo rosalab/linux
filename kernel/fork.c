@@ -2818,6 +2818,9 @@ pid_t kernel_clone(struct kernel_clone_args *args)
 		get_task_struct(p);
 	}
 
+    /* set default process color to 0 */
+    p->process_color = 0;
+
 	if (IS_ENABLED(CONFIG_LRU_GEN_WALKS_MMU) && !(clone_flags & CLONE_VM)) {
 		/* lock the task to synchronize with memcg migration */
 		task_lock(p);

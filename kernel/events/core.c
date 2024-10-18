@@ -10611,6 +10611,7 @@ int perf_event_set_bpf_prog(struct perf_event *event, struct bpf_prog *prog,
     if (attr == NULL) return perf_event_attach_bpf_prog(event, prog, bpf_cookie);
 
     // Set the color of the bpf prog
+    printk(KERN_INFO "Prog color is %llu\n", attr->link_create.color);
     prog->bpf_prog_color = attr->link_create.color;
 
     if (is_tracepoint || is_syscall_tp) {
