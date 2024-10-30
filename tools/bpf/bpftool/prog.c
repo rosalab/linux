@@ -2321,6 +2321,8 @@ out:
 	return err;
 }
 
+#endif /* BPFTOOL_WITHOUT_SKELETONS */
+
 static int do_terminate(int argc, char **argv){
        int prog_id;
        if (argc==0)
@@ -2337,7 +2339,6 @@ static int do_terminate(int argc, char **argv){
        
        return 0;
 }
-#endif /* BPFTOOL_WITHOUT_SKELETONS */
 
 static int do_help(int argc, char **argv)
 {
