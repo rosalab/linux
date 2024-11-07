@@ -371,6 +371,8 @@ static void probe_kernel_image_config(const char *define_prefix)
 		{ "CONFIG_BPF_JIT", },
 		/* Avoid compiling eBPF interpreter (use JIT only) */
 		{ "CONFIG_BPF_JIT_ALWAYS_ON", },
+		/* Enable stub-accelerated termination for eBPF */
+		{ "CONFIG_BPF_TERMINATION", },
 		/* Kernel BTF debug information available */
 		{ "CONFIG_DEBUG_INFO_BTF", },
 		/* Kernel module BTF debug information available */

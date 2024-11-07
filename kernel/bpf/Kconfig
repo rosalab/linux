@@ -101,4 +101,13 @@ config BPF_LSM
 
 	  If you are unsure how to answer this question, answer N.
 
+config BPF_TERMINATION
+	bool "Enable BPF stub-accelerated termination (SATerm)"
+	default y
+	depends on BPF_SYSCALL
+	help
+	  Enables stub-accelerated termation (SATerm) for BPF.
+
+	  If you are unsure how to answer this question, answer Y.
+
 endmenu # "BPF subsystem"
