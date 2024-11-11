@@ -28,7 +28,7 @@ void populate_map()
 }
 
 SEC("tracepoint/syscalls/sys_exit_saterm_test")
-int main(struct pt_regs *ctx)
+int tracepoint_exit_saterm_connect1(struct pt_regs *ctx)
 {
 	populate_map();
 	return 0;

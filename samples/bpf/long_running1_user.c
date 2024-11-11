@@ -24,7 +24,7 @@ int main(int argc, char **argv)
 		return 0;
 	}
 
-	prog = bpf_object__find_program_by_name(obj, "main");
+	prog = bpf_object__find_program_by_name(obj, "tracepoint_exit_saterm_connect1");
 	if (!prog) {
 		fprintf(stderr, "ERROR: fiding a prog in obj file failed\n");
 		goto cleanup;
