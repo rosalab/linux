@@ -85,6 +85,10 @@
 #include <linux/un.h>
 #include <net/xdp_sock_drv.h>
 
+#include <asm/unwind.h>  // use the linux ORC based return pointer access
+#include <linux/unwind_list.h> // unwinding logic
+#include <linux/delay.h> // sleep 
+
 #include "dev.h"
 
 /* Keep the struct bpf_fib_lookup small so that it fits into a cacheline */
@@ -6858,6 +6862,17 @@ static const struct bpf_func_proto bpf_sk_lookup_tcp_proto = {
 	.arg5_type	= ARG_ANYTHING,
 };
 
+BPF_CALL_0(bpf_dummy_ptr_to_socket){ 
+	return 0 ;
+}
+
+static const struct bpf_func_proto bpf_dummy_ptr_to_socket_proto = {
+	.func		= bpf_dummy_ptr_to_socket,
+	.gpl_only	= false,
+	.pkt_access	= true,
+	.ret_type	= RET_PTR_TO_SOCKET_OR_NULL,
+};
+
 BPF_CALL_5(bpf_sk_lookup_udp, struct sk_buff *, skb,
 	   struct bpf_sock_tuple *, tuple, u32, len, u64, netns_id, u64, flags)
 {
@@ -7988,6 +8003,8 @@ sock_addr_func_proto(enum bpf_func_id func_id, const struct bpf_prog *prog)
 		return &bpf_sock_addr_sk_lookup_udp_proto;
 	case BPF_FUNC_sk_release:
 		return &bpf_sk_release_proto;
+	case BPF_FUNC_dummy_ptr_to_socket: // dummy helper for termination
+		return &bpf_dummy_ptr_to_socket_proto;
 	case BPF_FUNC_skc_lookup_tcp:
 		return &bpf_sock_addr_skc_lookup_tcp_proto;
 #endif /* CONFIG_INET */
@@ -8103,6 +8120,8 @@ cg_skb_func_proto(enum bpf_func_id func_id, const struct bpf_prog *prog)
 		return &bpf_sk_lookup_udp_proto;
 	case BPF_FUNC_sk_release:
 		return &bpf_sk_release_proto;
+	case BPF_FUNC_dummy_ptr_to_socket:
+		return &bpf_dummy_ptr_to_socket_proto;
 	case BPF_FUNC_skc_lookup_tcp:
 		return &bpf_skc_lookup_tcp_proto;
 	case BPF_FUNC_tcp_sock:
@@ -8220,6 +8239,8 @@ tc_cls_act_func_proto(enum bpf_func_id func_id, const struct bpf_prog *prog)
 		return &bpf_tc_sk_lookup_udp_proto;
 	case BPF_FUNC_sk_release:
 		return &bpf_sk_release_proto;
+	case BPF_FUNC_dummy_ptr_to_socket:
+		return &bpf_dummy_ptr_to_socket_proto;
 	case BPF_FUNC_tcp_sock:
 		return &bpf_tcp_sock_proto;
 	case BPF_FUNC_get_listener_sock:

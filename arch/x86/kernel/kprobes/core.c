@@ -285,7 +285,7 @@ static inline bool is_exception_insn(struct insn *insn)
  * Check if paddr is at an instruction boundary and that instruction can
  * be probed
  */
-static bool can_probe(unsigned long paddr)
+bool can_probe(unsigned long paddr)
 {
 	unsigned long addr, __addr, offset = 0;
 	struct insn insn;

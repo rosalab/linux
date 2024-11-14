@@ -40,6 +40,14 @@
 #include <net/netkit.h>
 #include <net/tcx.h>
 
+#include <asm/processor.h>
+#include <linux/sched/debug.h> // for show_regs	
+#include <linux/kprobes.h> // for registering kprobes 
+#include <linux/delay.h> // for registering kprobes 
+#include <linux/memory.h> // for mutex_lock(&text_mutex)
+#include <linux/kmemleak.h> // for kmemleak_not_leak
+#include <asm/unwind.h> // for unwind_* function
+
 #define IS_FD_ARRAY(map) ((map)->map_type == BPF_MAP_TYPE_PERF_EVENT_ARRAY || \
 			  (map)->map_type == BPF_MAP_TYPE_CGROUP_ARRAY || \
 			  (map)->map_type == BPF_MAP_TYPE_ARRAY_OF_MAPS)
@@ -57,6 +65,305 @@ static DEFINE_IDR(map_idr);
 static DEFINE_SPINLOCK(map_idr_lock);
 static DEFINE_IDR(link_idr);
 static DEFINE_SPINLOCK(link_idr_lock);
+
+static void __bpf_prog_put_noref(struct bpf_prog *prog, bool deferred);
+static void bpf_perf_link_release(struct bpf_link *link);
+
+__maybe_unused void print_regs(struct pt_regs *regs)
+{
+	printk(" regs : RAX : %lx\n", regs->ax);
+	printk(" regs : RIP : %lx\n", regs->ip);
+	printk(" regs : R8 : %lx\n", regs->r8);
+	printk(" regs : R9 : %lx\n", regs->r9);
+	printk(" regs : R10 : %lx\n", regs->r10);
+	printk(" regs : RSP: %lx\n", regs->sp);
+}
+
+__maybe_unused void overwrite_registers(struct pt_regs *dst, const struct pt_regs *src)
+{
+	dst->cx = src->cx;	
+	dst->dx = src->dx;	
+	dst->si = src->si;	
+	dst->di = src->di;	
+	dst->r8 = src->r8;	
+	dst->r9 = src->r9;	
+	dst->r10 = src->r10;	
+	dst->r11 = src->r11;	
+	dst->r12 = src->r12;	
+	dst->r13 = src->r13;	
+	dst->r14 = src->r14;	
+	dst->r15 = src->r15;	
+	dst->bx = src->bx;	
+	dst->bp = src->bp;	
+	dst->cx = src->cx;	
+	dst->sp = src->sp;	
+	printk("Overwriting rax to 0xdeadbeef\n");
+	dst->ax = 0xdeadbeef;
+	dst->ip = src->ip; 
+}
+
+__maybe_unused static int __kprobes handler_pre(struct kprobe* p, struct pt_regs *regs)
+{
+	struct bpf_prog *kill_prog = p->additional;
+	printk("[$$$] Inside kprobe pre handler for address \n");
+	printk("--------- good registers [KPROBE]----------\n");
+	print_regs(&(kill_prog->saved_state->saved_regs));
+	printk("-------------------------------------------\n");
+	printk("--------- bad registers [KPROBE] ----------\n");
+	print_regs(regs);
+	printk("-------------------------------------------\n");
+	overwrite_registers(regs,&(kill_prog->saved_state->saved_regs)); 
+	//panic("handled inside kprobe handler\n");
+	return 1;
+}
+
+void *addr_to_kill_prog;
+struct kprobe **kprobes_list;
+int idx = 0;
+
+__maybe_unused static void register_bpfprog_to_kprobe(struct bpf_prog* prog) 
+{
+	int success=0, failure=0;
+	for(int offset =0 ;offset < prog->jited_len; offset++)
+	{
+		struct kprobe *kp;
+		kp = kzalloc(sizeof(struct kprobe), GFP_KERNEL);
+			
+		kp->addr = (kprobe_opcode_t *)(prog->bpf_func);
+		kp->offset = offset;
+		kp->pre_handler = handler_pre ;
+		kp->additional = addr_to_kill_prog;
+		int ret = register_kprobe(kp);
+		if(ret==0){
+			success++;
+			// push this struct kprobe *kp to the list of successful kprobes
+			kprobes_list[idx]=kp;
+			idx++; 
+		}
+		else{
+			failure++;
+			kfree(kp);
+		}
+	}
+
+	printk("register kprobe routine complete with success:%d \n|| failures:%d out of total %d attempts\n", success, failure, prog->jited_len);
+
+}
+
+__maybe_unused static int __kprobes dummy_helper(struct kprobe* p, struct pt_regs *regs)
+{
+	printk("[$$$] Inside kprobe pre handler dummy_helper \n");
+	printk("Call jump offset : 0x%x\n", p->ainsn.rel32);
+	return 0;
+}
+
+/* Instead of attaching kprobes to all instruction, attach to only call insn in the jitted code */
+__maybe_unused static void register_bpfprog_call_insn_to_kprobe(struct bpf_prog* prog)
+{
+	int success=0, failure=0;
+	for(int offset =0 ;offset < prog->jited_len; offset++)
+	{
+		unsigned long addr = prog->bpf_func + offset; 
+		int ret; 
+		if (can_probe(addr)){
+			/*
+			printk("[%d] Can probe!\n", offset);
+			continue;
+			*/
+			struct insn insn; 
+			struct kprobe *kp;
+
+			ret = insn_decode_kernel(&insn, (void *)addr);
+			if (ret < 0)
+				continue ; 
+			
+			if (insn.opcode.bytes[0] != CALL_INSN_OPCODE)
+				continue; 
+			
+			printk("[%x] : Addr : 0x%lx Insn : 0x%x , can_probe:1\n", offset, addr, insn.opcode.bytes[0]);
+			printk("immediate : %x%x%x%x \n",insn.immediate.bytes[0],insn.immediate.bytes[1],insn.immediate.bytes[2],insn.immediate.bytes[3]);
+			kp = kzalloc(sizeof(struct kprobe), GFP_KERNEL);
+
+			kp->addr = (kprobe_opcode_t *)(prog->bpf_func);
+			kp->offset = offset;
+			kp->pre_handler = dummy_helper ;
+			ret = register_kprobe(kp);
+			if(ret==0){
+				success++;
+				// push this struct kprobe *kp to the list of successful kprobes
+				idx++; 
+			}
+			else{
+				printk("Failed with error : %d\n", ret);
+				failure++;
+				kfree(kp);
+			}
+		}
+	}
+
+	printk("register kprobe routine complete. Success:%d Failures:%d \n", success, failure);
+
+}
+
+static unsigned long find_offset_in_new_prog(struct bpf_prog *dest_prog, struct bpf_prog *src_prog, unsigned long old_addr){
+
+	// Case 1 : old_addr within entry bpf func
+	if ((old_addr > src_prog->bpf_func)  && 
+		(old_addr < src_prog->bpf_func + src_prog->jited_len)){
+		unsigned int offset = (old_addr - (unsigned long)src_prog->bpf_func);
+		printk("[%s:%d] Found old_addr to be in bpf_func\n" 
+			"Adding offset:0x%lx to dest addr : 0x%lx\n", __FILE__, __LINE__, offset, dest_prog->bpf_func);
+		return dest_prog->bpf_func + offset;
+	}
+ 
+	// Case 2 : old addr within one of the sub-programs
+	for(int subprog = 0; subprog < src_prog->aux->func_cnt; subprog++)
+	{
+		if ((old_addr > src_prog->aux->func[subprog])  && 
+			(old_addr < src_prog->aux->func[subprog] + src_prog->aux->func[subprog]->jited_len )){
+			unsigned int offset = (old_addr - (unsigned long)src_prog->aux->func[subprog]);
+			printk("[%s:%d] Found old_addr to be in sub-prog: %d\n" 
+					"Adding offset:0x%lx to dest addr : 0x%lx\n", __FILE__, __LINE__, offset, dest_prog->aux->func[subprog]);
+			return dest_prog->aux->func[subprog] + offset;
+		}
+	} 
+	return 0;
+}
+
+void bpf_die(void* data)
+{
+	struct termination_data *term_data = data;
+	struct pt_regs *regs = term_data->regs;
+	struct bpf_prog* kill_prog = term_data->prog;	
+	struct bpf_link *link;
+	int cpu_id;
+	int prog_id = kill_prog->aux->id;
+	cpu_id = raw_smp_processor_id();
+	printk("bpf_die called on [CPU:%d] prog:%d\n", cpu_id, prog_id);
+
+
+	/* TODO : 
+	 * Currently, the delink code is only meant for TRACEPOINT type BPF programs. 
+ 	 * Also, I am explicitly calling refcnt-- operation to make the bpf_prog_put
+	 * release the prog_id and all other resources attached to this bpf program. 
+	 * If a loader program was used to load this BPF program, during its exit, 
+	 * it will try to release and delink again in which case it is currently throwing
+	 * page fault since we have already released that program. 
+	 * We need to find some flag which the exiting loader program is checking before
+	 * attempting to delink the program
+	*/
+	BUG_ON(kill_prog->saved_state->link == NULL); 
+	bpf_perf_link_release(kill_prog->saved_state->link);
+
+	// detach from hook point
+	while (atomic64_read(&kill_prog->aux->refcnt)>1){
+		atomic64_dec(&kill_prog->aux->refcnt);
+	} 
+	bpf_prog_put(kill_prog);
+	//printk("After bpf_prog_put\n");
+
+#ifdef KPROBE_TERMINATION
+	// initialize kprobes_list with size that of total jited len of this bpf prog
+	int total_program_size=0;
+	total_program_size += kill_prog->jited_len;
+	for(int subprog = 0; subprog < kill_prog->aux->func_cnt; subprog++)
+		total_program_size += kill_prog->aux->func[subprog]->jited_len; 	
+
+	kprobes_list = kzalloc(total_program_size*sizeof(struct kprobe), GFP_ATOMIC);
+	
+
+	/* Attach kprobes to the main program */
+	printk("[%s]:%d Registering kprobes for program length :%d\n", __FILE__, __LINE__, kill_prog->jited_len);	
+	addr_to_kill_prog = kill_prog;
+	register_bpfprog_to_kprobe(kill_prog);
+
+	/* Attach kprobes to the sub-program */
+	for(int subprog = 0; subprog<kill_prog->aux->func_cnt; subprog++)
+	{
+		printk("[%s]:%d Registering kprobes for program length :%d\n", __FILE__, __LINE__, kill_prog->aux->func[subprog]->jited_len);	
+		register_bpfprog_to_kprobe(kill_prog->aux->func[subprog]);
+	} 
+	
+	// saved the kprobe list and total length of the list to kill_prog's saved state
+	kill_prog->saved_state->kps = kprobes_list;
+	kill_prog->saved_state->num_kprobes = idx + 1;
+	printk("Added kprobes_list of size:%d to bpf_prog\n", idx+1);
+
+#elif defined(BOOLEAN_TERMINATION)
+	kill_prog->saved_state->termination_requested = true;
+
+#elif defined(FAST_PATH_TERMINATION)
+	BUG_ON(kill_prog->saved_state->termination_prog == 0xdeadbeef);
+	BUG_ON(kill_prog->saved_state->termination_prog == NULL);
+	/*
+	 * Steps : 
+	 *	1. Create a new page to put the BPF termination program ==> Update : No need because the termination copy already exists, just redirect execution to it
+	 *	TODO : currently only assume a single BPF function
+	 *	2. Change the RIP to point to the right instruction in the new program 
+	 *	3. Traverse the stack to replace all old addresses to the new one
+	 */
+
+	// step 1
+	// BUG : vmalloc_node_range will panic because of being in interrupt context due to IPI
+	/*
+	void *ptr = vmalloc(sizeof(char*)*kill_prog->jited_len); // 1B x Length of BPF program
+	kmemleak_not_leak(ptr);
+        if (!ptr)
+		return ;
+	memset(ptr, 0, kill_prog->jited_len); // provide the right size
+	mutex_lock(&text_mutex);
+	text_poke(ptr, kill_prog->saved_state->termination_prog->bpf_func, kill_prog->jited_len);
+	text_poke_sync();
+	mutex_unlock(&text_mutex);
+	*/
+
+	// step 2
+	//	2.1 Check if RIP is within the BPF program. 
+	//		2.1.a If yes, Change RIP, stack values
+	//		2.1.b If No, Only change stack values (as the program is within a helper and we should not change anything about it)
+
+	// step 3 : Stack modification
+	struct unwind_state state;
+        unsigned long addr;
+
+	/*
+	printk("Stack : ");
+	printk("\t|----------------------------|\n");
+	for (unwind_start(&state, current, regs, NULL); !unwind_done(&state);
+			unwind_next_frame(&state)) {
+		addr = unwind_get_return_address(&state);
+		printk("Return address : 0x%lx\n", addr);
+		if (is_bpf_text_address(addr))
+			printk("\t Is a BPF address");
+	}
+	dump_stack();
+	*/
+
+	// get the first return address 
+	unwind_start(&state, current, regs, NULL); 
+	addr = unwind_get_return_address(&state);
+	if (is_bpf_text_address(addr)){
+		regs->ip = find_offset_in_new_prog(kill_prog->saved_state->termination_prog, kill_prog, addr);
+	}
+	// get rsp	
+	// TODO : Instead of just going down 20 levels into the stack, which could mean we miss some 
+	// values that had to be modified in the stack, make it dynamic like the unwind_done kind of
+	// semantics.	
+	//printk("Old bpf program start addr : 0x%lx\n", kill_prog->bpf_func);	
+	//printk("Stack : ");
+	//printk("\t|----------------------------|\n");
+	for(unsigned long i=0;i<20; i++){
+		unsigned long addr = regs->sp+sizeof(unsigned long)*i;
+		//printk("0x%lx ==> 0x%lx\n", addr, *(unsigned long*)addr);
+		if (is_bpf_text_address(*(unsigned long*)addr)){
+			//printk("0x%lx ==> 0x%lx\n", addr, *(unsigned long*)addr);
+			//printk("\t Value is a BPF address");
+			*(unsigned long*)addr = find_offset_in_new_prog(kill_prog->saved_state->termination_prog, kill_prog, *(unsigned long*)addr);
+		}
+	}
+
+#endif /* FAST_PATH_TERMINATION*/
+}
 
 int sysctl_unprivileged_bpf_disabled __read_mostly =
 	IS_BUILTIN(CONFIG_BPF_UNPRIV_DEFAULT_OFF) ? 2 : 0;
@@ -2690,13 +2997,281 @@ static bool is_perfmon_prog_type(enum bpf_prog_type prog_type)
 	}
 }
 
+#ifdef CONFIG_BPF_TERMINATION
+static void clone_bpf_prog(struct bpf_prog *dst, const struct bpf_prog *src){
+
+	dst->expected_attach_type = src->expected_attach_type;
+	dst->aux->attach_btf = src->aux->attach_btf;
+	dst->aux->attach_btf_id = src->aux->attach_btf_id;
+	dst->aux->dst_prog = src->aux->dst_prog;
+	dst->aux->offload_requested = src->aux->offload_requested;
+	dst->aux->sleepable = src->aux->sleepable;
+	dst->aux->xdp_has_frags = src->aux->xdp_has_frags ;
+
+	security_bpf_prog_alloc(dst->aux);
+
+	dst->aux->user = src->aux->user ;
+	dst->len = src->len;
+
+	find_prog_type(src->type, dst);
+
+	copy_from_bpfptr(dst->insns, make_bpfptr(src->insns, true), bpf_prog_insn_size(src));
+	dst->orig_prog = NULL;
+	dst->jited = 0;
+	atomic64_set(&dst->aux->refcnt, 1);
+	dst->gpl_compatible = src->gpl_compatible;
+	dst->aux->load_time = ktime_get_boottime_ns();
+	bpf_obj_name_cpy(dst->aux->name, src->aux->name, sizeof(src->aux->name));
+
+
+	// TODO : Copy other stuff which is missing here such as other subprogs
+#define BPF_MAX_INSN_SIZE	128
+#define BPF_INSN_SAFETY		64
+	u8 temp[BPF_MAX_INSN_SIZE + BPF_INSN_SAFETY];
+	if(src->bpf_func){
+		if(!dst->bpf_func)
+			dst->bpf_func = (void*)temp; 
+		memcpy(dst->bpf_func, src->bpf_func, src->jited_len);
+	}
+
+
+
+}
+
+struct call_insn_aux{
+	int insn_idx; 
+	int replacement_helper;
+};
+
+/* Step 1 : Iterate through all BPF insn and and find indexes of call insns. 
+ * Step 2 : Traverse in the reverse direction and start patching the call insns one-after-another 
+ * TODO : Currenty it's assumed that the BPF program has only 1 block i.e. a main block and no
+ * sub-prog. Once we include sub-progs, a call insn might be needed initially while disabled later
+ * during a single run. There can be workarounds. but they are left for later.  
+ */
+static void* patch_generator(struct bpf_prog *prog, union bpf_attr *attr, bpfptr_t uattr){
+	struct bpf_prog *ret; 	
+	struct call_insn_aux *call_indices;
+	int num_calls=0;
+	int err;
+
+	//prog = bpf_prog_by_id(attr->prog_id);
+	ret=0xdeadbeef;
+	call_indices = vmalloc(sizeof(call_indices) * prog->len);
+	size_t len = strlen(attr->prog_name);
+	if (len<5) // skip the case of test programs
+		return ret;// this program is probably a test program
+	printk("Running patch_gen for prog name : %s\n", attr->prog_name);
+ 
+	if(IS_ERR(prog)){
+		printk("bpf prog_id : %d not supported! Not generating patches.\n", attr->prog_id);
+		err = -EINVAL;
+		return NULL; 
+	}
+
+	/* Step 1 : Find all call insns 
+	 * Code checks inspired from verifier
+	 */
+	for(int insn_idx =0 ;insn_idx < prog->len; insn_idx++) // TODO : (add code for dealing with sub-progs too) Assuming no other sub-prog exists!!
+	{
+		struct bpf_insn *insn = &prog->insnsi[insn_idx] ;
+		u8 class = BPF_CLASS(insn->code);
+		if ( class == BPF_JMP || class == BPF_JMP32) { 
+			if (BPF_OP(insn->code)==BPF_CALL){
+				if (insn->src_reg == BPF_PSEUDO_CALL){ /* A function call */
+					// TODO : Get into the sub-prog and recursively call the patch_gen
+				}
+				else if (insn->src_reg == BPF_PSEUDO_KFUNC_CALL){ /*kfunc */
+					// Need to use btf for getting proto
+					// TODO : If release function --> skip
+					//	  If acquire function --> find return type and add to list
+				}
+				else{
+					/* Steps : 
+					 * 	a) Identify the helper number
+					 * 	b) Skip if this helper releases resources. 
+					 *      c) Identify return type from the helper's proto
+					 * 	d) Based on return type, assign relevant dummy helper's address
+					 *	   to the corresponding entry in call_indices.
+					*		d.1) For bpf_loop and other iterative functions that 
+					 *		     has a static function to iterate upon, we need to 
+					 *		     special case : the return value of those static
+					 *		     functions needs to be pushed as one of the to-be-
+					 *		     modified instructions only in this case the return
+					 * 		     value would be changed instead of a helper id	
+					 *		     E.g : 
+					 *			     idx #10 : bpf_loop(iter_fn)
+					 *			     idx #40 : int iter_fn(){
+					 *				.    :	    .
+					 *				.    :	    .
+					 *				.    :	    .
+					 *			     idx #50 :	return x; }	    
+					 *  			will be seen by patch generator as 2 insns to replace:
+					 *  		 	- insn #10 with a corresponding dummy call
+					 *  			- insn #50 with a return value of 1 
+					 */
+					// Step a
+					int func_id = insn->imm; // Should be the helper number
+					struct bpf_func_proto *fn = NULL;
+					int new_helper_id = -1; 
+
+					// Step b : Add more release functions here as needed
+					if (func_id == BPF_FUNC_sk_release )
+						continue;
+					// TODO : Skipping printk for debug
+					if (func_id == BPF_FUNC_trace_printk ) continue;
+					// Step c
+					fn = bpf_syscall_verifier_ops.get_func_proto(func_id, prog);
+
+					printk("Offset : 0x%x Helper id : %x\n", insn_idx, func_id);
+
+					if(!fn){
+						fn = sk_skb_verifier_ops.get_func_proto(func_id, prog);
+						if(!fn){
+							printk("Failed to get helper proto. Exiting.\n");
+							// TODO : Needs to add more get_func_proto calls if helper prototype was not found so far
+							err = -ENOENT;
+							return NULL; 
+						}
+					}
+					
+					// Step d
+					enum bpf_return_type ret_type = fn->ret_type;
+					if(ret_type == RET_VOID)	
+						new_helper_id = BPF_FUNC_dummy_void;
+					else if (ret_type == RET_INTEGER) 
+						new_helper_id = BPF_FUNC_dummy_int;
+					else if (ret_type == RET_PTR_TO_SOCKET_OR_NULL) 
+						new_helper_id = BPF_FUNC_dummy_ptr_to_socket;
+					else{ // Add dummy helpers for each return type as needed
+						printk("Return type : %d currently not having any replacements. Exiting\n", ret_type);
+						err = -ENOTSUPP;
+						return NULL;
+					}
+					/* Save that to the call indices list */
+					struct bpf_func_proto *fn_new = NULL;
+					fn_new = bpf_syscall_verifier_ops.get_func_proto(new_helper_id, prog);
+					if(!fn_new){
+						fn_new = sk_skb_verifier_ops.get_func_proto(new_helper_id, prog);
+						if(!fn_new){
+							printk("Failed to get replacement helper proto. Exiting.\n");
+							// TODO : Needs to add more get_func_proto calls if helper prototype was not found so far
+							err = -ENOENT;
+							return NULL; 
+						}
+					}
+
+					/* Save that to the call indices list 
+					 * Each index in call_indices list contains 2 information :
+					 *       - Bpf program's offset which needs to be replaced
+					 *	 - Helper call to be replaced with
+					 */
+					call_indices[num_calls].insn_idx = insn_idx; 
+					call_indices[num_calls].replacement_helper= new_helper_id; 
+					num_calls++;
+					/*
+					   int replacement_value; // for bpf_loop case where the iterator needs to now return !0 value to early exit the callbacks
+					 */
+					printk("Saved an entry to the array of call instruction\n");
+					// Step d.1 special casing 
+					if (func_id == BPF_FUNC_loop ){
+						// find the return instruction of bpf_loops' static iterator
+					}
+					else if (func_id == BPF_FUNC_for_each_map_elem) {
+						printk("Iterator bpf_for_each_map_elem currently does not have a patch generation technique at line : %d. Exiting\n", __LINE__);
+						err = -ENOTSUPP;
+						return NULL;
+
+					}
+					/*
+					   else if (func_id == BPF_FUNC_user_ringbuf_drain) {
+					   printk("Iterator bpf_user_ringbuf_drain is currently not supported in this kernel. Exiting\n");
+					   err = -ENOTSUPP;
+					   return NULL;
+
+					   }
+					 */
+
+					/* 
+					 * For using text poke later on, populate the bpf_patch_offsets
+
+					 struct bpf_patch_offsets *elem;
+					 elem = kzalloc(sizeof(*elem), GFP_KERNEL);
+					 elem->old_address = fn->func ;	
+					 elem->new_address = fn_new->func ;
+					 list_add(&elem->list, &prog->saved_state->bpf_patch_offsets->list);		
+					 */ 
+				}
+		}
+		}
+	}	
+	/* Step 2: Patch call insns  and call bpf_check() */
+	for(int patch_idx = num_calls-1; patch_idx>=0; patch_idx--){
+		printk("------------------------------------------------\n");
+		printk("Generating Patch #%d\n", patch_idx+1);
+		/* The patches are generating in bottom-up fashion!
+		 * If a program has 3 insns:
+		 *	insn1
+		 *	insn2
+		 *	insn3
+		 * Patch generator will first create :
+		 *	insn1
+		 *	insn2
+		 *	patched_insn3
+		 * Then, 
+		 *	insn1
+		 *	patched_insn2
+		 *	patched_insn3
+		 * Then, 
+		 *	patched_insn1
+		 *	patched_insn2
+		 *	patched_insn3
+		 * End
+		 */
+
+		//struct bpf_insn *insn = &prog->insnsi[patch_idx];
+		struct bpf_prog *prog_clone; 
+		if(patch_idx==0)
+			prog_clone = prog;
+		else{
+			prog_clone = bpf_prog_alloc_no_stats(bpf_prog_size(prog->len), GFP_USER); 
+			clone_bpf_prog(prog_clone, prog);
+		}
+		printk("prog clone : 0x%lx\n", prog_clone);
+		for(int k = num_calls-1; k >= patch_idx; k--){ // Start from bottom
+			//printk("[0x%x] %x Previous imm : %x\n", call_indices[k].insn_idx,prog_clone->insnsi[call_indices[k].insn_idx].code, prog_clone->insnsi[call_indices[k].insn_idx].imm);
+			prog_clone->insnsi[call_indices[k].insn_idx].imm = call_indices[k].replacement_helper;
+			//printk("[0x%x] Modified imm : %x\n", call_indices[k].insn_idx, prog_clone->insnsi[call_indices[k].insn_idx].imm);
+			printk("\tModified call at offset 0x%x to helper-id : 0x%x\n", call_indices[k].insn_idx, call_indices[k].replacement_helper);
+		}
+		
+		err = bpf_check(&prog_clone, attr, uattr); // verify the patch
+		if (err < 0){
+			printk("Patch #%d failed with err:%d. Exiting..\n", patch_idx+1, err);
+			return NULL;
+		}
+		if(patch_idx != 0) 
+			__bpf_prog_put_noref(prog_clone, prog_clone->aux->func_cnt);
+
+		printk("Patch #%d passed \n", patch_idx+1);
+		printk("------------------------------------------------\n");
+	}	
+	printk("All Patches PASSED ! ");
+	printk("------------------------------------------------\n");
+
+	return prog;
+
+}
+#endif // CONFIG_BPF_TERMINATION
+
 /* last field in 'union bpf_attr' used by this command */
 #define BPF_PROG_LOAD_LAST_FIELD prog_token_fd
 
 static int bpf_prog_load(union bpf_attr *attr, bpfptr_t uattr, u32 uattr_size)
 {
 	enum bpf_prog_type type = attr->prog_type;
-	struct bpf_prog *prog, *dst_prog = NULL;
+	//struct bpf_prog *prog, *dst_prog = NULL;
+	struct bpf_prog *prog, *orig_prog, *dst_prog = NULL;
 	struct btf *attach_btf = NULL;
 	struct bpf_token *token = NULL;
 	bool bpf_cap;
@@ -2852,6 +3427,15 @@ static int bpf_prog_load(union bpf_attr *attr, bpfptr_t uattr, u32 uattr_size)
 		goto free_prog;
 	license[sizeof(license) - 1] = 0;
 
+	bool termination_log = false;	
+	u64 verification_time ;
+	size_t len = strlen(attr->prog_name);
+	if (len>4){ // skipping no name case and "test" programs
+		printk("Starting bpf_prog_load for prog_name:%s and len:%d\n",attr->prog_name, len);
+		termination_log = true;
+		verification_time = ktime_get_boottime_ns();
+	}
+
 	/* eBPF programs must be GPL compatible to use GPL-ed functions */
 	prog->gpl_compatible = license_is_gpl_compatible(license) ? 1 : 0;
 
@@ -2900,11 +3484,32 @@ static int bpf_prog_load(union bpf_attr *attr, bpfptr_t uattr, u32 uattr_size)
 	if (err < 0)
 		goto free_prog;
 
+#ifdef CONFIG_BPF_TERMINATION
+	/* For fast path termination, call the patch_generator to generate all possible patched
+	 * BPF programs from the input BPF program. The patch generator will internally call the 
+	 * bpf_check verifier function and return err if any of the patches fail to verify. 
+	 */
+	struct bpf_prog *patch_prog = bpf_prog_alloc_no_stats(bpf_prog_size(prog->len), GFP_USER); 
+	//printk("Creating clone for Fast-path termination : 0x%lx\n", patch_prog);
+	clone_bpf_prog(patch_prog, prog);
+
+	void *ret;
+	ret = patch_generator(patch_prog, attr, uattr); // verify all possible patched program
+	if (termination_log)
+		printk("Returned 0x%lx from patch_generator\n", ret);
+
+	ret = (ret == 0xdeadbeef || ret == NULL ? 0xdeadbeef : bpf_prog_select_runtime(patch_prog, &err)); // Call the JIT
+	if (err < 0)
+		goto free_used_maps;
+#endif
+
 	err = security_bpf_prog_load(prog, attr, token);
 	if (err)
 		goto free_prog_sec;
 
 	/* run eBPF verifier */
+	prog->bpf_func = NULL; // resetting to allow JIT to work 
+	
 	err = bpf_check(&prog, attr, uattr, uattr_size);
 	if (err < 0)
 		goto free_used_maps;
@@ -2912,6 +3517,27 @@ static int bpf_prog_load(union bpf_attr *attr, bpfptr_t uattr, u32 uattr_size)
 	prog = bpf_prog_select_runtime(prog, &err);
 	if (err < 0)
 		goto free_used_maps;
+
+#ifdef CONFIG_BPF_TERMINATION
+	if(ret!=0xdeadbeef){
+		//ret->saved_state->termination_prog = ret; // bpf_die will try to reference this field during text_poke
+		prog->saved_state->termination_prog = patch_prog ;
+		printk("-----------------------\n");
+		printk("\tOriginal bpf_prog : 0x%lx\n", prog);
+		printk("\tOriginal prog bpf func : 0x%lx\n", prog->bpf_func);
+		printk("\tPatched bpf_prog : 0x%lx\n", patch_prog);
+		printk("\tPatched bpf_func : 0x%lx\n", patch_prog->bpf_func);
+		printk("\tSaving termination_prog: 0x%lx to prog : 0x%lx\n",prog->saved_state->termination_prog, prog );
+		printk("-----------------------\n");
+		/* TODO 
+		 * ISSUE remaining : 
+		 * If a second BPF program is loaded after a first, the 2nd load is clearing-off 
+		 * the termination_prog address of thee previous BPF program. 
+		 * Probably there is some memory overlap due to which some other update
+		 * is ending up affecting the overlapping pointer variable. 
+		 */ 
+	}
+#endif // CONFIG_BPF_TERMINATION
 
 	err = bpf_prog_alloc_id(prog);
 	if (err)
@@ -2938,6 +3564,10 @@ static int bpf_prog_load(union bpf_attr *attr, bpfptr_t uattr, u32 uattr_size)
 	err = bpf_prog_new_fd(prog);
 	if (err < 0)
 		bpf_prog_put(prog);
+	
+	if (termination_log)
+		printk("Verification time : %ld ns\n", ktime_get_boottime_ns()-verification_time );
+
 	return err;
 
 free_used_maps:
@@ -3004,6 +3634,9 @@ void bpf_link_init(struct bpf_link *link, enum bpf_link_type type,
 	link->id = 0;
 	link->ops = ops;
 	link->prog = prog;
+#ifdef CONFIG_BPF_TERMINATION
+	prog->saved_state->link = link; // to be used for delinking when terminating
+#endif
 }
 
 static void bpf_link_free_id(int id)
@@ -5803,6 +6436,41 @@ static int __sys_bpf(int cmd, bpfptr_t uattr, unsigned int size)
 		break;
 	case BPF_TOKEN_CREATE:
 		err = token_create(&attr);
+		break;
+	case BPF_PROG_TERMINATE:
+#ifdef CONFIG_BPF_TERMINATION
+	// read the prog_id from bpfptr_t uattr and find the correct cpu_id to call the IPI
+		struct bpf_prog *prog; 	
+		struct bpf_saved_states *saved_state;
+		prog = bpf_prog_by_id(attr.prog_id);
+		if(IS_ERR(prog) || !(saved_state=prog->saved_state)){
+			printk("bpf prog_id : %d not supported! Not executing terminate. DEBUG : prog : 0x%lx, saved_state:0x%lx\n", attr.prog_id, prog, saved_state);
+			err = -EINVAL;
+		}
+		else{
+			//printk("About to call bpf_die as IPI to CPU : %d\n", cpu_id);
+
+			//for (i = 0; i < prog->aux->func_cnt; i++)
+			//	info.jited_prog_len += prog->aux->func[i]->jited_len;
+
+			int cpu_id;
+			u64 start = ktime_get_boottime_ns();
+			printk("Starting terminate syscall prog_id : %d at time : %ld\n", attr.prog_id, start);
+			cpu_id = saved_state->cpu_id;
+			//printk("--- Address of jited program : %lx\n", (void*)prog->bpf_func);
+			//printk("--- Size of jited program : %d\n", prog->jited_len);
+			//set_memory_nx((unsigned long)prog->bpf_func,prog->jited_len >> PAGE_SHIFT);
+			smp_call_function_single(cpu_id,bpf_die,(void*)prog,1);
+			u64 end = ktime_get_boottime_ns();
+			printk("Finished termination syscall at time : %ld\n", end);
+			printk("IPI + Termination handler took : %ld ns\n", end-start);
+			//bpf_die((void*)prog);
+			err = 0;
+		}
+#else
+	printk("CONFIG_HAVE_BPF_TERMINATION is disabled!\n");
+		err = -EINVAL;
+#endif // CONFIG_BPF_TERMINATION
 		break;
 	default:
 		err = -EINVAL;

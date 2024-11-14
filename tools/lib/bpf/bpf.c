@@ -520,6 +520,16 @@ int bpf_map_freeze(int fd)
 	return libbpf_err_errno(ret);
 }
 
+int bpf_prog_terminate( int prog_id )
+{
+       union bpf_attr attr;
+       memset(&attr, 0, sizeof(attr));
+       attr.prog_id = prog_id;
+       printf("[tools/bpf.c] bpf_prog_terminate prog_id : %d\n", attr.prog_id);
+       sys_bpf(BPF_PROG_TERMINATE, &attr, sizeof(attr)); // goes to : kernel/bpf/syscall.c
+       return 0; 
+}
+
 static int bpf_map_batch_common(int cmd, int fd, void  *in_batch,
 				void *out_batch, void *keys, void *values,
 				__u32 *count,

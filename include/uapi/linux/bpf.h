@@ -958,6 +958,7 @@ enum bpf_cmd {
 	BPF_LINK_DETACH,
 	BPF_PROG_BIND_MAP,
 	BPF_TOKEN_CREATE,
+	BPF_PROG_TERMINATE,
 	__MAX_BPF_CMD,
 };
 
@@ -6006,6 +6007,9 @@ union bpf_attr {
 	FN(user_ringbuf_drain, 209, ##ctx)		\
 	FN(cgrp_storage_get, 210, ##ctx)		\
 	FN(cgrp_storage_delete, 211, ##ctx)		\
+	FN(dummy_void, 212, ##ctx)			\
+	FN(dummy_int, 213, ##ctx)			\
+	FN(dummy_ptr_to_socket, 214, ##ctx)		\
 	/* */
 
 /* backwards-compatibility macros for users of __BPF_FUNC_MAPPER that don't

@@ -777,6 +777,26 @@ const struct bpf_func_proto bpf_loop_proto = {
 	.arg4_type	= ARG_ANYTHING,
 };
 
+BPF_CALL_0(bpf_dummy_void){ // helper id : 208 (according to Raj)
+	return 0;
+}
+
+BPF_CALL_0(bpf_dummy_int){ // helper id : 209 (raj)
+	return -1;
+}
+
+const struct bpf_func_proto bpf_dummy_void_proto = {
+	.func		= bpf_dummy_void,
+	.gpl_only	= false,
+	.ret_type	= RET_VOID,
+};
+
+const struct bpf_func_proto bpf_dummy_int_proto = {
+	.func		= bpf_dummy_int,
+	.gpl_only	= false,
+	.ret_type	= RET_INTEGER,
+};
+
 struct bpf_iter_num_kern {
 	int cur; /* current value, inclusive */
 	int end; /* final value, exclusive */

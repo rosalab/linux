@@ -21,6 +21,7 @@
 #include <linux/if_vlan.h>
 #include <linux/vmalloc.h>
 #include <linux/sockptr.h>
+#include <linux/unwind_list.h>
 #include <crypto/sha1.h>
 #include <linux/u64_stats_sync.h>
 
@@ -28,6 +29,9 @@
 
 #include <asm/byteorder.h>
 #include <uapi/linux/filter.h>
+
+#include <linux/sched/debug.h> // for show_regs
+#include <linux/kprobes.h> // for register and unregister kprobes
 
 struct sk_buff;
 struct sock;
@@ -649,11 +653,29 @@ struct bpf_prog_stats {
 	struct u64_stats_sync syncp;
 } __aligned(2 * sizeof(u64));
 
+struct bpf_patch_offsets {
+	u64 old_address;
+	u64 new_address;
+	s64 old_offset; 
+	s64 new_offset;
+	struct list_head list;
+}
+
+struct bpf_saved_states {
+	// TODO: Raj had some other things here, but I think they are not relevant
+	int cpu_id; // The cpu ID at which the associated BPF program was/is running
+	struct pt_regs saved_regs; // The context right before execution started.
+	struct bpf_link *link;
+	struct bpf_prog *termination_prog;
+}
+
 struct sk_filter {
 	refcount_t	refcnt;
 	struct rcu_head	rcu;
 	struct bpf_prog	*prog;
 };
+
+void bpf_die(void *data); // handler for termination requests
 
 DECLARE_STATIC_KEY_FALSE(bpf_stats_enabled_key);
 
@@ -674,6 +696,13 @@ static __always_inline u32 __bpf_prog_run(const struct bpf_prog *prog,
 	u32 ret;
 
 	cant_migrate();
+
+	u32 prog_id = prog->aux->id;
+#ifdef CONFIG_BPF_TERMINATION
+	static unsigned long rxx; // for fetching registers and saving later on
+	prog->saved_state->cpu_id = raw_smp_processor_id(); // CPU id will be needed by every termination approach
+#endif // CONFIG_BPF_TERMINATION
+
 	if (static_branch_unlikely(&bpf_stats_enabled_key)) {
 		struct bpf_prog_stats *stats;
 		u64 duration, start = sched_clock();
@@ -686,10 +715,12 @@ static __always_inline u32 __bpf_prog_run(const struct bpf_prog *prog,
 		flags = u64_stats_update_begin_irqsave(&stats->syncp);
 		u64_stats_inc(&stats->cnt);
 		u64_stats_add(&stats->nsecs, duration);
+		printk("bpf prog:%d took %lld ns to run\n", prog_id, sched_clock()-start);
 		u64_stats_update_end_irqrestore(&stats->syncp, flags);
 	} else {
 		ret = dfunc(ctx, prog->insnsi, prog->bpf_func);
 	}
+	printk("Exiting bpf_prog_run at time : %ld\n", ktime_get_boottime_ns());
 	return ret;
 }
 

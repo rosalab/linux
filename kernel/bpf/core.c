@@ -100,6 +100,16 @@ struct bpf_prog *bpf_prog_alloc_no_stats(unsigned int size, gfp_t gfp_extra_flag
 	struct bpf_prog_aux *aux;
 	struct bpf_prog *fp;
 
+	struct bpf_saved_states *saved_state; // creating an instance of our new saved_state structure
+
+#ifdef CONFIG_BPF_TERMINATION
+	saved_state = kzalloc(sizeof(*saved_state), GFP_KERNEL_ACCOUNT | gfp_extra_flags);
+	if (saved_state == NULL) {
+		vfree(fp);
+		return NULL;
+	}
+#endif // CONFIG_BPF_TERMINATION
+
 	size = round_up(size, __PAGE_SIZE);
 	fp = __vmalloc(size, gfp_flags);
 	if (fp == NULL)
@@ -108,6 +118,9 @@ struct bpf_prog *bpf_prog_alloc_no_stats(unsigned int size, gfp_t gfp_extra_flag
 	aux = kzalloc(sizeof(*aux), bpf_memcg_flags(GFP_KERNEL | gfp_extra_flags));
 	if (aux == NULL) {
 		vfree(fp);
+#ifdef CONFIG_BPF_TERMINATION
+		kfree(saved_state);
+#endif // CONFIG_BPF_TERMINATION
 		return NULL;
 	}
 	fp->active = alloc_percpu_gfp(int, bpf_memcg_flags(GFP_KERNEL | gfp_extra_flags));
@@ -119,6 +132,11 @@ struct bpf_prog *bpf_prog_alloc_no_stats(unsigned int size, gfp_t gfp_extra_flag
 
 	fp->pages = size / PAGE_SIZE;
 	fp->aux = aux;
+#ifdef CONFIG_BPF_TERMINATION
+	fp->saved_state = saved_state;
+	saved_state->cpu_id = -1;
+	fp->saved_state->termination_prog = NULL;
+#endif // CONFIG_BPF_TERMINATION
 	fp->aux->prog = fp;
 	fp->jit_requested = ebpf_jit_enabled();
 	fp->blinding_requested = bpf_jit_blinding_enabled(fp);
@@ -281,6 +299,9 @@ void __bpf_prog_free(struct bpf_prog *fp)
 		kfree(fp->aux->poke_tab);
 		kfree(fp->aux);
 	}
+#ifdef CONFIG_BPF_TERMINATION
+	kfree(fp->saved_state);
+#endif // CONFIG_BPF_TERMINATION
 	free_percpu(fp->stats);
 	free_percpu(fp->active);
 	vfree(fp);

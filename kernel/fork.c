@@ -2338,6 +2338,7 @@ __latent_entropy struct task_struct *copy_process(
 #ifdef CONFIG_BPF_SYSCALL
 	RCU_INIT_POINTER(p->bpf_storage, NULL);
 	p->bpf_ctx = NULL;
+	p->bpf_prog = NULL;
 #endif
 
 	/* Perform scheduler related setup. Assign this task to a CPU. */

@@ -1517,6 +1517,8 @@ struct task_struct {
 	struct bpf_local_storage __rcu	*bpf_storage;
 	/* Used for BPF run context */
 	struct bpf_run_ctx		*bpf_ctx;
+	/* Used for termination */
+	struct bpf_prog 		*bpf_prog;
 #endif
 	/* Used by BPF for per-TASK xdp storage */
 	struct bpf_net_context		*bpf_net_context;
@@ -1568,6 +1570,7 @@ struct task_struct {
 	struct user_event_mm		*user_event_mm;
 #endif
 
+	struct pt_regs *regs_for_bpf; // TODO : might be redundant now. Remove after confirmation
 	/*
 	 * New fields for task_struct should be added above here, so that
 	 * they are included in the randomized portion of task_struct.
