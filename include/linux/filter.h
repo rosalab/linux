@@ -659,7 +659,7 @@ struct bpf_patch_offsets {
 	s64 old_offset; 
 	s64 new_offset;
 	struct list_head list;
-}
+};
 
 struct bpf_saved_states {
 	// TODO: Raj had some other things here, but I think they are not relevant
@@ -667,7 +667,7 @@ struct bpf_saved_states {
 	struct pt_regs saved_regs; // The context right before execution started.
 	struct bpf_link *link;
 	struct bpf_prog *termination_prog;
-}
+};
 
 struct sk_filter {
 	refcount_t	refcnt;

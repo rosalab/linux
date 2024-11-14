@@ -2998,17 +2998,18 @@ static bool is_perfmon_prog_type(enum bpf_prog_type prog_type)
 }
 
 #ifdef CONFIG_BPF_TERMINATION
-static void clone_bpf_prog(struct bpf_prog *dst, const struct bpf_prog *src){
-
+static void clone_bpf_prog(struct bpf_prog *dst, union bpf_attr *attr, struct bpf_token *token, const struct bpf_prog *src){
+	// TODO: this code is probably garbo
 	dst->expected_attach_type = src->expected_attach_type;
 	dst->aux->attach_btf = src->aux->attach_btf;
 	dst->aux->attach_btf_id = src->aux->attach_btf_id;
 	dst->aux->dst_prog = src->aux->dst_prog;
 	dst->aux->offload_requested = src->aux->offload_requested;
-	dst->aux->sleepable = src->aux->sleepable;
+	dst->sleepable = src->sleepable;
 	dst->aux->xdp_has_frags = src->aux->xdp_has_frags ;
 
-	security_bpf_prog_alloc(dst->aux);
+	//security_bpf_prog_alloc(dst->aux);
+	security_bpf_prog_load(dst, attr, token); 
 
 	dst->aux->user = src->aux->user ;
 	dst->len = src->len;
@@ -3049,7 +3050,7 @@ struct call_insn_aux{
  * sub-prog. Once we include sub-progs, a call insn might be needed initially while disabled later
  * during a single run. There can be workarounds. but they are left for later.  
  */
-static void* patch_generator(struct bpf_prog *prog, union bpf_attr *attr, bpfptr_t uattr){
+static void* patch_generator(struct bpf_prog *prog, union bpf_attr *attr, bpfptr_t uattr, struct bpf_token *token, __u32 uattr_size){
 	struct bpf_prog *ret; 	
 	struct call_insn_aux *call_indices;
 	int num_calls=0;
@@ -3235,7 +3236,7 @@ static void* patch_generator(struct bpf_prog *prog, union bpf_attr *attr, bpfptr
 			prog_clone = prog;
 		else{
 			prog_clone = bpf_prog_alloc_no_stats(bpf_prog_size(prog->len), GFP_USER); 
-			clone_bpf_prog(prog_clone, prog);
+			clone_bpf_prog(prog_clone, attr, token, prog);
 		}
 		printk("prog clone : 0x%lx\n", prog_clone);
 		for(int k = num_calls-1; k >= patch_idx; k--){ // Start from bottom
@@ -3245,7 +3246,7 @@ static void* patch_generator(struct bpf_prog *prog, union bpf_attr *attr, bpfptr
 			printk("\tModified call at offset 0x%x to helper-id : 0x%x\n", call_indices[k].insn_idx, call_indices[k].replacement_helper);
 		}
 		
-		err = bpf_check(&prog_clone, attr, uattr); // verify the patch
+		err = bpf_check(&prog_clone, attr, uattr, uattr_size); // verify the patch
 		if (err < 0){
 			printk("Patch #%d failed with err:%d. Exiting..\n", patch_idx+1, err);
 			return NULL;
@@ -3491,10 +3492,10 @@ static int bpf_prog_load(union bpf_attr *attr, bpfptr_t uattr, u32 uattr_size)
 	 */
 	struct bpf_prog *patch_prog = bpf_prog_alloc_no_stats(bpf_prog_size(prog->len), GFP_USER); 
 	//printk("Creating clone for Fast-path termination : 0x%lx\n", patch_prog);
-	clone_bpf_prog(patch_prog, prog);
+	clone_bpf_prog(patch_prog, attr, token, prog);
 
 	void *ret;
-	ret = patch_generator(patch_prog, attr, uattr); // verify all possible patched program
+	ret = patch_generator(patch_prog, attr, uattr, token, uattr_size); // verify all possible patched program
 	if (termination_log)
 		printk("Returned 0x%lx from patch_generator\n", ret);
 

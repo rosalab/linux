@@ -412,7 +412,7 @@ static inline struct kprobe_ctlblk *get_kprobe_ctlblk(void)
 kprobe_opcode_t *kprobe_lookup_name(const char *name, unsigned int offset);
 kprobe_opcode_t *arch_adjust_kprobe_addr(unsigned long addr, unsigned long offset, bool *on_func_entry);
 
-int can_probe(unsigned long paddr); // Making can_probe available for termination functionality
+bool can_probe(unsigned long paddr); // Making can_probe available for termination functionality
 
 int register_kprobe(struct kprobe *p);
 void unregister_kprobe(struct kprobe *p);
