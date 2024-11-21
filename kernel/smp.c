@@ -517,7 +517,8 @@ static void __flush_smp_call_function_queue(struct pt_regs *regs, bool warn_cpu_
 				term_data.prog = info; 	
 				term_data.regs = regs;
 				data = &term_data;
-				csd_do_func(data, info, csd); // idk this is different
+				//csd_do_func(data, info, csd); // idk this is different
+				csd_do_func(func, data, csd);
 			} else
 				csd_do_func(func, info, csd);
 			csd_unlock(csd);
