@@ -174,6 +174,32 @@ TRACE_EVENT(mm_page_free_batched,
 			__entry->pfn)
 );
 
+TRACE_EVENT(handle_mm_fault,
+
+	TP_PROTO(struct vm_area_struct *vma,
+		unsigned long address, unsigned int flags),
+
+	TP_ARGS(vma, address, flags),
+
+	TP_STRUCT__entry(
+		__field(	unsigned long,	vm_start		)
+		__field(	unsigned long,	vm_end		)
+		__field(	unsigned long,	address		)
+		__field(	unsigned int,	flags	)
+	),
+
+	TP_fast_assign(
+		__entry->vm_start	= vma->vm_start;
+		__entry->vm_end		= vma->vm_end;
+		__entry->address	= address;
+		__entry->flags	= flags;
+	),
+
+	TP_printk("vm_start=0x%lx vm_end=0x%lx address=0x%lx flags=%d",
+		__entry->vm_start, __entry->vm_end,
+		__entry->address, __entry->flags)
+);
+
 TRACE_EVENT(mm_page_alloc,
 
 	TP_PROTO(struct page *page, unsigned int order,
