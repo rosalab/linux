@@ -21223,6 +21223,45 @@ patch_map_ops_generic:
 			insn      = new_prog->insnsi + i + delta;
 			goto next_insn;
 		}
+
+#if defined(CONFIG_X86_64)
+        if (prog->jit_requested && insn->imm == BPF_FUNC_get_current_pid_tgid) {
+            // I think this is getting the offset of current_task in pcpu_hot
+            insn_buf[0] = BPF_MOV32_IMM(BPF_REG_0, (u32)(unsigned long)&pcpu_hot.current_task);
+            // BPF_REG_0 now contains the pointer to task struct? is it a pointer to a pointer?
+            insn_buf[1] = BPF_MOV64_PERCPU_REG(BPF_REG_0, BPF_REG_0);
+            // derefernce pointer to pointer to get task struct pointer
+            insn_buf[2] = BPF_LDX_MEM(BPF_DW, BPF_REG_0, BPF_REG_0, 0);
+            // if task struct is null jump to bad ret label
+            insn_buf[3] = BPF_JMP_IMM(BPF_JNE, BPF_REG_0, 0, 2);
+            insn_buf[4] = BPF_MOV64_IMM(BPF_REG_0, -EINVAL);
+            insn_buf[5] = BPF_JMP_A(4);
+            // Get the offsets to pid, tgid
+            size_t pid_offset = offsetof(struct task_struct, pid);
+            size_t tgid_offset = offsetof(struct task_struct, tgid);
+            // read pid into BPF_REG_2 
+            insn_buf[6] = BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_0, pid_offset);
+            // read tgid into BPF_REG_0
+            insn_buf[7] = BPF_LDX_MEM(BPF_W, BPF_REG_0, BPF_REG_0, tgid_offset);
+            // left shift tgid by 32
+            insn_buf[8] = BPF_ALU64_IMM(BPF_LSH, BPF_REG_0, 32);
+            // bitwise or between pid and tgid
+            insn_buf[9] = BPF_ALU64_REG(BPF_OR, BPF_REG_0, BPF_REG_2);
+            // jump over the error return
+            
+            cnt = 10;
+
+            new_prog = bpf_patch_insn_data(env, i + delta, insn_buf, cnt);
+            if (!new_prog)
+                return -ENOMEM;
+
+            delta += cnt - 1;
+            env->prog = prog = new_prog;
+            insn = new_prog->insnsi + i + delta;
+            goto next_insn;
+        }
+#endif
+
 patch_call_imm:
 		fn = env->ops->get_func_proto(insn->imm, env->prog);
 		/* all functions that have prototype and verifier allowed
