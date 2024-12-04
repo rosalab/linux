@@ -107,6 +107,9 @@
 #include <asm/tlb.h>
 #include <linux/uaccess.h>
 
+#define CREATE_TRACE_POINTS
+#include <trace/events/mm_fault.h>
+
 #include "internal.h"
 
 /* Internal flags */

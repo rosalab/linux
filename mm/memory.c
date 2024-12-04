@@ -80,6 +80,7 @@
 #include <linux/sched/sysctl.h>
 
 #include <trace/events/kmem.h>
+#include <trace/events/mm_fault.h>
 
 #include <asm/io.h>
 #include <asm/mmu_context.h>
@@ -5360,7 +5361,10 @@ static inline void mm_account_fault(struct mm_struct *mm, struct pt_regs *regs,
 		current->maj_flt++;
 	else
 		current->min_flt++;
-
+	
+	struct vm_area_struct *vma = find_vma(mm, address);
+	trace_mm_account_fault(vma, address, flags, ret);
+	
 	/*
 	 * If the fault is done for GUP, regs will be NULL.  We only do the
 	 * accounting for the per thread fault counters who triggered the
