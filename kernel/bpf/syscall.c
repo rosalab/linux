@@ -256,9 +256,9 @@ void bpf_die(void* data)
 	bpf_perf_link_release(kill_prog->saved_state->link);
 
 	// detach from hook point
-	while (atomic64_read(&kill_prog->aux->refcnt)>1){
+	while (atomic64_read(&kill_prog->aux->refcnt)>2){
 		atomic64_dec(&kill_prog->aux->refcnt);
-	} 
+	}
 	bpf_prog_put(kill_prog);
 	//printk("After bpf_prog_put\n");
 
