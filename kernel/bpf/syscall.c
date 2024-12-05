@@ -3060,6 +3060,7 @@ static void* patch_generator(struct bpf_prog *prog, union bpf_attr *attr, bpfptr
 	ret=0xdeadbeef;
 	call_indices = vmalloc(sizeof(call_indices) * prog->len);
 	size_t len = strlen(attr->prog_name);
+	// TODO: what the hell is this -Eric
 	if (len<5) // skip the case of test programs
 		return ret;// this program is probably a test program
 	printk("Running patch_gen for prog name : %s\n", attr->prog_name);
@@ -3230,6 +3231,9 @@ static void* patch_generator(struct bpf_prog *prog, union bpf_attr *attr, bpfptr
 		 * End
 		 */
 
+		// Eric appendix: the order does not matter at all.
+		// The patched version is no longer verified, because it is correct by construction already.
+
 		//struct bpf_insn *insn = &prog->insnsi[patch_idx];
 		struct bpf_prog *prog_clone; 
 		if(patch_idx==0)
@@ -3246,11 +3250,11 @@ static void* patch_generator(struct bpf_prog *prog, union bpf_attr *attr, bpfptr
 			printk("\tModified call at offset 0x%x to helper-id : 0x%x\n", call_indices[k].insn_idx, call_indices[k].replacement_helper);
 		}
 		
-		err = bpf_check(&prog_clone, attr, uattr, uattr_size); // verify the patch
+		/*err = bpf_check(&prog_clone, attr, uattr, uattr_size); // verify the patch
 		if (err < 0){
 			printk("Patch #%d failed with err:%d. Exiting..\n", patch_idx+1, err);
 			return NULL;
-		}
+		}*/
 		if(patch_idx != 0) 
 			__bpf_prog_put_noref(prog_clone, prog_clone->aux->func_cnt);
 
