@@ -972,8 +972,8 @@ asmlinkage long sys_lsm_set_self_attr(unsigned int attr, struct lsm_ctx __user *
 				      u32 size, u32 flags);
 asmlinkage long sys_lsm_list_modules(u64 __user *ids, u32 __user *size, u32 flags);
 
-asmlinkage long sys_process_set_color(int pid, u64 color);
-asmlinkage long sys_process_get_color(int pid, u64 __user *ptr);
+asmlinkage long sys_process_set_color(int pid, u64 opt_in_color, u64 opt_out_color);
+asmlinkage long sys_process_get_color(int pid, u64 __user *opt_in_ptr, u64 __user *opt_out_ptr);
 
 /*
  * Architecture-specific system calls

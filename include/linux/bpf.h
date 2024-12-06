@@ -1564,6 +1564,8 @@ struct bpf_prog {
 	struct bpf_prog_aux	*aux;		/* Auxiliary fields */
 	struct sock_fprog_kern	*orig_prog;	/* Original BPF program */
     u64 bpf_prog_color;
+    u64 bpf_prog_opt_in_color;
+    u64 bpf_prog_opt_out_color;
 	/* Instructions for interpreter */
 	union {
 		DECLARE_FLEX_ARRAY(struct sock_filter, insns);

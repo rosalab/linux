@@ -985,6 +985,11 @@ struct task_struct {
 
     /* Process color variable for tracing */
     u64                 process_color;
+    // TODO: remove extra field later
+    /* Process color for opt_in */
+    u64                 process_opt_in_color;
+    /* Process color for opt_out */
+    u64                 process_opt_out_color;
 
 #ifdef CONFIG_STACKPROTECTOR
 	/* Canary value for the -fstack-protector GCC feature: */

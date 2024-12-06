@@ -256,8 +256,9 @@ static inline struct tracepoint *tracepoint_ptr_deref(tracepoint_ptr_t *p)
 	static inline void trace_##name(proto)				\
 	{								\
 		if (static_key_false(&__tracepoint_##name.key)) {		\
-            u64 color = current->process_color; \
-            if ((color & __tracepoint_##name.tracepoint_color) || (color == __tracepoint_##name.tracepoint_color)) { \
+            u64 process_opt_in_color = current->process_opt_in_color; \
+            u64 process_opt_out_color = current->process_opt_out_color; \
+            if ((process_opt_in_color & __tracepoint_##name.tracepoint_opt_in_color) || !(process_opt_out_color &  __tracepoint_##name.tracepoint_opt_out_color)) { \
                 __DO_TRACE(name, \
                     TP_ARGS(args), \
                     TP_CONDITION(cond), 0); \

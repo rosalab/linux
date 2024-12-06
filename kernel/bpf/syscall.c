@@ -5796,7 +5796,7 @@ SYSCALL_DEFINE3(bpf, int, cmd, union bpf_attr __user *, uattr, unsigned int, siz
 }
 
 
-static int __sys_process_set_color(int pid, u64 color)
+static int __sys_process_set_color(int pid, u64 opt_in_color, u64 opt_out_color)
 {
     struct task_struct * ts;
     ts = find_task_by_vpid(pid);
@@ -5806,7 +5806,8 @@ static int __sys_process_set_color(int pid, u64 color)
     }
 
     if (bpf_capable()) {
-        ts->process_color = color;
+        ts->process_opt_in_color = opt_in_color;
+        ts->process_opt_out_color = opt_out_color;
         return 0;
     }
     else {
@@ -5814,27 +5815,30 @@ static int __sys_process_set_color(int pid, u64 color)
     }
 }
 
-static int __sys_process_get_color(int pid, u64 __user *ptr)
+static int __sys_process_get_color(int pid, u64 __user *opt_in_ptr, u64 __user *opt_out_ptr)
 {
     struct task_struct * ts = find_task_by_vpid(pid);
     if (!ts) {
         return -1;
     }
     
-    if (copy_to_user(ptr, &(ts->process_color), sizeof(u64))) 
+    if (copy_to_user(opt_in_ptr, &(ts->process_opt_in_color), sizeof(u64))) 
+        return -1;
+
+    if (copy_to_user(opt_out_ptr, &(ts->process_opt_out_color), sizeof(u64))) 
         return -1;
 
     return 0;
 }
 
-SYSCALL_DEFINE2(process_set_color, int, pid, u64, color)
+SYSCALL_DEFINE3(process_set_color, int, pid, u64, opt_in_color, u64, opt_out_color)
 {
-    return __sys_process_set_color(pid, color);
+    return __sys_process_set_color(pid, opt_in_color, opt_out_color);
 }
 
-SYSCALL_DEFINE2(process_get_color, int, pid, u64 __user *, ptr)
+SYSCALL_DEFINE3(process_get_color, int, pid, u64 __user *, opt_in_ptr, u64 __user *, opt_out_ptr)
 {
-    return __sys_process_get_color(pid, ptr);
+    return __sys_process_get_color(pid, opt_in_ptr, opt_out_ptr);
 }
 
 static bool syscall_prog_is_valid_access(int off, int size,

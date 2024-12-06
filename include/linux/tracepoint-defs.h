@@ -40,6 +40,8 @@ struct tracepoint {
 	void (*unregfunc)(void);
 	struct tracepoint_func __rcu *funcs;
     u64 tracepoint_color;
+    u64 tracepoint_opt_in_color;
+    u64 tracepoint_opt_out_color;
 };
 
 #ifdef CONFIG_HAVE_ARCH_PREL32_RELOCATIONS

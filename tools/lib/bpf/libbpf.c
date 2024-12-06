@@ -459,6 +459,7 @@ struct bpf_program {
 
     // Program color rule
     __u64 color;
+    __u32 color_type; // 0 for opt_in 1 for opt_out
 
 	int prog_ifindex;
 	__u32 attach_btf_obj_fd;
@@ -10739,7 +10740,9 @@ struct bpf_link *bpf_program__attach_perf_event_opts(const struct bpf_program *p
 			.perf_event.bpf_cookie = OPTS_GET(opts, bpf_cookie, 0));
 
         __u64 color = prog->color;
+        __u32 color_type = prog->color_type;
         link_opts.color = color;
+        link_opts.color_type = color_type;
 
 		link_fd = bpf_link_create(prog_fd, pfd, BPF_PERF_EVENT, &link_opts);
 		if (link_fd < 0) {
@@ -13957,8 +13960,9 @@ void bpf_object__destroy_skeleton(struct bpf_object_skeleton *s)
 	free(s);
 }
 
-LIBBPF_API int bpf_program__set_color(struct bpf_program *prog, __u64 color)
+LIBBPF_API int bpf_program__set_color(struct bpf_program *prog, __u64 color, __u32 color_type)
 {
     prog->color = color;
+    prog->color_type = color_type;
     return 0;
 }

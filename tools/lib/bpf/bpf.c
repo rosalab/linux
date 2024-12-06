@@ -730,6 +730,7 @@ int bpf_link_create(int prog_fd, int target_fd,
 	int fd, err, relative_fd;
 	union bpf_attr attr;
     __u64 color;
+    __u32 color_type;
 
 	if (!OPTS_VALID(opts, bpf_link_create_opts))
 		return libbpf_err(-EINVAL);
@@ -738,6 +739,7 @@ int bpf_link_create(int prog_fd, int target_fd,
 	target_btf_id = OPTS_GET(opts, target_btf_id, 0);
 
     color = OPTS_GET(opts, color, 0);
+    color_type = OPTS_GET(opts, color_type, 0);
 
 
 	/* validate we don't have unexpected combinations of non-zero fields */
@@ -756,6 +758,8 @@ int bpf_link_create(int prog_fd, int target_fd,
 
     // Add tracepoint color to the link
     attr.link_create.color = color;
+    // add color type to the link
+    attr.link_create.color_type = color_type;
 
 	if (target_btf_id) {
 		attr.link_create.target_btf_id = target_btf_id;

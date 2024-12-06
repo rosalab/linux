@@ -10610,9 +10610,18 @@ int perf_event_set_bpf_prog(struct perf_event *event, struct bpf_prog *prog,
     
     if (attr == NULL) return perf_event_attach_bpf_prog(event, prog, bpf_cookie);
 
-    // Set the color of the bpf prog
+    // TODO: Color manager stuff here
+    // Set the color of the bpf prog depnding on type
     printk(KERN_INFO "Prog color is %llu\n", attr->link_create.color);
-    prog->bpf_prog_color = attr->link_create.color;
+    
+    // 0 is opt_in
+    if (attr->link_create.color_type == 0) {
+        prog->bpf_prog_opt_in_color = attr->link_create.color;
+    }
+    else {
+        prog->bpf_prog_opt_out_color = attr->link_create.color;
+    }
+    
 
     if (is_tracepoint || is_syscall_tp) {
         struct tracepoint * tp_struct;
@@ -10635,8 +10644,14 @@ int perf_event_set_bpf_prog(struct perf_event *event, struct bpf_prog *prog,
         } 
             
         // overall tracepoint color is the union of all attached
-        tp_struct->tracepoint_color = tp_struct->tracepoint_color | attr->link_create.color;
-        printk(KERN_INFO "Color is %llu\n", tp_struct->tracepoint_color);
+        if (attr->link_create.color_type == 0) {
+            tp_struct->tracepoint_opt_in_color = tp_struct->tracepoint_opt_in_color | attr->link_create.color;
+            printk(KERN_INFO "Opt in color is %llu\n", tp_struct->tracepoint_opt_in_color);
+        }
+        else {
+            tp_struct->tracepoint_opt_out_color = tp_struct->tracepoint_opt_out_color | attr->link_create.color;
+            printk(KERN_INFO "Opt out color is %llu\n", tp_struct->tracepoint_opt_out_color);
+        }
     }
     else if (is_kprobe) {
         // TODO implement support for kprobe setting color

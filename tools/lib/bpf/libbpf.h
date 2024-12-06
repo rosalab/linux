@@ -1886,7 +1886,7 @@ LIBBPF_API int libbpf_unregister_prog_handler(int handler_id);
 /**
  * Set the hookset field of the bpf_program struct
  */
-LIBBPF_API int bpf_program__set_color(struct bpf_program *prog, __u64 color); 
+LIBBPF_API int bpf_program__set_color(struct bpf_program *prog, __u64 color, __u32 color_type); 
 #ifdef __cplusplus
 } /* extern "C" */
 #endif
