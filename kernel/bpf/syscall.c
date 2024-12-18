@@ -2809,7 +2809,7 @@ struct call_insn_aux{
  * Step 2 : Traverse in the reverse direction and start patching the call insns one-after-another 
  * TODO : Currenty it's assumed that the BPF program has only 1 block i.e. a main block and no
  * sub-prog. Once we include sub-progs, a call insn might be needed initially while disabled later
- * during a single run. There can be workarounds. but they are left for later.  
+ * during a single run. There can be workarounds(such as inlining). but they are left for later.  
  */
 static void* patch_generator(struct bpf_prog *prog, union bpf_attr *attr, bpfptr_t uattr){
 	struct bpf_prog *ret; 	
@@ -2823,7 +2823,7 @@ static void* patch_generator(struct bpf_prog *prog, union bpf_attr *attr, bpfptr
 	size_t len = strlen(attr->prog_name);
 	if (len<5) // skip the case of test programs
 		return ret;// this program is probably a test program
-	printk("Running patch_gen for prog name : %s\n", attr->prog_name);
+	printk("Running patch_gen for prog name : %s, bpf_attr len: %d, aux func cnt: %d\n", attr->prog_name, prog->len, prog->aux->func_cnt);
  
 	if(IS_ERR(prog)){
 		printk("bpf prog_id : %d not supported! Not generating patches.\n", attr->prog_id);
@@ -2834,12 +2834,38 @@ static void* patch_generator(struct bpf_prog *prog, union bpf_attr *attr, bpfptr
 	/* Step 1 : Find all call insns 
 	 * Code checks inspired from verifier
 	 */
-	for(int insn_idx =0 ;insn_idx < prog->len; insn_idx++) // TODO : (add code for dealing with sub-progs too) Assuming no other sub-prog exists!!
+	int insn_idx = 0; 
+	int prog_len = prog->len;
+	while(insn_idx < prog_len)
 	{
 		struct bpf_insn *insn = &prog->insnsi[insn_idx] ;
 		u8 class = BPF_CLASS(insn->code);
-		if ( class == BPF_JMP || class == BPF_JMP32) { 
-			if (BPF_OP(insn->code)==BPF_CALL){
+		if (BPF_OP(insn->code) == BPF_EXIT && insn_idx != prog_len-1){ // skip the last exit
+			printk("exit instruction at id:%d\n", insn_idx);
+			// add a r0 = 1 and an exit insn after this
+		
+			// create a new prog->insni array of size (len+2) and copy everything at the right place
+			struct bpf_insn *new_insn;
+			new_insn = vzalloc((prog_len + 2) * sizeof(struct bpf_insn));
+			if (!new_insn){
+				printk("Failed to allocate new insn array. Exiting..");
+				return NULL;
+			}
+			// copy all previous insn
+			memcpy(new_insn, prog->insnsi, sizeof(struct bpf_insn)*(insn_idx+1));
+
+			// insert r0=1 and exit instructions 
+			new_insn[insn_idx+1] = BPF_MOV64_IMM(BPF_REG_0, 1);
+			new_insn[insn_idx+2] = BPF_EXIT_INSN();
+
+			// copy rest of insns
+			memcpy(new_insn + insn_idx + 3, prog->insnsi + insn_idx + 1, sizeof(struct bpf_insn)*(prog_len - insn_idx-1));
+
+			insn_idx += 3;
+			prog_len += 2;
+			continue;	
+		}
+		if ((class == BPF_JMP || class == BPF_JMP32) && BPF_OP(insn->code)==BPF_CALL){
 				if (insn->src_reg == BPF_PSEUDO_CALL){ /* A function call */
 					// TODO : Get into the sub-prog and recursively call the patch_gen
 				}
@@ -2878,10 +2904,13 @@ static void* patch_generator(struct bpf_prog *prog, union bpf_attr *attr, bpfptr
 					int new_helper_id = -1; 
 
 					// Step b : Add more release functions here as needed
-					if (func_id == BPF_FUNC_sk_release )
-						continue;
-					// TODO : Skipping printk for debug
-					if (func_id == BPF_FUNC_trace_printk ) continue;
+					if (func_id == BPF_FUNC_sk_release 
+					    || func_id == BPF_FUNC_spin_unlock)
+						goto next;
+
+					// Skipping printk for debug
+					if (func_id == BPF_FUNC_trace_printk ) goto next;
+
 					// Step c
 					fn = bpf_syscall_verifier_ops.get_func_proto(func_id, prog);
 
@@ -2899,17 +2928,23 @@ static void* patch_generator(struct bpf_prog *prog, union bpf_attr *attr, bpfptr
 					
 					// Step d
 					enum bpf_return_type ret_type = fn->ret_type;
-					if(ret_type == RET_VOID)	
-						new_helper_id = BPF_FUNC_dummy_void;
-					else if (ret_type == RET_INTEGER) 
-						new_helper_id = BPF_FUNC_dummy_int;
-					else if (ret_type == RET_PTR_TO_SOCKET_OR_NULL) 
-						new_helper_id = BPF_FUNC_dummy_ptr_to_socket;
-					else{ // Add dummy helpers for each return type as needed
-						printk("Return type : %d currently not having any replacements. Exiting\n", ret_type);
-						err = -ENOTSUPP;
-						return NULL;
+					switch (ret_type){
+						case RET_VOID:
+							new_helper_id = BPF_FUNC_dummy_void;
+							break;
+						case RET_INTEGER:
+							new_helper_id = BPF_FUNC_dummy_int;
+							break;
+						case RET_PTR_TO_SOCKET_OR_NULL:
+							new_helper_id = BPF_FUNC_dummy_ptr_to_socket;
+							break;
+						default:// Add dummy helpers for each return type as needed
+							printk("Return type : %d currently not having any replacements. Exiting\n", ret_type);
+							err = -ENOTSUPP;
+							return NULL;
+
 					}
+
 					/* Save that to the call indices list */
 					struct bpf_func_proto *fn_new = NULL;
 					fn_new = bpf_syscall_verifier_ops.get_func_proto(new_helper_id, prog);
@@ -2923,21 +2958,13 @@ static void* patch_generator(struct bpf_prog *prog, union bpf_attr *attr, bpfptr
 						}
 					}
 
-					/* Save that to the call indices list 
-					 * Each index in call_indices list contains 2 information :
-					 *       - Bpf program's offset which needs to be replaced
-					 *	 - Helper call to be replaced with
-					 */
-					call_indices[num_calls].insn_idx = insn_idx; 
-					call_indices[num_calls].replacement_helper= new_helper_id; 
-					num_calls++;
-					/*
-					   int replacement_value; // for bpf_loop case where the iterator needs to now return !0 value to early exit the callbacks
-					 */
-					printk("Saved an entry to the array of call instruction\n");
+					prog->insnsi[insn_idx].imm = new_helper_id;
+					printk("\tModified call at offset 0x%x to helper-id : 0x%x\n", insn_idx, new_helper_id);
+
 					// Step d.1 special casing 
 					if (func_id == BPF_FUNC_loop ){
-						// find the return instruction of bpf_loops' static iterator
+						// find function ID and modify its return value
+						// patch_return_value();
 					}
 					else if (func_id == BPF_FUNC_for_each_map_elem) {
 						printk("Iterator bpf_for_each_map_elem currently does not have a patch generation technique at line : %d. Exiting\n", __LINE__);
@@ -2945,81 +2972,14 @@ static void* patch_generator(struct bpf_prog *prog, union bpf_attr *attr, bpfptr
 						return NULL;
 
 					}
-					/*
-					   else if (func_id == BPF_FUNC_user_ringbuf_drain) {
-					   printk("Iterator bpf_user_ringbuf_drain is currently not supported in this kernel. Exiting\n");
-					   err = -ENOTSUPP;
-					   return NULL;
-
-					   }
-					 */
-
-					/* 
-					 * For using text poke later on, populate the bpf_patch_offsets
-
-					 struct bpf_patch_offsets *elem;
-					 elem = kzalloc(sizeof(*elem), GFP_KERNEL);
-					 elem->old_address = fn->func ;	
-					 elem->new_address = fn_new->func ;
-					 list_add(&elem->list, &prog->saved_state->bpf_patch_offsets->list);		
-					 */ 
 				}
 		}
-		}
-	}	
-	/* Step 2: Patch call insns  and call bpf_check() */
-	for(int patch_idx = num_calls-1; patch_idx>=0; patch_idx--){
-		printk("------------------------------------------------\n");
-		printk("Generating Patch #%d\n", patch_idx+1);
-		/* The patches are generating in bottom-up fashion!
-		 * If a program has 3 insns:
-		 *	insn1
-		 *	insn2
-		 *	insn3
-		 * Patch generator will first create :
-		 *	insn1
-		 *	insn2
-		 *	patched_insn3
-		 * Then, 
-		 *	insn1
-		 *	patched_insn2
-		 *	patched_insn3
-		 * Then, 
-		 *	patched_insn1
-		 *	patched_insn2
-		 *	patched_insn3
-		 * End
-		 */
-
-		//struct bpf_insn *insn = &prog->insnsi[patch_idx];
-		struct bpf_prog *prog_clone; 
-		if(patch_idx==0)
-			prog_clone = prog;
-		else{
-			prog_clone = bpf_prog_alloc_no_stats(bpf_prog_size(prog->len), GFP_USER); 
-			clone_bpf_prog(prog_clone, prog);
-		}
-		printk("prog clone : 0x%lx\n", prog_clone);
-		for(int k = num_calls-1; k >= patch_idx; k--){ // Start from bottom
-			//printk("[0x%x] %x Previous imm : %x\n", call_indices[k].insn_idx,prog_clone->insnsi[call_indices[k].insn_idx].code, prog_clone->insnsi[call_indices[k].insn_idx].imm);
-			prog_clone->insnsi[call_indices[k].insn_idx].imm = call_indices[k].replacement_helper;
-			//printk("[0x%x] Modified imm : %x\n", call_indices[k].insn_idx, prog_clone->insnsi[call_indices[k].insn_idx].imm);
-			printk("\tModified call at offset 0x%x to helper-id : 0x%x\n", call_indices[k].insn_idx, call_indices[k].replacement_helper);
-		}
-		
-		err = bpf_check(&prog_clone, attr, uattr); // verify the patch
-		if (err < 0){
-			printk("Patch #%d failed with err:%d. Exiting..\n", patch_idx+1, err);
-			return NULL;
-		}
-		if(patch_idx != 0) 
-			__bpf_prog_put_noref(prog_clone, prog_clone->aux->func_cnt);
-
-		printk("Patch #%d passed \n", patch_idx+1);
-		printk("------------------------------------------------\n");
+next:
+		insn_idx++;
 	}	
 	printk("All Patches PASSED ! ");
 	printk("------------------------------------------------\n");
+	//prog->aux->prog_len = prog->len; // TODO : do we need to adjust any bpf_prog_aux data as well?
 
 	return prog;
 
@@ -3067,7 +3027,7 @@ static int bpf_prog_load(union bpf_attr *attr, bpfptr_t uattr)
 	u64 verification_time ;
 	size_t len = strlen(attr->prog_name);
 	if (len>4){ // skipping no name case and "test" programs
-		printk("Starting bpf_prog_load for prog_name:%s and len:%d\n",attr->prog_name, len);
+		printk("Starting bpf_prog_load for prog_name:%s and prog name len:%d\n",attr->prog_name, len);
 		termination_log = true;
 		verification_time = ktime_get_boottime_ns();
 	}	

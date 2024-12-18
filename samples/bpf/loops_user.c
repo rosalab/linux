@@ -40,11 +40,13 @@ int main(int argc, char **argv)
         }
 	//goto cleanup;
 
+	/*
 	int my_map = bpf_object__find_map_fd_by_name(obj, "my_map");
 	if(my_map<0){
 		fprintf(stderr, "ERROR: finding map in obj file failed\n");
 		goto cleanup;
 	}
+	*/
 	
 
 	link = bpf_program__attach(prog);
