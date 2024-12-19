@@ -8005,6 +8005,8 @@ sock_addr_func_proto(enum bpf_func_id func_id, const struct bpf_prog *prog)
 		return &bpf_sk_release_proto;
 	case BPF_FUNC_dummy_ptr_to_socket: // dummy helper for termination
 		return &bpf_dummy_ptr_to_socket_proto;
+//	case BPF_FUNC_dummy_ptr_to_map_or_null: // dummy helper for termination
+//        	return &bpf_dummy_ptr_to_map_or_null_proto;
 	case BPF_FUNC_skc_lookup_tcp:
 		return &bpf_sock_addr_skc_lookup_tcp_proto;
 #endif /* CONFIG_INET */
@@ -8122,6 +8124,8 @@ cg_skb_func_proto(enum bpf_func_id func_id, const struct bpf_prog *prog)
 		return &bpf_sk_release_proto;
 	case BPF_FUNC_dummy_ptr_to_socket:
 		return &bpf_dummy_ptr_to_socket_proto;
+//	case BPF_FUNC_dummy_ptr_to_map_or_null: // dummy helper for termination
+//                return &bpf_dummy_ptr_to_map_or_null_proto;
 	case BPF_FUNC_skc_lookup_tcp:
 		return &bpf_skc_lookup_tcp_proto;
 	case BPF_FUNC_tcp_sock:
@@ -8241,6 +8245,8 @@ tc_cls_act_func_proto(enum bpf_func_id func_id, const struct bpf_prog *prog)
 		return &bpf_sk_release_proto;
 	case BPF_FUNC_dummy_ptr_to_socket:
 		return &bpf_dummy_ptr_to_socket_proto;
+//	case BPF_FUNC_dummy_ptr_to_map_or_null: // dummy helper for termination
+//                return &bpf_dummy_ptr_to_map_or_null_proto;
 	case BPF_FUNC_tcp_sock:
 		return &bpf_tcp_sock_proto;
 	case BPF_FUNC_get_listener_sock:
