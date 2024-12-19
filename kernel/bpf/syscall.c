@@ -3118,7 +3118,8 @@ static void* patch_generator(struct bpf_prog *prog, union bpf_attr *attr, bpfptr
 					int new_helper_id = -1; 
 
 					// Step b : Add more release functions here as needed
-					if (func_id == BPF_FUNC_sk_release )
+					if (func_id == BPF_FUNC_sk_release ||
+						func_id == BPF_FUNC_test_release)
 						continue;
 					if (func_id == BPF_FUNC_map_lookup_elem)
                                                continue;

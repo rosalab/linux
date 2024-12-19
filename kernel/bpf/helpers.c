@@ -1960,6 +1960,10 @@ bpf_base_func_proto(enum bpf_func_id func_id, const struct bpf_prog *prog)
 		return &bpf_dummy_void_proto;
 	case BPF_FUNC_dummy_int:
 		return &bpf_dummy_int_proto;
+	case BPF_FUNC_test_acquire:
+		return &bpf_test_acquire_proto;
+	case BPF_FUNC_test_release:
+		return &bpf_test_release_proto;
 	default:
 		break;
 	}

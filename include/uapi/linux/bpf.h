@@ -6011,6 +6011,8 @@ union bpf_attr {
 	FN(dummy_int, 213, ##ctx)			\
 	FN(dummy_ptr_to_socket, 214, ##ctx)		\
 	FN(dummy_ptr_to_map_or_null, 215, ##ctx)		\
+	FN(test_acquire, 216, ##ctx)			\
+	FN(test_release, 217, ##ctx)			\
 	/* */
 
 /* backwards-compatibility macros for users of __BPF_FUNC_MAPPER that don't
