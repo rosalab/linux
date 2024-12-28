@@ -164,6 +164,13 @@ struct bpf_prog *bpf_prog_alloc(unsigned int size, gfp_t gfp_extra_flags)
 	if (!prog)
 		return NULL;
 
+	prog->term_signal = kmalloc(sizeof(struct bpf_term_signal), GFP_KERNEL);
+	if (!prog->term_signal) {
+		pr_info("\t\t Memory allocation for prog->term_signal failed\n");
+		vfree(prog);
+		return NULL;
+	}
+
 	prog->stats = alloc_percpu_gfp(struct bpf_prog_stats, gfp_flags);
 	if (!prog->stats) {
 		free_percpu(prog->active);
@@ -178,6 +185,7 @@ struct bpf_prog *bpf_prog_alloc(unsigned int size, gfp_t gfp_extra_flags)
 		pstats = per_cpu_ptr(prog->stats, cpu);
 		u64_stats_init(&pstats->syncp);
 	}
+
 	return prog;
 }
 EXPORT_SYMBOL_GPL(bpf_prog_alloc);

@@ -1535,6 +1535,11 @@ struct bpf_prog_aux {
 	};
 };
 
+struct bpf_term_signal {
+	u8 active;
+	spinlock_t lock;
+};
+
 struct bpf_prog {
 	u16			pages;		/* Number of allocated pages */
 	u16			jited:1,	/* Is our filter JIT'ed? */
@@ -1563,6 +1568,7 @@ struct bpf_prog {
 					    const struct bpf_insn *insn);
 	struct bpf_prog_aux	*aux;		/* Auxiliary fields */
 	struct sock_fprog_kern	*orig_prog;	/* Original BPF program */
+	struct bpf_term_signal  *term_signal;
 	struct bpf_saved_states *saved_state;  /* Saved data required by SATerm */
 	/* Instructions for interpreter */
 	union {

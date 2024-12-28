@@ -6448,6 +6448,7 @@ static int __sys_bpf(int cmd, bpfptr_t uattr, unsigned int size)
 		struct bpf_prog *prog; 	
 		struct bpf_saved_states *saved_state;
 		prog = bpf_prog_by_id(attr.prog_id);
+		unsigned long flags;
 		if(IS_ERR(prog) || !(saved_state=prog->saved_state)){
 			printk("bpf prog_id : %d not supported! Not executing terminate. DEBUG : prog : 0x%lx, saved_state:0x%lx\n", attr.prog_id, prog, saved_state);
 			err = -EINVAL;
@@ -6465,6 +6466,10 @@ static int __sys_bpf(int cmd, bpfptr_t uattr, unsigned int size)
 			//printk("--- Address of jited program : %lx\n", (void*)prog->bpf_func);
 			//printk("--- Size of jited program : %d\n", prog->jited_len);
 			//set_memory_nx((unsigned long)prog->bpf_func,prog->jited_len >> PAGE_SHIFT);
+
+			spin_lock_irqsave(&prog->term_signal->lock, flags);
+			prog->term_signal->active = 1;
+			spin_unlock_irqrestore(&prog->term_signal->lock, flags);
 			smp_call_function_single(cpu_id,bpf_die,(void*)prog,1);
 			u64 end = ktime_get_boottime_ns();
 			printk("Finished termination syscall at time : %ld\n", end);
