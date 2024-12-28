@@ -6048,16 +6048,23 @@ static int __init bpf_syscall_sysctl_init(void)
 }
 late_initcall(bpf_syscall_sysctl_init);
 
-static u64 __hook_ftrace_test(void)
-{
-    return ktime_get_ns();
-}
+//static u64 __hook_ftrace_test(void)
+//{
+////    u64 time = ktime_get_ns();
+////    *value = time;
+//
+//    return ktime_get_ns();
+//}
+
+extern u64 __hook_ftrace_test(void);
 
 static long __sys_hook_test(struct hook_test_attr __user * attr)
 {
     u64 tp_start, tp_end, ftrace_kprobe_start, ftrace_kprobe_end, 
         opt_kprobe_start, opt_kprobe_end, unopt_kprobe_start, unopt_kprobe_end;
     struct hook_test_attr res; 
+//    u64 val = 0;
+
     
     // time tracepoint
     tp_start = ktime_get_ns();
@@ -6081,6 +6088,7 @@ static long __sys_hook_test(struct hook_test_attr __user * attr)
     asm volatile ("nop");
     unopt_kprobe_end = ktime_get_ns();
     res.unopt_kprobe_time = unopt_kprobe_end - unopt_kprobe_start; 
+
 
     if (copy_to_user(attr, &res, sizeof(struct hook_test_attr)))
         pr_warn("Failed to copy struct\n");
