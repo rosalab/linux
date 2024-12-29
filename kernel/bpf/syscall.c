@@ -6470,6 +6470,11 @@ static int __sys_bpf(int cmd, bpfptr_t uattr, unsigned int size)
 			spin_lock_irqsave(&prog->term_signal->lock, flags);
 			prog->term_signal->active = 1;
 			spin_unlock_irqrestore(&prog->term_signal->lock, flags);
+			for (int i = 1; i < prog->aux->func_cnt; i++) {
+				spin_lock_irqsave(&prog->aux->func[i]->term_signal->lock, flags);
+				prog->aux->func[i]->term_signal->active = 1;
+				spin_unlock_irqrestore(&prog->aux->func[i]->term_signal->lock, flags);
+			}
 			smp_call_function_single(cpu_id,bpf_die,(void*)prog,1);
 			u64 end = ktime_get_boottime_ns();
 			printk("Finished termination syscall at time : %ld\n", end);
