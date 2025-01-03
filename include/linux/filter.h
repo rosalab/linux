@@ -695,8 +695,8 @@ static __always_inline u32 __bpf_prog_run(const struct bpf_prog *prog,
 
 static __always_inline u32 bpf_prog_run(const struct bpf_prog *prog, const void *ctx)
 {
-    return 0;
-	//return __bpf_prog_run(prog, ctx, bpf_dispatcher_nop_func);
+    //return 0;
+	return __bpf_prog_run(prog, ctx, bpf_dispatcher_nop_func);
 }
 
 /*
