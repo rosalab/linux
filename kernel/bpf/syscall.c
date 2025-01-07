@@ -3144,14 +3144,14 @@ static void* patch_generator(struct bpf_prog *prog, union bpf_attr *attr, bpfptr
 					
 					// Step d
 					enum bpf_return_type ret_type = fn->ret_type;
-					if(ret_type == RET_VOID)	
-						new_helper_id = BPF_FUNC_dummy_void;
-					else if (ret_type == RET_INTEGER) 
+					if (ret_type == RET_INTEGER)
 						new_helper_id = BPF_FUNC_dummy_int;
 					else if (ret_type == RET_PTR_TO_SOCKET_OR_NULL) 
 						new_helper_id = BPF_FUNC_dummy_ptr_to_socket;
 					else if (ret_type == RET_PTR_TO_MAP_VALUE_OR_NULL)
                                                 new_helper_id = BPF_FUNC_dummy_ptr_to_map_or_null;
+                                        else if (ret_type == RET_VOID)
+                                             	new_helper_id = BPF_FUNC_dummy_void;
 					else{ // Add dummy helpers for each return type as needed
 						printk("Return type : %d currently not having any replacements. Exiting\n", ret_type);
 						err = -ENOTSUPP;
