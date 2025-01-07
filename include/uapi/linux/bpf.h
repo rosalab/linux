@@ -5793,6 +5793,43 @@ union bpf_attr {
  *		0 on success.
  *
  *		**-ENOENT** if the bpf_local_storage cannot be found.
+ *
+ * void bpf_dummy_void(void)
+ * 	Description
+ *		return dummy void
+ *	Return
+ *		void
+ *
+ * int bpf_dummy_int(void)
+ *	Description
+ *		return dummy int
+ * 	Return
+ *		int
+ *
+ * struct bpf_sock *bpf_dummy_ptr_to_socket(void)
+ * 	Description
+ *		returns dummy ptr or socket
+ *	Return
+ *		Pointer to **struct bpf_sock**, or **NULL** in case of failure.
+ *
+ * void *bpf_dummy_ptr_to_map_or_null(struct bpf_map *map, const void *key)
+ *	Description
+ *		returns dummy map or null
+ *	Return
+ *		Map value associated to *key* on *cpu*, or **NULL** if no entry
+ * 		was found or *cpu* is invalid.
+ *
+ * void *bpf_test_acquire(void)
+ * 	Description
+ * 		Acquire
+ * 	Return
+ * 		Integer
+ *
+ * void bpf_test_release(void)
+ * 	Description
+ * 		Release
+ * 	Return
+ * 		Void
  */
 #define ___BPF_FUNC_MAPPER(FN, ctx...)			\
 	FN(unspec, 0, ##ctx)				\
@@ -6007,9 +6044,12 @@ union bpf_attr {
 	FN(user_ringbuf_drain, 209, ##ctx)		\
 	FN(cgrp_storage_get, 210, ##ctx)		\
 	FN(cgrp_storage_delete, 211, ##ctx)		\
-	FN(dummy_void, 212, ##ctx)			\
-	FN(dummy_int, 213, ##ctx)			\
+ 	FN(dummy_void, 212, ##ctx)			\
+ 	FN(dummy_int, 213, ##ctx)			\
 	FN(dummy_ptr_to_socket, 214, ##ctx)		\
+	FN(dummy_ptr_to_map_or_null, 215, ##ctx)	\
+	FN(test_acquire, 216, ##ctx)			\
+	FN(test_release, 217, ##ctx)			\
 	/* */
 
 /* backwards-compatibility macros for users of __BPF_FUNC_MAPPER that don't

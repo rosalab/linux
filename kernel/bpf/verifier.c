@@ -471,9 +471,11 @@ static bool is_acquire_function(enum bpf_func_id func_id,
 	if (func_id == BPF_FUNC_sk_lookup_tcp ||
 	    func_id == BPF_FUNC_sk_lookup_udp ||
 	    func_id == BPF_FUNC_dummy_ptr_to_socket ||
+	    func_id == BPF_FUNC_dummy_ptr_to_map_or_null ||
 	    func_id == BPF_FUNC_skc_lookup_tcp ||
 	    func_id == BPF_FUNC_ringbuf_reserve ||
-	    func_id == BPF_FUNC_kptr_xchg)
+	    func_id == BPF_FUNC_kptr_xchg || 
+		func_id == BPF_FUNC_test_acquire)
 		return true;
 
 	if (func_id == BPF_FUNC_map_lookup_elem &&

@@ -52,6 +52,20 @@ const struct bpf_func_proto bpf_map_lookup_elem_proto = {
 	.arg2_type	= ARG_PTR_TO_MAP_KEY,
 };
 
+BPF_CALL_2(dummy_ptr_to_map_or_null, struct bpf_map *, map, void *, key)
+{
+	return NULL;
+}
+
+const struct bpf_func_proto bpf_dummy_ptr_to_map_or_null_proto = {
+	.func		= dummy_ptr_to_map_or_null,
+	.gpl_only	= false,
+	.pkt_access	= true,
+	.ret_type	= RET_PTR_TO_MAP_VALUE_OR_NULL,
+	.arg1_type	= ARG_CONST_MAP_PTR,
+	.arg2_type	= ARG_PTR_TO_MAP_KEY,
+};
+
 BPF_CALL_4(bpf_map_update_elem, struct bpf_map *, map, void *, key,
 	   void *, value, u64, flags)
 {
@@ -1894,6 +1908,8 @@ bpf_base_func_proto(enum bpf_func_id func_id, const struct bpf_prog *prog)
 	switch (func_id) {
 	case BPF_FUNC_map_lookup_elem:
 		return &bpf_map_lookup_elem_proto;
+	case BPF_FUNC_dummy_ptr_to_map_or_null:
+        	return &bpf_dummy_ptr_to_map_or_null_proto;
 	case BPF_FUNC_map_update_elem:
 		return &bpf_map_update_elem_proto;
 	case BPF_FUNC_map_delete_elem:
@@ -1944,6 +1960,10 @@ bpf_base_func_proto(enum bpf_func_id func_id, const struct bpf_prog *prog)
 		return &bpf_dummy_void_proto;
 	case BPF_FUNC_dummy_int:
 		return &bpf_dummy_int_proto;
+	case BPF_FUNC_test_acquire:
+		return &bpf_test_acquire_proto;
+	case BPF_FUNC_test_release:
+		return &bpf_test_release_proto;
 	default:
 		break;
 	}

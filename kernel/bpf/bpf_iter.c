@@ -823,6 +823,41 @@ BPF_CALL_0(bpf_dummy_int){ // helper id : 209 (raj)
 	return -1;
 }
 
+BPF_CALL_0(bpf_test_acquire){ 
+
+	// simulate a runtime of random amount
+	int rand;
+	get_random_bytes(&rand, sizeof(rand));
+	int iterations = rand%10;
+
+	while (iterations){
+		printk("bpf_test_acquire: %d", iterations);
+		iterations--;
+	}
+
+	int unique_id = rand % 100;
+	printk("Allocated a obj id: %d", unique_id);
+	return unique_id;
+}
+
+BPF_CALL_1(bpf_test_release, int, unique_id){ 
+
+	// simulate a runtime of random amount
+	// simulate a runtime of random amount
+	int rand;
+	get_random_bytes(&rand, sizeof(rand));
+	int iterations = rand % 5;
+
+	while (iterations){
+		printk("bpf_test_release: %d", iterations);
+		iterations--;
+	}
+
+	printk("Released obj id: %d", unique_id);
+	return 0;
+
+}
+
 const struct bpf_func_proto bpf_dummy_void_proto = {
 	.func		= bpf_dummy_void,
 	.gpl_only	= false,
@@ -833,6 +868,19 @@ const struct bpf_func_proto bpf_dummy_int_proto = {
 	.func		= bpf_dummy_int,
 	.gpl_only	= false,
 	.ret_type	= RET_INTEGER,
+};
+
+const struct bpf_func_proto bpf_test_acquire_proto = {
+	.func		= bpf_test_acquire,
+	.gpl_only	= false,
+	.ret_type	= RET_INTEGER,
+};
+
+const struct bpf_func_proto bpf_test_release_proto = {
+	.func		= bpf_test_release,
+	.gpl_only	= false,
+	.ret_type	= RET_VOID,
+	.arg1_type	= ARG_ANYTHING,
 };
 
 struct bpf_iter_num_kern {
