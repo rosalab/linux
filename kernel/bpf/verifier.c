@@ -10259,6 +10259,9 @@ static void update_loop_inline_state(struct bpf_verifier_env *env, u32 subprogno
 		return;
 	}
 
+	// XXX: For now, disabling inlining special case.
+	state->fit_for_inline = 0;
+
 	if (!state->fit_for_inline)
 		return;
 

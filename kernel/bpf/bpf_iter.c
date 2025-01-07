@@ -753,7 +753,7 @@ BPF_CALL_4(bpf_loop, u32, nr_loops, void *, callback_fn, void *, callback_ctx,
 	unsigned long addr;
 	/* Testing unwind stack functionality to get stack state */
 	
-	pr_info("\t\t Running bpf_loop\n");
+	//pr_info("\t\t Running bpf_loop\n");
 	for (unwind_start(&state, current, NULL, NULL); !unwind_done(&state);
 	     unwind_next_frame(&state)) {
 		addr = unwind_get_return_address(&state);
@@ -766,8 +766,8 @@ BPF_CALL_4(bpf_loop, u32, nr_loops, void *, callback_fn, void *, callback_ctx,
 		}
 
 		prog = bpf_prog_ksym_find(addr);
-		pr_info("\t\t Print bpf_prog function name: %s\n", prog->aux->attach_func_name);
-		pr_info("\t\t Found the kernel symbol for bpf_prog\n");
+		//pr_info("\t\t Print bpf_prog function name: %s\n", prog->aux->attach_func_name);
+		//pr_info("\t\t Found the kernel symbol for bpf_prog\n");
 		break;
 	}
 
@@ -785,8 +785,8 @@ BPF_CALL_4(bpf_loop, u32, nr_loops, void *, callback_fn, void *, callback_ctx,
 	if (nr_loops > BPF_MAX_LOOPS)
 		return -E2BIG;
 
-	pr_info("\t\t Starting the callback function\n");
-	pr_info("\t\t Printing the address of prog_struct 0x%x in bpf_loop\n", prog);
+	//pr_info("\t\t Starting the callback function\n");
+	//pr_info("\t\t Printing the address of prog_struct 0x%x in bpf_loop\n", prog);
 	for (i = 0; i < nr_loops; i++) {
 		unsigned long flags;
 		spin_lock_irqsave(&prog->term_signal->lock, flags);

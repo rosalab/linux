@@ -702,12 +702,12 @@ static __always_inline u32 __bpf_prog_run(const struct bpf_prog *prog,
 	static unsigned long rxx; // for fetching registers and saving later on
 	prog->saved_state->cpu_id = raw_smp_processor_id(); // CPU id will be needed by every termination approach
 	
-	pr_info("\t\t Printing the address of the prog struct 0x%x\n", prog);
-	pr_info("\t\t Initializing term_signal in prog struct\n");
+	//pr_info("\t\t Printing the address of the prog struct 0x%x\n", prog);
+	//pr_info("\t\t Initializing term_signal in prog struct\n");
 	prog->term_signal->active = 0;
 	spin_lock_init(&prog->term_signal->lock);
 	for (int i = 1; i < prog->aux->func_cnt; i++) {
-		pr_info("\t\t Printing the address of the subprog structs 0x%x\n",prog->aux->func[i]);
+		//pr_info("\t\t Printing the address of the subprog structs 0x%x\n",prog->aux->func[i]);
 		prog->aux->func[i]->term_signal = kmalloc(sizeof(struct bpf_term_signal), GFP_KERNEL);
 		prog->aux->func[i]->term_signal->active = 0;
 		spin_lock_init(&prog->aux->func[i]->term_signal->lock);
