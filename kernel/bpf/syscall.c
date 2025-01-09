@@ -262,37 +262,6 @@ void bpf_die(void* data)
 	bpf_prog_put(kill_prog);
 	//printk("After bpf_prog_put\n");
 
-#ifdef KPROBE_TERMINATION
-	// initialize kprobes_list with size that of total jited len of this bpf prog
-	int total_program_size=0;
-	total_program_size += kill_prog->jited_len;
-	for(int subprog = 0; subprog < kill_prog->aux->func_cnt; subprog++)
-		total_program_size += kill_prog->aux->func[subprog]->jited_len; 	
-
-	kprobes_list = kzalloc(total_program_size*sizeof(struct kprobe), GFP_ATOMIC);
-	
-
-	/* Attach kprobes to the main program */
-	printk("[%s]:%d Registering kprobes for program length :%d\n", __FILE__, __LINE__, kill_prog->jited_len);	
-	addr_to_kill_prog = kill_prog;
-	register_bpfprog_to_kprobe(kill_prog);
-
-	/* Attach kprobes to the sub-program */
-	for(int subprog = 0; subprog<kill_prog->aux->func_cnt; subprog++)
-	{
-		printk("[%s]:%d Registering kprobes for program length :%d\n", __FILE__, __LINE__, kill_prog->aux->func[subprog]->jited_len);	
-		register_bpfprog_to_kprobe(kill_prog->aux->func[subprog]);
-	} 
-	
-	// saved the kprobe list and total length of the list to kill_prog's saved state
-	kill_prog->saved_state->kps = kprobes_list;
-	kill_prog->saved_state->num_kprobes = idx + 1;
-	printk("Added kprobes_list of size:%d to bpf_prog\n", idx+1);
-
-#elif defined(BOOLEAN_TERMINATION)
-	kill_prog->saved_state->termination_requested = true;
-
-#elif defined(FAST_PATH_TERMINATION)
 	BUG_ON(kill_prog->saved_state->termination_prog == 0xdeadbeef);
 	BUG_ON(kill_prog->saved_state->termination_prog == NULL);
 	/*
@@ -362,7 +331,6 @@ void bpf_die(void* data)
 		}
 	}
 
-#endif /* FAST_PATH_TERMINATION*/
 }
 
 int sysctl_unprivileged_bpf_disabled __read_mostly =
