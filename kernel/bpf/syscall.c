@@ -3190,7 +3190,7 @@ static void* patch_generator(struct bpf_prog *prog, union bpf_attr *attr, bpfptr
 					printk("Saved an entry to the array of call instruction\n");
 					// Step d.1 special casing 
 					if (func_id == BPF_FUNC_loop ){
-						// find the return instruction of bpf_loops' static iterator
+						// TODO find the return instruction of bpf_loops' static iterator
 					}
 					else if (func_id == BPF_FUNC_for_each_map_elem) {
 						printk("Iterator bpf_for_each_map_elem currently does not have a patch generation technique at line : %d. Exiting\n", __LINE__);
@@ -3221,61 +3221,75 @@ static void* patch_generator(struct bpf_prog *prog, union bpf_attr *attr, bpfptr
 		}
 	}	
 	/* Step 2: Patch call insns  and call bpf_check() */
-	for(int patch_idx = num_calls-1; patch_idx>=0; patch_idx--){
-		printk("------------------------------------------------\n");
-		printk("Generating Patch #%d\n", patch_idx+1);
-		/* The patches are generating in bottom-up fashion!
-		 * If a program has 3 insns:
-		 *	insn1
-		 *	insn2
-		 *	insn3
-		 * Patch generator will first create :
-		 *	insn1
-		 *	insn2
-		 *	patched_insn3
-		 * Then, 
-		 *	insn1
-		 *	patched_insn2
-		 *	patched_insn3
-		 * Then, 
-		 *	patched_insn1
-		 *	patched_insn2
-		 *	patched_insn3
-		 * End
-		 */
+//	for(int patch_idx = num_calls-1; patch_idx>=0; patch_idx--){
+//		printk("------------------------------------------------\n");
+//		printk("Generating Patch #%d\n", patch_idx+1);
+//		/* The patches are generating in bottom-up fashion!
+//		 * If a program has 3 insns:
+//		 *	insn1
+//		 *	insn2
+//		 *	insn3
+//		 * Patch generator will first create :
+//		 *	insn1
+//		 *	insn2
+//		 *	patched_insn3
+//		 * Then, 
+//		 *	insn1
+//		 *	patched_insn2
+//		 *	patched_insn3
+//		 * Then, 
+//		 *	patched_insn1
+//		 *	patched_insn2
+//		 *	patched_insn3
+//		 * End
+//		 */
+//
+//		// Eric appendix: the order does not matter at all.
+//		// The patched version is no longer verified, because it is correct by construction already.
+//
+//		//struct bpf_insn *insn = &prog->insnsi[patch_idx];
+//		struct bpf_prog *prog_clone; 
+//		if(patch_idx==0)
+//			prog_clone = prog;
+//		else{
+//			prog_clone = bpf_prog_alloc_no_stats(bpf_prog_size(prog->len), GFP_USER); 
+//			clone_bpf_prog(prog_clone, attr, token, prog);
+//		}
+//		printk("prog clone : 0x%lx\n", prog_clone);
+//		for(int k = num_calls-1; k >= patch_idx; k--){ // Start from bottom
+//			//printk("[0x%x] %x Previous imm : %x\n", call_indices[k].insn_idx,prog_clone->insnsi[call_indices[k].insn_idx].code, prog_clone->insnsi[call_indices[k].insn_idx].imm);
+//			prog_clone->insnsi[call_indices[k].insn_idx].imm = call_indices[k].replacement_helper;
+//			//printk("[0x%x] Modified imm : %x\n", call_indices[k].insn_idx, prog_clone->insnsi[call_indices[k].insn_idx].imm);
+//			printk("\tModified call at offset 0x%x to helper-id : 0x%x\n", call_indices[k].insn_idx, call_indices[k].replacement_helper);
+//		}
+//		
+//		err = bpf_check(&prog_clone, attr, uattr, uattr_size); // verify the patch
+//		if (err < 0){
+//			printk("Patch #%d failed with err:%d. Exiting..\n", patch_idx+1, err);
+//			return NULL;
+//		}
+//		if(patch_idx != 0) 
+//			__bpf_prog_put_noref(prog_clone, prog_clone->aux->func_cnt);
+//
+//		printk("Patch #%d passed \n", patch_idx+1);
+//		printk("------------------------------------------------\n");
+//	}	
+//	printk("All Patches PASSED ! ");
+//	printk("------------------------------------------------\n");
 
-		// Eric appendix: the order does not matter at all.
-		// The patched version is no longer verified, because it is correct by construction already.
+	//struct bpf_prog *prog_clone = bpf_prog_alloc_no_stats(bpf_pog_size(prog->len), GFP_USER);
+	//clone_bpf_prog(prog_clone, attr, token, prog);
+	for (int i = 0; i < num_calls; i++) {
+		prog->insnsi[call_indices[i].insn_idx].imm = call_indices[i].replacement_helper;
+	}
+	
+	err = bpf_check(&prog, attr, uattr, uattr_size); // verify the patch
+	if (err < 0){
+		printk("Stubbed verification failed with err:%d. Exiting..\n", err);
+		return NULL;
+	}
 
-		//struct bpf_insn *insn = &prog->insnsi[patch_idx];
-		struct bpf_prog *prog_clone; 
-		if(patch_idx==0)
-			prog_clone = prog;
-		else{
-			prog_clone = bpf_prog_alloc_no_stats(bpf_prog_size(prog->len), GFP_USER); 
-			clone_bpf_prog(prog_clone, attr, token, prog);
-		}
-		printk("prog clone : 0x%lx\n", prog_clone);
-		for(int k = num_calls-1; k >= patch_idx; k--){ // Start from bottom
-			//printk("[0x%x] %x Previous imm : %x\n", call_indices[k].insn_idx,prog_clone->insnsi[call_indices[k].insn_idx].code, prog_clone->insnsi[call_indices[k].insn_idx].imm);
-			prog_clone->insnsi[call_indices[k].insn_idx].imm = call_indices[k].replacement_helper;
-			//printk("[0x%x] Modified imm : %x\n", call_indices[k].insn_idx, prog_clone->insnsi[call_indices[k].insn_idx].imm);
-			printk("\tModified call at offset 0x%x to helper-id : 0x%x\n", call_indices[k].insn_idx, call_indices[k].replacement_helper);
-		}
-		
-		/*err = bpf_check(&prog_clone, attr, uattr, uattr_size); // verify the patch
-		if (err < 0){
-			printk("Patch #%d failed with err:%d. Exiting..\n", patch_idx+1, err);
-			return NULL;
-		}*/
-		if(patch_idx != 0) 
-			__bpf_prog_put_noref(prog_clone, prog_clone->aux->func_cnt);
-
-		printk("Patch #%d passed \n", patch_idx+1);
-		printk("------------------------------------------------\n");
-	}	
-	printk("All Patches PASSED ! ");
-	printk("------------------------------------------------\n");
+	//__bpf_prog_put_noref(prog_clone, prog_clone->aux->func_cnt);
 
 	return prog;
 
