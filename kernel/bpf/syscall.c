@@ -308,9 +308,13 @@ void bpf_die(void* data)
 	dump_stack();
 	*/
 
+	// This was Raj's code:
+	/*	
+
 	// get the first return address 
 	unwind_start(&state, current, regs, NULL); 
 	addr = unwind_get_return_address(&state);
+	printk("Examining 0x%lx\n", addr);
 	if (is_bpf_text_address(addr)){
 		regs->ip = find_offset_in_new_prog(kill_prog->saved_state->termination_prog, kill_prog, addr);
 	}
@@ -323,14 +327,48 @@ void bpf_die(void* data)
 	//printk("\t|----------------------------|\n");
 	for(unsigned long i=0;i<20; i++){
 		unsigned long addr = regs->sp+sizeof(unsigned long)*i;
-		//printk("0x%lx ==> 0x%lx\n", addr, *(unsigned long*)addr);
+		printk("0x%lx ==> 0x%lx\n", addr, *(unsigned long*)addr);
 		if (is_bpf_text_address(*(unsigned long*)addr)){
 			//printk("0x%lx ==> 0x%lx\n", addr, *(unsigned long*)addr);
-			//printk("\t Value is a BPF address");
+			printk("\t Value is a BPF address");
 			*(unsigned long*)addr = find_offset_in_new_prog(kill_prog->saved_state->termination_prog, kill_prog, *(unsigned long*)addr);
 		}
 	}
 
+	*/
+
+	// This is my code:
+	// For rip
+	if (is_bpf_text_address(regs->ip)){
+		regs->ip = find_offset_in_new_prog(kill_prog->saved_state->termination_prog, kill_prog, addr);
+	}
+
+	// For the stack
+	/*for (unwind_start(&state, current, regs, NULL); !unwind_done(&state); unwind_next_frame(&state)) {
+		addr = unwind_get_return_address(&state);
+	}*/
+	
+	unwind_start(&state, current, regs, NULL); 
+	while (unwind_next_frame(&state)) {
+		// return address
+		unsigned long ra;
+		// location of ra (on stack)
+        	unsigned long *ra_location;
+
+		ra = unwind_get_return_address(&state);
+		if (!ra) break;
+
+		ra_location = unwind_get_return_address_ptr(&state);
+		if (!ra_location) continue;
+
+		printk("Return address: 0x%lx at location: 0x%lx\n", (void *)ra, (void *)ra_location);
+		if (is_bpf_text_address(ra)) {
+			printk("It's BPF text!\n");
+			printk("Old ra: 0x%lx, new ra: ", ra);
+			*ra_location = find_offset_in_new_prog(kill_prog->saved_state->termination_prog, kill_prog, ra);
+			printk("0x%lx\n", *ra_location);
+		}
+	}
 }
 
 int sysctl_unprivileged_bpf_disabled __read_mostly =
