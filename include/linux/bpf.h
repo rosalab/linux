@@ -2101,7 +2101,7 @@ bpf_prog_run_array(const struct bpf_prog_array *array,
 	item = &array->items[0];
 	while ((prog = READ_ONCE(item->prog))) {
 		run_ctx.bpf_cookie = item->bpf_cookie;
-        if ((current->process_color & prog->bpf_prog_color) || (current->process_color == prog->bpf_prog_color)) {
+        if (current->process_color & prog->bpf_prog_color) {
     		ret &= run_prog(prog, ctx);
         }
 		item++;

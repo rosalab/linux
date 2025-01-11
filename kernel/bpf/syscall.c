@@ -2836,6 +2836,9 @@ static int bpf_prog_load(union bpf_attr *attr, bpfptr_t uattr, u32 uattr_size)
 	prog->aux->dev_bound = !!attr->prog_ifindex;
 	prog->aux->xdp_has_frags = attr->prog_flags & BPF_F_XDP_HAS_FRAGS;
 
+    // Default BPF program color is always 1
+    prog->bpf_prog_color = 1;
+
 	/* move token into prog->aux, reuse taken refcnt */
 	prog->aux->token = token;
 	token = NULL;
