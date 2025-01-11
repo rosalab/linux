@@ -3191,6 +3191,25 @@ static void* patch_generator(struct bpf_prog *prog, union bpf_attr *attr, bpfptr
 					// Step d.1 special casing 
 					if (func_id == BPF_FUNC_loop ){
 						// TODO find the return instruction of bpf_loops' static iterator
+
+						// TODO: hacky code
+						// basically this will replace the function pointer to bpf_loop
+						// such that the stubbed program is stil "aligned"
+
+						int insn_idx2 = insn_idx - 1;
+						while (insn_idx2 >= 0) {
+							struct bpf_insn *insn2 = &prog->insnsi[insn_idx2];
+							if (insn2->dst_reg == 2) {
+								//insn2->code = 0xb7;
+								//insn2->imm = 0xFFFFFFFFFFFFFFFF;
+								//prog->insnsi[insn_idx2 + 1].imm = 0x5FFFFF7F68FFF455;
+								//prog->insnsi[insn_idx2 + 1].imm |= 0x68FFF455;
+								//insn2->imm |= 0x0A;
+								prog->insnsi[insn_idx2 + 1].imm |= 0xFFFFFFFF;
+								break;
+							}
+							insn_idx2--;
+						}
 					}
 					else if (func_id == BPF_FUNC_for_each_map_elem) {
 						printk("Iterator bpf_for_each_map_elem currently does not have a patch generation technique at line : %d. Exiting\n", __LINE__);
