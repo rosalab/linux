@@ -3077,6 +3077,12 @@ static void* patch_generator(struct bpf_prog *prog, union bpf_attr *attr, bpfptr
 		return NULL; 
 	}
 
+	// XXX: this is a bit of a hack -Eric
+	// Function pointers to modify
+	struct bpf_insn **lls_to_modify = vmalloc(sizeof(struct bpf_insn *) * prog->len);
+	int num_lls_to_modify = 0;
+
+
 	/* Step 1 : Find all call insns 
 	 * Code checks inspired from verifier
 	 */
@@ -3199,13 +3205,10 @@ static void* patch_generator(struct bpf_prog *prog, union bpf_attr *attr, bpfptr
 						int insn_idx2 = insn_idx - 1;
 						while (insn_idx2 >= 0) {
 							struct bpf_insn *insn2 = &prog->insnsi[insn_idx2];
-							if (insn2->dst_reg == 2) {
-								//insn2->code = 0xb7;
-								//insn2->imm = 0xFFFFFFFFFFFFFFFF;
-								//prog->insnsi[insn_idx2 + 1].imm = 0x5FFFFF7F68FFF455;
-								//prog->insnsi[insn_idx2 + 1].imm |= 0x68FFF455;
-								//insn2->imm |= 0x0A;
+							if (insn2->code == 0x18 && insn2->dst_reg == 2) {
 								prog->insnsi[insn_idx2 + 1].imm |= 0xFFFFFFFF;
+								lls_to_modify[num_lls_to_modify] = insn2;
+								num_lls_to_modify++;
 								break;
 							}
 							insn_idx2--;
@@ -3296,8 +3299,6 @@ static void* patch_generator(struct bpf_prog *prog, union bpf_attr *attr, bpfptr
 //	printk("All Patches PASSED ! ");
 //	printk("------------------------------------------------\n");
 
-	//struct bpf_prog *prog_clone = bpf_prog_alloc_no_stats(bpf_pog_size(prog->len), GFP_USER);
-	//clone_bpf_prog(prog_clone, attr, token, prog);
 	for (int i = 0; i < num_calls; i++) {
 		prog->insnsi[call_indices[i].insn_idx].imm = call_indices[i].replacement_helper;
 	}
@@ -3308,7 +3309,11 @@ static void* patch_generator(struct bpf_prog *prog, union bpf_attr *attr, bpfptr
 		return NULL;
 	}
 
-	//__bpf_prog_put_noref(prog_clone, prog_clone->aux->func_cnt);
+	// modify lls as promised
+	for (int i = 0; i < num_lls_to_modify; i++) {
+		struct bpf_insn *insn = lls_to_modify[i];
+		insn->imm |= 0xA0000000;
+	}
 
 	return prog;
 
