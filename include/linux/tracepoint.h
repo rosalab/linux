@@ -256,12 +256,12 @@ static inline struct tracepoint *tracepoint_ptr_deref(tracepoint_ptr_t *p)
 	static inline void trace_##name(proto)				\
 	{								\
 		if (static_key_false(&__tracepoint_##name.key)) {		\
-            u64 color = current->process_color; \
-            if (color & __tracepoint_##name.tracepoint_color) { \
+            u64 color = current->process_color;  \
+            if (color & __tracepoint_##name.tracepoint_color) {  \
                 __DO_TRACE(name, \
                     TP_ARGS(args), \
                     TP_CONDITION(cond), 0); \
-            } \
+             }  \
         } \
 		if (IS_ENABLED(CONFIG_LOCKDEP) && (cond)) {		\
 			WARN_ONCE(!rcu_is_watching(),			\

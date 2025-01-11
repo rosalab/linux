@@ -3862,6 +3862,8 @@ static int bpf_raw_tp_link_attach(struct bpf_prog *prog,
 	if (!btp)
 		return -ENOENT;
 
+    // Initialize raw tracepoint
+    btp->tp->tracepoint_color = btp->tp->tracepoint_color | 1;
 	link = kzalloc(sizeof(*link), GFP_USER);
 	if (!link) {
 		err = -ENOMEM;
