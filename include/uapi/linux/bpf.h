@@ -7506,4 +7506,11 @@ struct bpf_iter_num {
 	__u64 __opaque[1];
 } __attribute__((aligned(8)));
 
+struct hook_test_attr {
+    __u64 tracepoint_time;
+    __u64 ftrace_kprobe_time;
+    __u64 unopt_kprobe_time;
+    __u64 opt_kprobe_time;
+};
+
 #endif /* _UAPI__LINUX_BPF_H__ */

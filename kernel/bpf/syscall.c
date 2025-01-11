@@ -40,6 +40,9 @@
 #include <net/netkit.h>
 #include <net/tcx.h>
 
+#include <trace/events/vmscan.h>
+#include <trace/events/signal.h>
+
 #define IS_FD_ARRAY(map) ((map)->map_type == BPF_MAP_TYPE_PERF_EVENT_ARRAY || \
 			  (map)->map_type == BPF_MAP_TYPE_CGROUP_ARRAY || \
 			  (map)->map_type == BPF_MAP_TYPE_ARRAY_OF_MAPS)
@@ -6086,4 +6089,58 @@ static int __init bpf_syscall_sysctl_init(void)
 	return 0;
 }
 late_initcall(bpf_syscall_sysctl_init);
+
+//static u64 __hook_ftrace_test(void)
+//{
+////    u64 time = ktime_get_ns();
+////    *value = time;
+//
+//    return ktime_get_ns();
+//}
+
+extern u64 __hook_ftrace_test(void);
+
+static long __sys_hook_test(struct hook_test_attr __user * attr)
+{
+    u64 tp_start, tp_end, ftrace_kprobe_start, ftrace_kprobe_end, 
+        opt_kprobe_start, opt_kprobe_end, unopt_kprobe_start, unopt_kprobe_end;
+    struct hook_test_attr res; 
+//    u64 val = 0;
+
+    
+    // time tracepoint
+    tp_start = ktime_get_ns();
+    //trace_mm_vmscan_kswapd_sleep(10);
+    trace_hook_test(1);
+    tp_end = ktime_get_ns();
+    res.tracepoint_time = tp_end - tp_start;
+    // time ftrace kprobe
+    ftrace_kprobe_start = ktime_get_ns();
+    ftrace_kprobe_end = __hook_ftrace_test();
+    res.ftrace_kprobe_time = ftrace_kprobe_end - ftrace_kprobe_start;
+
+    // time opt kprobe
+    opt_kprobe_start = ktime_get_ns();
+    asm volatile ("nopl 0(%eax,%eax,1)");
+    opt_kprobe_end = ktime_get_ns();
+    res.opt_kprobe_time = opt_kprobe_end - opt_kprobe_start;
+    
+    //time unopt kprobe
+    unopt_kprobe_start = ktime_get_ns();
+    asm volatile ("nop");
+    unopt_kprobe_end = ktime_get_ns();
+    res.unopt_kprobe_time = unopt_kprobe_end - unopt_kprobe_start; 
+
+
+    if (copy_to_user(attr, &res, sizeof(struct hook_test_attr)))
+        pr_warn("Failed to copy struct\n");
+
+    return 0;
+}
+
+SYSCALL_DEFINE1(hook_test, struct hook_test_attr __user *, attr)
+{
+    return __sys_hook_test(attr);
+}
+
 #endif /* CONFIG_SYSCTL */

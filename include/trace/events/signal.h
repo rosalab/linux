@@ -119,6 +119,21 @@ TRACE_EVENT(signal_deliver,
 		  __entry->sa_handler, __entry->sa_flags)
 );
 
+TRACE_EVENT(hook_test,
+
+    TP_PROTO(int p),
+    TP_ARGS(p),
+
+    TP_STRUCT__entry(
+        __field(int, t_p)
+    ),
+    TP_fast_assign(
+        __entry->t_p = p;
+    ),
+    TP_printk("Test=%d", __entry->t_p)
+);
+
+
 #endif /* _TRACE_SIGNAL_H */
 
 /* This part must be outside protection */
