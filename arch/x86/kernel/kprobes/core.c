@@ -1025,7 +1025,7 @@ int kprobe_int3_handler(struct pt_regs *regs)
 	if (p) {
         /* If the process color not in kprobe color set bailout */
         if (!((current->process_color & p->kprobe_color) || (current->process_color == p->kprobe_color))) {
-           return 0; 
+           return 1; 
         } else if (kprobe_running()) {
 			if (reenter_kprobe(p, regs, kcb))
 				return 1;
