@@ -31,7 +31,7 @@ void kprobe_ftrace_handler(unsigned long ip, unsigned long parent_ip,
 	p = get_kprobe((kprobe_opcode_t *)ip);
 
     if (p) {
-        if (!((current->process_color & p->kprobe_color) || (current->process_color == p->kprobe_color))) {
+        if (!(current->process_color & p->kprobe_color)) {
             goto out;
         }
     }

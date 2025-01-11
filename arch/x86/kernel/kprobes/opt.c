@@ -181,7 +181,7 @@ optimized_callback(struct optimized_kprobe *op, struct pt_regs *regs)
 
 	preempt_disable();
     if (op) {
-        if (!((current->process_color & op->kp.kprobe_color) || (current->process_color == op->kp.kprobe_color))) {
+        if (!(current->process_color & op->kp.kprobe_color)) {
             preempt_enable();
             return;
         }
