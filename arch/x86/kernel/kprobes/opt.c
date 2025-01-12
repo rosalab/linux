@@ -436,6 +436,9 @@ int arch_prepare_optimized_kprobe(struct optimized_kprobe *op,
 
 	synthesize_clac(buf + TMPL_CLAC_IDX);
 
+    /* set optimized kprobe color */
+    op->kp.kprobe_color = __unused->kprobe_color;
+
 	/* Set probe information */
 	synthesize_set_arg1(buf + TMPL_MOVE_IDX, (unsigned long)op);
 
