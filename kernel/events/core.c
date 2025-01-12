@@ -10631,12 +10631,9 @@ int perf_event_set_bpf_prog(struct perf_event *event, struct bpf_prog *prog,
         }
         //printk(KERN_INFO "Tracepoint: %s\n", tp_struct->name);
         // TOCTOU here potentially
-        if (attr->link_create.color == 0) {
-	        return perf_event_attach_bpf_prog(event, prog, bpf_cookie);
-        } 
             
         // overall tracepoint color is the union of all attached
-        tp_struct->tracepoint_color = tp_struct->tracepoint_color | attr->link_create.color;
+        tp_struct->tracepoint_color = tp_struct->tracepoint_color | prog->bpf_prog_color;
         //printk(KERN_INFO "Color is %llu\n", tp_struct->tracepoint_color);
     }
     else if (is_kprobe) {
