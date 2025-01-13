@@ -23,6 +23,7 @@
 #include <linux/btf_ids.h>
 #include <linux/bpf_mem_alloc.h>
 #include <linux/kasan.h>
+//#include <linux/test_resource.h>
 //#include <linux/delay.h>
 
 #include "../../lib/kstrtox.h"
@@ -51,6 +52,12 @@ const struct bpf_func_proto bpf_map_lookup_elem_proto = {
 	.arg1_type	= ARG_CONST_MAP_PTR,
 	.arg2_type	= ARG_PTR_TO_MAP_KEY,
 };
+//struct test_resource global_test_resource = { .id = 1 };
+//void force_test_resource_inclusion(void)
+//{
+//    struct test_resource dummy;
+//    dummy.id = 0; // Use the struct to prevent optimization
+//}
 
 BPF_CALL_2(dummy_ptr_to_map_or_null, struct bpf_map *, map, void *, key)
 {

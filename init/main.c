@@ -103,6 +103,7 @@
 #include <linux/pidfs.h>
 #include <linux/ptdump.h>
 #include <net/net_namespace.h>
+//#include <linux/test_resource.h>
 
 #include <asm/io.h>
 #include <asm/setup.h>
@@ -898,6 +899,12 @@ static void __init early_numa_node_init(void)
 #endif
 #endif
 }
+
+//void force_test_resource_inclusion(void)
+//{
+//    struct test_resource dummy;
+//    dummy.id = 0; // Prevent compiler optimization
+//}
 
 asmlinkage __visible __init __no_sanitize_address __noreturn __no_stack_protector
 void start_kernel(void)
