@@ -3165,7 +3165,7 @@ static void* patch_generator(struct bpf_prog *prog, union bpf_attr *attr, bpfptr
                                         else if (ret_type == RET_VOID)
                                              	new_helper_id = BPF_FUNC_dummy_void;
                                         else if (ret_type == RET_PTR_TO_MEM)
-
+						new_helper_id = BPF_FUNC_test_acquire;
 					else{ // Add dummy helpers for each return type as needed
 						printk("Return type : %d currently not having any replacements. Exiting\n", ret_type);
 						err = -ENOTSUPP;

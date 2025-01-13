@@ -5819,17 +5819,17 @@ union bpf_attr {
  *		Map value associated to *key* on *cpu*, or **NULL** if no entry
  * 		was found or *cpu* is invalid.
  *
- * void *bpf_test_acquire(void)
+ * void *bpf_test_acquire(size_t size, u32 flags)
  * 	Description
  * 		Acquire
  * 	Return
- * 		Integer
+ * 		returns ptr to mem or null
  *
- * void bpf_test_release(int)
+ * void bpf_test_release(void)
  * 	Description
  * 		Release
  * 	Return
- * 		Void
+ * 		returns ptr to btf or obj release
  */
 #define ___BPF_FUNC_MAPPER(FN, ctx...)			\
 	FN(unspec, 0, ##ctx)				\
