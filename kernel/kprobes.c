@@ -1265,6 +1265,10 @@ static int add_new_kprobe(struct kprobe *ap, struct kprobe *p)
 	if (p->post_handler)
 		unoptimize_kprobe(ap, true);	/* Fall back to normal kprobe */
 
+    // When we add a new kprobe to the aggregate kprobe, or together
+    // the colors
+    ap->kprobe_color = ap->kprobe_color | p->kprobe_color;
+
 	list_add_rcu(&p->list, &ap->list);
 	if (p->post_handler && !ap->post_handler)
 		ap->post_handler = aggr_post_handler;
@@ -1284,6 +1288,8 @@ static void init_aggr_kprobe(struct kprobe *ap, struct kprobe *p)
 	ap->addr = p->addr;
 	ap->flags = p->flags & ~KPROBE_FLAG_OPTIMIZED;
 	ap->pre_handler = aggr_pre_handler;
+    // The aggregate kprobe has the original kprobe color
+    ap->kprobe_color = p->kprobe_color;
 	/* We don't care the kprobe which has gone. */
 	if (p->post_handler && !kprobe_gone(p))
 		ap->post_handler = aggr_post_handler;

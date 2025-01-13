@@ -10570,6 +10570,7 @@ int perf_event_set_bpf_prog(struct perf_event *event, struct bpf_prog *prog,
 			    u64 bpf_cookie, union bpf_attr *attr)
 {
 	bool is_kprobe, is_uprobe, is_tracepoint, is_syscall_tp;
+    u64 link_color = 1;
 
 	if (!perf_event_is_tracing(event))
 		return perf_event_set_bpf_handler(event, prog, bpf_cookie);
@@ -10608,12 +10609,18 @@ int perf_event_set_bpf_prog(struct perf_event *event, struct bpf_prog *prog,
     // TODO: Need to pass the PID info for the attachment to 
     // add to the tracepoint structs
     
-    if (attr == NULL) return perf_event_attach_bpf_prog(event, prog, bpf_cookie);
+    //if (attr == NULL) return perf_event_attach_bpf_prog(event, prog, bpf_cookie);
 
     // Set the color of the bpf prog
     //printk(KERN_INFO "Prog color is %llu\n", attr->link_create.color);
     // Set the color of the BPF prog plus set the default bit if unset
-    prog->bpf_prog_color = attr->link_create.color | 0x1;
+    // if the attr is null then we are opening from perf ioctl -> default color?
+    if (attr != NULL) {
+        link_color = attr->link_create.color;
+    }
+
+
+    prog->bpf_prog_color = link_color | 0x1;
 
     if (is_tracepoint || is_syscall_tp) {
         struct tracepoint * tp_struct;
@@ -10640,7 +10647,7 @@ int perf_event_set_bpf_prog(struct perf_event *event, struct bpf_prog *prog,
         // TODO implement support for kprobe setting color
         struct kprobe *kp = event->tp_event->kp;
         // overall kprobe color is the union of all attached
-        kp->kprobe_color = kp->kprobe_color | attr->link_create.color;
+        kp->kprobe_color = kp->kprobe_color | prog->bpf_prog_color;
         //printk(KERN_INFO "kprobe on symbol: %s and color is %llu\n", kp->symbol_name, kp->kprobe_color);
         //kprobe_opcode_t * addr = kprobe_lookup_name(event->tp_event->name, 0);
         //struct kprobe * kp_struct = get_kprobe((void *)addr);
