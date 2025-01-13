@@ -10431,7 +10431,7 @@ static int check_helper_call(struct bpf_verifier_env *env, struct bpf_insn *insn
 			return err;
 		}
 	}
-
+//	struct bpf_insn_aux_data *aux = &env->insn_aux_data[insn_idx];
 	switch (func_id) {
 	case BPF_FUNC_tail_call:
 		err = check_reference_leak(env, false);
@@ -10579,8 +10579,24 @@ static int check_helper_call(struct bpf_verifier_env *env, struct bpf_insn *insn
 		err = push_callback_call(env, insn, insn_idx, meta.subprogno,
 					 set_user_ringbuf_callback_state);
 		break;
-	}
+	case BPF_FUNC_test_acquire:
+                // Check if a resource is already acquired
+//                if (aux->ref_type) {
+//                    verbose(env, "Resource already acquired, must release first.\n");
+//                    return -EINVAL;
+//                }
+//                aux->ref_type = BPF_REF_TEST_RESOURCE; // Mark resource acquired
+//                break;
 
+	case BPF_FUNC_test_release:
+		// Ensure a resource is acquired before releasing
+//		if (aux->ref_type != BPF_REF_TEST_RESOURCE) {
+//		    verbose(env, "No resource to release or invalid reference.\n");
+//		    return -EINVAL;
+//		}
+//		aux->ref_type = 0; // Mark resource as released
+//		break;
+	}
 	if (err)
 		return err;
 

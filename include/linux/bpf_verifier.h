@@ -961,4 +961,6 @@ void print_verifier_state(struct bpf_verifier_env *env,
 			  const struct bpf_func_state *state, bool print_all);
 void print_insn_state(struct bpf_verifier_env *env, const struct bpf_func_state *state);
 
+#define BPF_REF_TEST_RESOURCE 1
+
 #endif /* _LINUX_BPF_VERIFIER_H */

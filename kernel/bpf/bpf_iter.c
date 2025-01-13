@@ -7,6 +7,11 @@
 #include <linux/bpf.h>
 #include <linux/rcupdate_trace.h>
 #include <asm/unwind.h>
+#include <linux/atomic.h>
+#include <linux/errno.h>
+#include <linux/slab.h>
+#include <linux/bpf.h>
+
 
 struct bpf_iter_target_info {
 	struct list_head list;
@@ -823,39 +828,118 @@ BPF_CALL_0(bpf_dummy_int){ // helper id : 209 (raj)
 	return -1;
 }
 
-BPF_CALL_0(bpf_test_acquire){ 
+//BPF_CALL_0(bpf_test_acquire){
+//
+//	// simulate a runtime of random amount
+//	int rand;
+//	get_random_bytes(&rand, sizeof(rand));
+//	int iterations = rand%10;
+//
+//	while (iterations){
+//		printk("bpf_test_acquire: %d", iterations);
+//		iterations--;
+//	}
+//
+//	int unique_id = rand % 100;
+//	printk("Allocated a obj id: %d", unique_id);
+//	return unique_id;
+//}
+//
+//BPF_CALL_1(bpf_test_release, int, unique_id){
+//
+//	// simulate a runtime of random amount
+//	// simulate a runtime of random amount
+//	int rand;
+//	get_random_bytes(&rand, sizeof(rand));
+//	int iterations = rand % 5;
+//
+//	while (iterations){
+//		printk("bpf_test_release: %d", iterations);
+//		iterations--;
+//	}
+//
+//	printk("Released obj id: %d", unique_id);
+//	return 0;
+//
+//}
 
-	// simulate a runtime of random amount
-	int rand;
-	get_random_bytes(&rand, sizeof(rand));
-	int iterations = rand%10;
+//#define MAX_RESOURCES 100
+//static int resources[MAX_RESOURCES];
+//static DEFINE_SPINLOCK(resource_lock);
+//
+//BPF_CALL_0(bpf_test_acquire)
+//{
+//    int i;
+//    spin_lock(&resource_lock);
+//    for (i = 0; i < MAX_RESOURCES; i++) {
+//        if (resources[i] == 0) {  // Find an available resource
+//            resources[i] = 1;    // Mark as allocated
+//            spin_unlock(&resource_lock);
+//            printk("bpf_test_acquire: Acquired resource %d\n", i);
+//            return i;            // Return resource ID
+//        }
+//    }
+//    spin_unlock(&resource_lock);
+//    printk("bpf_test_acquire: No resources available\n");
+//    return -1; // No resources available
+//}
+//
+//BPF_CALL_1(bpf_test_release, int, unique_id)
+//{
+//    if (unique_id < 0 || unique_id >= MAX_RESOURCES) {
+//        printk("bpf_test_release: Invalid resource ID %d\n", unique_id);
+//        return -EINVAL; // Invalid ID
+//    }
+//
+//    spin_lock(&resource_lock);
+//    if (resources[unique_id] == 1) {
+//        resources[unique_id] = 0; // Mark as released
+//        spin_unlock(&resource_lock);
+//        printk("bpf_test_release: Released resource %d\n", unique_id);
+//        return 0;
+//    }
+//    spin_unlock(&resource_lock);
+//    printk("bpf_test_release: Resource %d not allocated\n", unique_id);
+//    return -EINVAL; // Resource was not allocated
+//}
+//
 
-	while (iterations){
-		printk("bpf_test_acquire: %d", iterations);
-		iterations--;
-	}
+//static u32 test_resource_type_id;
+//u32 test_resource_type_id;
+BPF_CALL_2(bpf_test_acquire, size_t, size, u32, flags)
+{
+    struct test_resource *res;
 
-	int unique_id = rand % 100;
-	printk("Allocated a obj id: %d", unique_id);
-	return unique_id;
+    if (size == 0 || size > PAGE_SIZE)
+        return -EINVAL;
+
+    res = kzalloc(sizeof(*res), GFP_KERNEL);
+    if (!res)
+        return -ENOMEM;
+
+    res->data = kmalloc(size, GFP_KERNEL);
+    if (!res->data) {
+        kfree(res);
+        return -ENOMEM;
+    }
+
+    atomic_set(&res->refcount, 1);
+    res->size = size;
+
+    return (unsigned long)res;
 }
 
-BPF_CALL_1(bpf_test_release, int, unique_id){ 
+BPF_CALL_1(bpf_test_release, struct test_resource *, res)
+{
+    if (!res)
+        return -EINVAL;
 
-	// simulate a runtime of random amount
-	// simulate a runtime of random amount
-	int rand;
-	get_random_bytes(&rand, sizeof(rand));
-	int iterations = rand % 5;
+    if (atomic_dec_and_test(&res->refcount)) {
+        kfree(res->data);
+        kfree(res);
+    }
 
-	while (iterations){
-		printk("bpf_test_release: %d", iterations);
-		iterations--;
-	}
-
-	printk("Released obj id: %d", unique_id);
-	return 0;
-
+    return 0;
 }
 
 const struct bpf_func_proto bpf_dummy_void_proto = {
@@ -873,14 +957,17 @@ const struct bpf_func_proto bpf_dummy_int_proto = {
 const struct bpf_func_proto bpf_test_acquire_proto = {
 	.func		= bpf_test_acquire,
 	.gpl_only	= false,
-	.ret_type	= RET_INTEGER,
+	.ret_type       = RET_PTR_TO_MEM | PTR_MAYBE_NULL,
+	.arg1_type      = ARG_ANYTHING,
+	.arg2_type      = ARG_ANYTHING,
 };
 
 const struct bpf_func_proto bpf_test_release_proto = {
 	.func		= bpf_test_release,
 	.gpl_only	= false,
-	.ret_type	= RET_VOID,
-	.arg1_type	= ARG_ANYTHING,
+	.ret_type       = RET_INTEGER,
+        .arg1_type      = ARG_PTR_TO_BTF_ID | OBJ_RELEASE,
+        .arg1_btf_id    = &test_resource_type_id,
 };
 
 struct bpf_iter_num_kern {

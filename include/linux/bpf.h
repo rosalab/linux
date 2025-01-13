@@ -63,6 +63,7 @@ extern spinlock_t btf_idr_lock;
 extern struct kobject *btf_kobj;
 extern struct bpf_mem_alloc bpf_global_ma, bpf_global_percpu_ma;
 extern bool bpf_global_ma_set;
+extern u32 test_resource_type_id;
 
 typedef u64 (*bpf_callback_t)(u64, u64, u64, u64, u64);
 typedef int (*bpf_iter_init_seq_priv_t)(void *private_data,
@@ -305,6 +306,12 @@ struct bpf_map {
 	bool free_after_rcu_gp;
 	atomic64_t sleepable_refcnt;
 	s64 __percpu *elem_count;
+};
+
+struct test_resource {
+    atomic_t refcount;
+    void *data;
+    size_t size;
 };
 
 static inline const char *btf_field_type_name(enum btf_field_type type)

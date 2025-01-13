@@ -525,6 +525,9 @@ static bool btf_type_nosize_or_null(const struct btf_type *t)
 	return !t || btf_type_nosize(t);
 }
 
+int btf_custom_types_init(struct btf *btf);
+u32 test_resource_type_id;
+
 static bool btf_type_is_decl_tag_target(const struct btf_type *t)
 {
 	return btf_type_is_func(t) || btf_type_is_struct(t) ||
@@ -5756,12 +5759,17 @@ static struct btf *btf_parse(const union bpf_attr *attr, bpfptr_t uattr, u32 uat
 		}
 	}
 
+
 	err = finalize_log(&env->log, uattr, uattr_size);
 	if (err)
 		goto errout_free;
 
 	btf_verifier_env_free(env);
 	refcount_set(&btf->refcnt, 1);
+	err = btf_custom_types_init(btf);
+    	if (err)
+		goto errout_free;
+
 	return btf;
 
 errout_meta:
@@ -6296,6 +6304,16 @@ errout:
 }
 
 #endif /* CONFIG_DEBUG_INFO_BTF_MODULES */
+
+int btf_custom_types_init(struct btf *btf)
+{
+    test_resource_type_id = btf_find_by_name_kind(btf, "test_resource", BTF_KIND_STRUCT);
+    if (test_resource_type_id < 0) {
+        pr_warn("BTF: Failed to find test_resource type\n");
+        return test_resource_type_id;
+    }
+    return 0;
+}
 
 struct btf *bpf_prog_get_target_btf(const struct bpf_prog *prog)
 {
