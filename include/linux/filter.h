@@ -732,7 +732,7 @@ static __always_inline u32 __bpf_prog_run(const struct bpf_prog *prog,
 	} else {
 		ret = dfunc(ctx, prog->insnsi, prog->bpf_func);
 	}
-	printk("Exiting bpf_prog_run at time : %ld\n", ktime_get_boottime_ns());
+	//printk("Exiting bpf_prog_run at time : %ld\n", ktime_get_boottime_ns());
 	return ret;
 }
 
