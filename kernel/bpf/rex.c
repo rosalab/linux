@@ -117,6 +117,13 @@ static int init_rex_watchdog(void)
 	return 0;
 }
 
+__alloc_size(1) void *rex_kmalloc(size_t size, gfp_t flags);
+__alloc_size(1) void *rex_kmalloc(size_t size, gfp_t flags)
+{
+	return kmalloc(size, flags);
+}
+
+
 static int __init init_rex(void)
 {
 	int ret = arch_init_rex_stack();
