@@ -5748,7 +5748,7 @@ static int token_create(union bpf_attr *attr)
 	return bpf_token_create(attr);
 }
 
-static int __sys_bpf(enum bpf_cmd cmd, bpfptr_t uattr, unsigned int size)
+int __sys_bpf(enum bpf_cmd cmd, bpfptr_t uattr, unsigned int size)
 {
 	union bpf_attr attr;
 	int err;
@@ -5891,6 +5891,8 @@ static int __sys_bpf(enum bpf_cmd cmd, bpfptr_t uattr, unsigned int size)
 
 	return err;
 }
+
+EXPORT_SYMBOL_GPL(__sys_bpf);
 
 SYSCALL_DEFINE3(bpf, int, cmd, union bpf_attr __user *, uattr, unsigned int, size)
 {
