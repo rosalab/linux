@@ -103,6 +103,7 @@
 #include <linux/pidfs.h>
 #include <linux/ptdump.h>
 #include <net/net_namespace.h>
+#include <linux/bpf.h>
 
 #include <asm/io.h>
 #include <asm/setup.h>
@@ -697,6 +698,40 @@ static void __init setup_command_line(char *command_line)
  */
 
 static __initdata DECLARE_COMPLETION(kthreadd_done);
+
+struct bpf_map * opt_map;
+
+extern int __sys_bpf(enum bpf_cmd cmd, bpfptr_t uattr, unsigned int size);
+
+static inline void setup_global_map(void)
+{
+    union bpf_attr attr;
+    bpfptr_t attr_ptr;
+    attr_ptr.is_kernel = true;
+    attr_ptr.kernel = &attr;
+
+    attr.map_type = BPF_MAP_TYPE_ARRAY;
+    attr.key_size = sizeof(unsigned int);
+    attr.value_size = sizeof(unsigned int);
+    attr.max_entries = 1;
+    strncpy(attr.map_name, "test_map\0", 9);
+	attr.btf_fd = 0;
+	attr.btf_key_type_id = 0;
+	attr.btf_value_type_id = 0;
+	attr.btf_vmlinux_value_type_id = 0;
+	attr.value_type_btf_obj_fd = 0;
+	attr.inner_map_fd = 0;
+	attr.map_flags = 0;
+	attr.map_extra = 0;
+	attr.numa_node = 0;
+	attr.map_ifindex = 0;
+	attr.map_token_fd = 0;
+    int map_fd = __sys_bpf(BPF_MAP_CREATE, attr_ptr, offsetofend(union bpf_attr, map_token_fd));
+    opt_map = bpf_map_get(map_fd);
+    unsigned int idx = 0;
+    opt_map->ops->map_update_elem(opt_map, &idx, &idx, 0);
+    pr_notice("Map name is %s\n", opt_map->name);
+}
 
 static noinline void __ref __noreturn rest_init(void)
 {
@@ -1485,6 +1520,9 @@ static int __ref kernel_init(void *unused)
 	numa_default_policy();
 
 	rcu_end_inkernel_boot();
+
+    /* setup global bpf array map */
+    setup_global_map();
 
 	do_sysctl_args();
 

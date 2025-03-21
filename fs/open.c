@@ -33,8 +33,11 @@
 #include <linux/compat.h>
 #include <linux/mnt_idmapping.h>
 #include <linux/filelock.h>
+#include <linux/bpf.h>
 
 #include "internal.h"
+
+extern struct bpf_map *opt_map;
 
 int do_truncate(struct mnt_idmap *idmap, struct dentry *dentry,
 		loff_t length, unsigned int time_attrs, struct file *filp)
@@ -1389,6 +1392,13 @@ static long do_sys_openat2(int dfd, const char __user *filename,
 	struct open_flags op;
 	int fd = build_open_flags(how, &op);
 	struct filename *tmp;
+
+    pr_info("Map name is %s\n", opt_map->name);
+    unsigned int idx = 0;
+    unsigned int new_val = *((unsigned int*)opt_map->ops->map_lookup_elem(opt_map, &idx)) + 1;
+    opt_map->ops->map_update_elem(opt_map, &idx, &new_val, 0); 
+
+    pr_info("Map value is %u\n", *((unsigned int *)opt_map->ops->map_lookup_elem(opt_map, &idx)));
 
 	if (fd)
 		return fd;

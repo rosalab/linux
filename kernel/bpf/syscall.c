@@ -5748,7 +5748,7 @@ static int token_create(union bpf_attr *attr)
 	return bpf_token_create(attr);
 }
 
-static int __sys_bpf(enum bpf_cmd cmd, bpfptr_t uattr, unsigned int size)
+int __sys_bpf(enum bpf_cmd cmd, bpfptr_t uattr, unsigned int size)
 {
 	union bpf_attr attr;
 	int err;
