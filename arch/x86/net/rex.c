@@ -32,7 +32,7 @@ DECLARE_PER_CPU(const struct bpf_prog *, rex_curr_prog);
  * Not supposed to be called by other kernel code, therefore keep prototype
  * private
  */
-void rex_landingpad(char *msg) __noreturn;
+void rex_landingpad(void) __noreturn;
 
 static int map_rex_stack(unsigned int cpu)
 {
@@ -78,7 +78,7 @@ int arch_init_rex_stack(void)
  */
 asmlinkage void __noreturn rex_landingpad_asm(void);
 
-void __noreturn rex_landingpad(char *msg)
+void __noreturn rex_landingpad(void)
 {
 	struct task_struct *loader;
 	DEFINE_RATELIMIT_STATE(rex_rs, DEFAULT_RATELIMIT_INTERVAL,
@@ -86,7 +86,7 @@ void __noreturn rex_landingpad(char *msg)
 
 	/* Report error */
 	if (__ratelimit(&rex_rs)) {
-		pr_err("Panic from Rex prog: %s\n", msg);
+		pr_err("%s\n", this_cpu_ptr(rex_log_buf));
 		dump_stack();
 	}
 
