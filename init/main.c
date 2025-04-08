@@ -700,8 +700,10 @@ static void __init setup_command_line(char *command_line)
 static __initdata DECLARE_COMPLETION(kthreadd_done);
 
 struct bpf_map * opt_map;
+u64 opt_map_addr;
 
 extern int __sys_bpf(enum bpf_cmd cmd, bpfptr_t uattr, unsigned int size);
+extern int array_map_direct_value_addr(const struct bpf_map *, u64 *, u32);
 
 static inline void setup_global_map(void)
 {
@@ -730,6 +732,7 @@ static inline void setup_global_map(void)
     opt_map = bpf_map_get(map_fd);
     unsigned int idx = 0;
     opt_map->ops->map_update_elem(opt_map, &idx, &idx, 0);
+    array_map_direct_value_addr(opt_map, &opt_map_addr, 0);
     pr_notice("Map name is %s\n", opt_map->name);
 }
 

@@ -174,7 +174,7 @@ static void *array_map_lookup_elem(struct bpf_map *map, void *key)
 	return array->value + (u64)array->elem_size * (index & array->index_mask);
 }
 
-static int array_map_direct_value_addr(const struct bpf_map *map, u64 *imm,
+int array_map_direct_value_addr(const struct bpf_map *map, u64 *imm,
 				       u32 off)
 {
 	struct bpf_array *array = container_of(map, struct bpf_array, map);

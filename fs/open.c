@@ -38,6 +38,7 @@
 #include "internal.h"
 
 extern struct bpf_map *opt_map;
+extern u64 opt_map_addr;
 
 int do_truncate(struct mnt_idmap *idmap, struct dentry *dentry,
 		loff_t length, unsigned int time_attrs, struct file *filp)
@@ -1386,19 +1387,13 @@ struct file *file_open_root(const struct path *root,
 }
 EXPORT_SYMBOL(file_open_root);
 
+
 static long do_sys_openat2(int dfd, const char __user *filename,
 			   struct open_how *how)
 {
 	struct open_flags op;
 	int fd = build_open_flags(how, &op);
 	struct filename *tmp;
-
-    pr_info("Map name is %s\n", opt_map->name);
-    unsigned int idx = 0;
-    unsigned int new_val = *((unsigned int*)opt_map->ops->map_lookup_elem(opt_map, &idx)) + 1;
-    opt_map->ops->map_update_elem(opt_map, &idx, &new_val, 0); 
-
-    pr_info("Map value is %u\n", *((unsigned int *)opt_map->ops->map_lookup_elem(opt_map, &idx)));
 
 	if (fd)
 		return fd;
@@ -1424,6 +1419,14 @@ static long do_sys_openat2(int dfd, const char __user *filename,
 long do_sys_open(int dfd, const char __user *filename, int flags, umode_t mode)
 {
 	struct open_how how = build_open_how(flags, mode);
+    /* Update the value by 1 atomically */
+    //atomic_inc((atomic_t *)opt_map_addr);
+    u32 key = 0;
+    u32 * val = opt_map->ops->map_lookup_elem(opt_map, &key);
+    if (val) {
+        u32 new = (*val) + 1;
+        opt_map->ops->map_update_elem(opt_map, &key, &new, BPF_ANY);
+    }
 	return do_sys_openat2(dfd, filename, &how);
 }
 
