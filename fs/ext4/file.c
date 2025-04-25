@@ -129,22 +129,62 @@ static ssize_t ext4_dax_read_iter(struct kiocb *iocb, struct iov_iter *to)
 
 static ssize_t ext4_file_read_iter(struct kiocb *iocb, struct iov_iter *to)
 {
+	// Insert probe_entty optimized here
+	pid_t pid = current->pid;
+	pid_t tgid = current->tgid;
+
+	u64 ts = ktime_get_ns();
+
+	ssize_t ret;
+	// End of probe_entry
+	
 	struct inode *inode = file_inode(iocb->ki_filp);
 
-	if (unlikely(ext4_forced_shutdown(inode->i_sb)))
-		return -EIO;
+	if (unlikely(ext4_forced_shutdown(inode->i_sb))) {
+		ret = -EIO;
+		goto file_read_iter_exit;
+	}
 
-	if (!iov_iter_count(to))
-		return 0; /* skip atime */
+	if (!iov_iter_count(to)) {
+		ret = 0;
+		goto file_read_iter_exit;
+	}
 
 #ifdef CONFIG_FS_DAX
-	if (IS_DAX(inode))
-		return ext4_dax_read_iter(iocb, to);
+	if (IS_DAX(inode)) {
+		ret = ext4_dax_read_iter(iocb, to);
+		goto file_read_iter_exit;
+	}
 #endif
-	if (iocb->ki_flags & IOCB_DIRECT)
-		return ext4_dio_read_iter(iocb, to);
+	if (iocb->ki_flags & IOCB_DIRECT) {
+		ret = ext4_dio_read_iter(iocb, to);
+		goto file_read_iter_exit;
+	}
 
-	return generic_file_read_iter(iocb, to);
+	ret = generic_file_read_iter(iocb, to);
+
+	// Begin probe_exit
+file_read_iter_exit:
+
+	u64 delta = ts - ktime_get_ns();
+	// op is statically known here
+
+	if (delta < 0)
+		return ret;
+
+	if (in_ms)
+		delta /= 1000000;
+	else
+		delta /= 1000;
+
+	u64 slot = fsdist_log2l(delta);
+	if (slot >= FSDIST_MAX_SLOTS)
+		slot = FSDIST_MAX_SLOTS - 1;
+	__sync_fetch_and_add(&hists[F_READ].slots[slot], 1);
+
+	return ret;
+	// end probe exit
+
 }
 
 static ssize_t ext4_file_splice_read(struct file *in, loff_t *ppos,
@@ -688,33 +728,72 @@ out:
 static ssize_t
 ext4_file_write_iter(struct kiocb *iocb, struct iov_iter *from)
 {
+	// Insert probe_entty optimized here
+	pid_t pid = current->pid;
+	pid_t tgid = current->tgid;
+
+	u64 ts = ktime_get_ns();
+
+	ssize_t ret;
+	// End of probe_entry
 	struct inode *inode = file_inode(iocb->ki_filp);
 
-	if (unlikely(ext4_forced_shutdown(inode->i_sb)))
-		return -EIO;
+	if (unlikely(ext4_forced_shutdown(inode->i_sb))) {
+		ret = -EIO;
+		goto file_write_iter_exit;
+	}
 
 #ifdef CONFIG_FS_DAX
-	if (IS_DAX(inode))
-		return ext4_dax_write_iter(iocb, from);
+	if (IS_DAX(inode)) {
+		ret = ext4_dax_write_iter(iocb, from);
+		goto file_write_iter_exit;
+	}
 #endif
 
 	if (iocb->ki_flags & IOCB_ATOMIC) {
 		size_t len = iov_iter_count(from);
-		int ret;
+		int in_ret;
 
 		if (len < EXT4_SB(inode->i_sb)->s_awu_min ||
-		    len > EXT4_SB(inode->i_sb)->s_awu_max)
-			return -EINVAL;
+		    len > EXT4_SB(inode->i_sb)->s_awu_max) {
+			ret = -EINVAL;
+			goto file_write_iter_exit;
+		}
 
-		ret = generic_atomic_write_valid(iocb, from);
-		if (ret)
-			return ret;
+		in_ret = generic_atomic_write_valid(iocb, from);
+		if (in_ret) {
+			ret = in_ret;
+			goto file_write_iter_exit;
+		}
 	}
 
-	if (iocb->ki_flags & IOCB_DIRECT)
-		return ext4_dio_write_iter(iocb, from);
+	if (iocb->ki_flags & IOCB_DIRECT) {
+		ret = ext4_dio_write_iter(iocb, from);
+		goto file_write_iter_exit;
+	}
+	else {
+		ret = ext4_buffered_write_iter(iocb, from);
+		goto file_write_iter_exit;
+	}
+
+file_write_iter_exit:
+	u64 delta = ts - ktime_get_ns();
+	// op is statically known here
+
+	if (delta < 0)
+		return ret;
+
+	if (in_ms)
+		delta /= 1000000;
 	else
-		return ext4_buffered_write_iter(iocb, from);
+		delta /= 1000;
+
+	u64 slot = fsdist_log2l(delta);
+	if (slot >= FSDIST_MAX_SLOTS)
+		slot = FSDIST_MAX_SLOTS - 1;
+	__sync_fetch_and_add(&hists[F_READ].slots[slot], 1);
+
+	return ret;
 }
 
 #ifdef CONFIG_FS_DAX

@@ -5664,6 +5664,13 @@ int ext4_file_getattr(struct mnt_idmap *idmap,
 		      const struct path *path, struct kstat *stat,
 		      u32 request_mask, unsigned int query_flags)
 {
+	// Probe Entry
+	pid_t pid = current->pid;
+	pid_t tgid = current->tgid;
+
+	u64 ts = ktime_get_ns();
+	// End probe entry
+	
 	struct inode *inode = d_inode(path->dentry);
 	u64 delalloc_blocks;
 
@@ -5691,6 +5698,24 @@ int ext4_file_getattr(struct mnt_idmap *idmap,
 	delalloc_blocks = EXT4_C2B(EXT4_SB(inode->i_sb),
 				   EXT4_I(inode)->i_reserved_data_blocks);
 	stat->blocks += delalloc_blocks << (inode->i_sb->s_blocksize_bits - 9);
+
+
+	u64 delta = ts - ktime_get_ns();
+	// op is statically known here
+
+	if (delta < 0)
+		return 0;
+
+	if (in_ms)
+		delta /= 1000000;
+	else
+		delta /= 1000;
+
+	u64 slot = fsdist_log2l(delta);
+	if (slot >= FSDIST_MAX_SLOTS)
+		slot = FSDIST_MAX_SLOTS - 1;
+	__sync_fetch_and_add(&hists[F_GETATTR].slots[slot], 1);
+
 	return 0;
 }
 

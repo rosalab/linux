@@ -128,12 +128,22 @@ static int ext4_fsync_journal(struct inode *inode, bool datasync,
  */
 int ext4_sync_file(struct file *file, loff_t start, loff_t end, int datasync)
 {
+	// Insert probe entry optimized here
+	pid_t pid = current->pid;
+	pid_t tgid = current->tgid;
+
+	u64 ts = ktime_get_ns();
+	// End probe entry
+
+
 	int ret = 0, err;
 	bool needs_barrier = false;
 	struct inode *inode = file->f_mapping->host;
 
-	if (unlikely(ext4_forced_shutdown(inode->i_sb)))
-		return -EIO;
+	if (unlikely(ext4_forced_shutdown(inode->i_sb))) {
+		ret = -EIO;
+		goto sync_file_exit;
+	}
 
 	ASSERT(ext4_journal_current_handle() == NULL);
 
@@ -177,5 +187,24 @@ out:
 	if (ret == 0)
 		ret = err;
 	trace_ext4_sync_file_exit(inode, ret);
+
+sync_file_exit:
+	
+	u64 delta = ts - ktime_get_ns();
+	// op is statically known here
+
+	if (delta < 0)
+		return ret;
+
+	if (in_ms)
+		delta /= 1000000;
+	else
+		delta /= 1000;
+
+	u64 slot = fsdist_log2l(delta);
+	if (slot >= FSDIST_MAX_SLOTS)
+		slot = FSDIST_MAX_SLOTS - 1;
+	__sync_fetch_and_add(&hists[F_FSYNC].slots[slot], 1);
+
 	return ret;
 }

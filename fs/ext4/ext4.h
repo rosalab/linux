@@ -3860,6 +3860,52 @@ static inline bool ext4_inode_can_atomic_write(struct inode *inode)
 extern int ext4_block_write_begin(handle_t *handle, struct folio *folio,
 				  loff_t pos, unsigned len,
 				  get_block_t *get_block);
+
+
+/* fsdist.bpf.c inline */
+extern struct bpf_map * fsdist_starts;
+static struct fsdist_hist {
+	u32 slots[32];
+};
+
+static enum fs_file_op {
+	F_READ,
+	F_WRITE,
+	F_OPEN,
+	F_FSYNC,
+	F_GETATTR,
+	F_MAX_OP,
+};
+
+static struct fsdist_hist hists[F_MAX_OP];
+
+static __always_inline u64 fsdist_log2(u32 v)
+{
+	u32 shift, r;
+
+	r = (v > 0xFFFF) << 4; v >>= r;
+	shift = (v > 0xFF) << 3; v >>= shift; r |= shift;
+	shift = (v > 0xF) << 2; v >>= shift; r |= shift;
+	shift = (v > 0x3) << 1; v >>= shift; r |= shift;
+	r |= (v >> 1);
+
+	return r;
+}
+
+static __always_inline u64 fsdist_log2l(u64 v)
+{
+	u32 hi = v >> 32;
+
+	if (hi)
+		return fsdist_log2(hi) + 32;
+	else
+		return fsdist_log2(v);
+}
+
+static int in_ms = 0;
+
+#define FSDIST_MAX_SLOTS 32
+
 #endif	/* __KERNEL__ */
 
 #define EFSBADCRC	EBADMSG		/* Bad CRC detected */
