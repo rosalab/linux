@@ -135,8 +135,8 @@ static ssize_t ext4_file_read_iter(struct kiocb *iocb, struct iov_iter *to)
 	__u32 tid = (__u32)pid_tgid;
 	__u64 ts;
 
-	if (target_pid && target_pid != pid)
-		return 0;
+//	if (target_pid && target_pid != pid)
+//		return 0;
 
 	ts = bpf_ktime_get_ns();
 	bpf_map_update_elem(starts, &tid, &ts, FSDIST_BPF_ANY);
@@ -171,7 +171,7 @@ static ssize_t ext4_file_read_iter(struct kiocb *iocb, struct iov_iter *to)
 
 	// Begin probe_exit
 file_read_iter_exit:
-	enum fs_file_op op = F_READ;
+//	enum fs_file_op op = F_READ;
 	__u32 rtid = (__u32)bpf_get_current_pid_tgid();
 	__u64 rts = bpf_ktime_get_ns();
 	__u64 *tsp, slot;
@@ -181,22 +181,22 @@ file_read_iter_exit:
 	if (!tsp)
 		return ret;
 
-	if (op >= F_MAX_OP)
-		goto read_iter_cleanup;
+//	if (op >= F_MAX_OP)
+//		goto read_iter_cleanup;
 
 	delta = (__s64)(rts - *tsp);
 	if (delta < 0)
 		goto read_iter_cleanup;
 
-	if (in_ms)
-		delta /= 1000000;
-	else
-		delta /= 1000;
+//	if (in_ms)
+//		delta /= 1000000;
+//	else
+	delta /= 1000;
 
 	slot = fsdist_log2l(delta);
 	if (slot >= MAX_SLOTS)
 		slot = MAX_SLOTS - 1;
-	__sync_fetch_and_add(&hists[op].slots[slot], 1);
+	__sync_fetch_and_add(&hists[F_READ].slots[slot], 1);
 
 read_iter_cleanup:
 	bpf_map_delete_elem(starts, &rtid);
@@ -752,8 +752,8 @@ ext4_file_write_iter(struct kiocb *iocb, struct iov_iter *from)
 	__u32 tid = (__u32)pid_tgid;
 	__u64 ts;
 
-	if (target_pid && target_pid != pid)
-		return 0;
+//	if (target_pid && target_pid != pid)
+//		return 0;
 
 	ts = bpf_ktime_get_ns();
 	bpf_map_update_elem(starts, &tid, &ts, FSDIST_BPF_ANY);
@@ -801,7 +801,7 @@ ext4_file_write_iter(struct kiocb *iocb, struct iov_iter *from)
 	}
 
 file_write_iter_exit:
-	enum fs_file_op op = F_WRITE;
+	//enum fs_file_op op = F_WRITE;
 	__u32 rtid = (__u32)bpf_get_current_pid_tgid();
 	__u64 rts = bpf_ktime_get_ns();
 	__u64 *tsp, slot;
@@ -811,22 +811,22 @@ file_write_iter_exit:
 	if (!tsp)
 		return ret;
 
-	if (op >= F_MAX_OP)
-		goto write_cleanup;
+	//if (op >= F_MAX_OP)
+//		goto write_cleanup;
 
 	delta = (__s64)(rts - *tsp);
 	if (delta < 0)
 		goto write_cleanup;
 
-	if (in_ms)
-		delta /= 1000000;
-	else
-		delta /= 1000;
+//	if (in_ms)
+//		delta /= 1000000;
+//	else
+	delta /= 1000;
 
 	slot = fsdist_log2l(delta);
 	if (slot >= MAX_SLOTS)
 		slot = MAX_SLOTS - 1;
-	__sync_fetch_and_add(&hists[op].slots[slot], 1);
+	__sync_fetch_and_add(&hists[F_WRITE].slots[slot], 1);
 
 write_cleanup:
 	bpf_map_delete_elem(starts, &rtid);
@@ -998,8 +998,8 @@ static int ext4_file_open(struct inode *inode, struct file *filp)
 	__u32 tid = (__u32)pid_tgid;
 	__u64 ts;
 
-	if (target_pid && target_pid != pid)
-		return 0;
+	//if (target_pid && target_pid != pid)
+	//	return 0;
 
 	ts = bpf_ktime_get_ns();
 	bpf_map_update_elem(starts, &tid, &ts, FSDIST_BPF_ANY);
@@ -1040,7 +1040,7 @@ static int ext4_file_open(struct inode *inode, struct file *filp)
 	ret = dquot_file_open(inode, filp);
 
 file_open_exit:
-	enum fs_file_op op = F_OPEN;
+//	enum fs_file_op op = F_OPEN;
 	__u32 rtid = (__u32)bpf_get_current_pid_tgid();
 	__u64 rts = bpf_ktime_get_ns();
 	__u64 *tsp, slot;
@@ -1050,22 +1050,22 @@ file_open_exit:
 	if (!tsp)
 		return ret;
 
-	if (op >= F_MAX_OP)
-		goto open_cleanup;
+	//if (op >= F_MAX_OP)
+//		goto open_cleanup;
 
 	delta = (__s64)(rts - *tsp);
 	if (delta < 0)
 		goto open_cleanup;
 
-	if (in_ms)
-		delta /= 1000000;
-	else
-		delta /= 1000;
+	//if (in_ms)
+//		delta /= 1000000;
+//	else
+	delta /= 1000;
 
 	slot = fsdist_log2l(delta);
 	if (slot >= MAX_SLOTS)
 		slot = MAX_SLOTS - 1;
-	__sync_fetch_and_add(&hists[op].slots[slot], 1);
+	__sync_fetch_and_add(&hists[F_OPEN].slots[slot], 1);
 
 open_cleanup:
 	bpf_map_delete_elem(starts, &rtid);
