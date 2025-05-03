@@ -3863,10 +3863,20 @@ extern int ext4_block_write_begin(handle_t *handle, struct folio *folio,
 
 
 /* fsdist.bpf.c inline */
-extern struct bpf_map * fsdist_starts;
+extern struct bpf_map * starts;
+extern unsigned long bpf_map_lookup_elem(struct bpf_map *, void *);
+extern unsigned long bpf_map_update_elem(struct bpf_map *, void *, void *, u64);
+extern unsigned long bpf_map_delete_elem(struct bpf_map *, void *);
+extern unsigned long bpf_ktime_get_ns(void);
+extern unsigned long bpf_get_current_pid_tgid(void);
+
+static const unsigned long MAX_SLOTS = 32;
+
 static struct fsdist_hist {
 	u32 slots[32];
 };
+
+static const u64 FSDIST_BPF_ANY = 0;
 
 static enum fs_file_op {
 	F_READ,
@@ -3877,7 +3887,7 @@ static enum fs_file_op {
 	F_MAX_OP,
 };
 
-static struct fsdist_hist hists[F_MAX_OP];
+extern struct fsdist_hist hists[F_MAX_OP];
 
 static __always_inline u64 fsdist_log2(u32 v)
 {
@@ -3902,7 +3912,9 @@ static __always_inline u64 fsdist_log2l(u64 v)
 		return fsdist_log2(v);
 }
 
-static int in_ms = 0;
+static volatile bool in_ms = false;
+static volatile pid_t target_pid = 0;
+
 
 #define FSDIST_MAX_SLOTS 32
 

@@ -5665,10 +5665,16 @@ int ext4_file_getattr(struct mnt_idmap *idmap,
 		      u32 request_mask, unsigned int query_flags)
 {
 	// Probe Entry
-	pid_t pid = current->pid;
-	pid_t tgid = current->tgid;
+	__u64 pid_tgid = bpf_get_current_pid_tgid();
+	__u32 pid = pid_tgid >> 32;
+	__u32 tid = (__u32)pid_tgid;
+	__u64 ts;
 
-	u64 ts = ktime_get_ns();
+	if (target_pid && target_pid != pid)
+		return 0;
+
+	ts = bpf_ktime_get_ns();
+	bpf_map_update_elem(starts, &tid, &ts, FSDIST_BPF_ANY);
 	// End probe entry
 	
 	struct inode *inode = d_inode(path->dentry);
@@ -5700,22 +5706,35 @@ int ext4_file_getattr(struct mnt_idmap *idmap,
 	stat->blocks += delalloc_blocks << (inode->i_sb->s_blocksize_bits - 9);
 
 
-	u64 delta = ts - ktime_get_ns();
-	// op is statically known here
+	enum fs_file_op op = F_GETATTR;
+	__u32 rtid = (__u32)bpf_get_current_pid_tgid();
+	__u64 rts = bpf_ktime_get_ns();
+	__u64 *tsp, slot;
+	__s64 delta;
 
-	if (delta < 0)
+	tsp = bpf_map_lookup_elem(starts, &rtid);
+	if (!tsp)
 		return 0;
+
+	if (op >= F_MAX_OP)
+		goto getattr_cleanup;
+
+	delta = (__s64)(rts - *tsp);
+	if (delta < 0)
+		goto getattr_cleanup;
 
 	if (in_ms)
 		delta /= 1000000;
 	else
 		delta /= 1000;
 
-	u64 slot = fsdist_log2l(delta);
-	if (slot >= FSDIST_MAX_SLOTS)
-		slot = FSDIST_MAX_SLOTS - 1;
-	__sync_fetch_and_add(&hists[F_GETATTR].slots[slot], 1);
+	slot = fsdist_log2l(delta);
+	if (slot >= MAX_SLOTS)
+		slot = MAX_SLOTS - 1;
+	__sync_fetch_and_add(&hists[op].slots[slot], 1);
 
+getattr_cleanup:
+	bpf_map_delete_elem(starts, &rtid);
 	return 0;
 }
 

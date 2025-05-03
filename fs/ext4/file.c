@@ -130,10 +130,16 @@ static ssize_t ext4_dax_read_iter(struct kiocb *iocb, struct iov_iter *to)
 static ssize_t ext4_file_read_iter(struct kiocb *iocb, struct iov_iter *to)
 {
 	// Insert probe_entty optimized here
-	pid_t pid = current->pid;
-	pid_t tgid = current->tgid;
+	__u64 pid_tgid = bpf_get_current_pid_tgid();
+	__u32 pid = pid_tgid >> 32;
+	__u32 tid = (__u32)pid_tgid;
+	__u64 ts;
 
-	u64 ts = ktime_get_ns();
+	if (target_pid && target_pid != pid)
+		return 0;
+
+	ts = bpf_ktime_get_ns();
+	bpf_map_update_elem(starts, &tid, &ts, FSDIST_BPF_ANY);
 
 	ssize_t ret;
 	// End of probe_entry
@@ -165,23 +171,35 @@ static ssize_t ext4_file_read_iter(struct kiocb *iocb, struct iov_iter *to)
 
 	// Begin probe_exit
 file_read_iter_exit:
+	enum fs_file_op op = F_READ;
+	__u32 rtid = (__u32)bpf_get_current_pid_tgid();
+	__u64 rts = bpf_ktime_get_ns();
+	__u64 *tsp, slot;
+	__s64 delta;
 
-	u64 delta = ts - ktime_get_ns();
-	// op is statically known here
-
-	if (delta < 0)
+	tsp = bpf_map_lookup_elem(starts, &rtid);
+	if (!tsp)
 		return ret;
+
+	if (op >= F_MAX_OP)
+		goto read_iter_cleanup;
+
+	delta = (__s64)(rts - *tsp);
+	if (delta < 0)
+		goto read_iter_cleanup;
 
 	if (in_ms)
 		delta /= 1000000;
 	else
 		delta /= 1000;
 
-	u64 slot = fsdist_log2l(delta);
-	if (slot >= FSDIST_MAX_SLOTS)
-		slot = FSDIST_MAX_SLOTS - 1;
-	__sync_fetch_and_add(&hists[F_READ].slots[slot], 1);
+	slot = fsdist_log2l(delta);
+	if (slot >= MAX_SLOTS)
+		slot = MAX_SLOTS - 1;
+	__sync_fetch_and_add(&hists[op].slots[slot], 1);
 
+read_iter_cleanup:
+	bpf_map_delete_elem(starts, &rtid);
 	return ret;
 	// end probe exit
 
@@ -729,10 +747,16 @@ static ssize_t
 ext4_file_write_iter(struct kiocb *iocb, struct iov_iter *from)
 {
 	// Insert probe_entty optimized here
-	pid_t pid = current->pid;
-	pid_t tgid = current->tgid;
+	__u64 pid_tgid = bpf_get_current_pid_tgid();
+	__u32 pid = pid_tgid >> 32;
+	__u32 tid = (__u32)pid_tgid;
+	__u64 ts;
 
-	u64 ts = ktime_get_ns();
+	if (target_pid && target_pid != pid)
+		return 0;
+
+	ts = bpf_ktime_get_ns();
+	bpf_map_update_elem(starts, &tid, &ts, FSDIST_BPF_ANY);
 
 	ssize_t ret;
 	// End of probe_entry
@@ -777,22 +801,35 @@ ext4_file_write_iter(struct kiocb *iocb, struct iov_iter *from)
 	}
 
 file_write_iter_exit:
-	u64 delta = ts - ktime_get_ns();
-	// op is statically known here
+	enum fs_file_op op = F_WRITE;
+	__u32 rtid = (__u32)bpf_get_current_pid_tgid();
+	__u64 rts = bpf_ktime_get_ns();
+	__u64 *tsp, slot;
+	__s64 delta;
 
-	if (delta < 0)
+	tsp = bpf_map_lookup_elem(starts, &rtid);
+	if (!tsp)
 		return ret;
+
+	if (op >= F_MAX_OP)
+		goto write_cleanup;
+
+	delta = (__s64)(rts - *tsp);
+	if (delta < 0)
+		goto write_cleanup;
 
 	if (in_ms)
 		delta /= 1000000;
 	else
 		delta /= 1000;
 
-	u64 slot = fsdist_log2l(delta);
-	if (slot >= FSDIST_MAX_SLOTS)
-		slot = FSDIST_MAX_SLOTS - 1;
-	__sync_fetch_and_add(&hists[F_READ].slots[slot], 1);
+	slot = fsdist_log2l(delta);
+	if (slot >= MAX_SLOTS)
+		slot = MAX_SLOTS - 1;
+	__sync_fetch_and_add(&hists[op].slots[slot], 1);
 
+write_cleanup:
+	bpf_map_delete_elem(starts, &rtid);
 	return ret;
 }
 
@@ -955,22 +992,36 @@ out:
 
 static int ext4_file_open(struct inode *inode, struct file *filp)
 {
+	/* Probe Entry */
+	__u64 pid_tgid = bpf_get_current_pid_tgid();
+	__u32 pid = pid_tgid >> 32;
+	__u32 tid = (__u32)pid_tgid;
+	__u64 ts;
+
+	if (target_pid && target_pid != pid)
+		return 0;
+
+	ts = bpf_ktime_get_ns();
+	bpf_map_update_elem(starts, &tid, &ts, FSDIST_BPF_ANY);
+
 	int ret;
 
-	if (unlikely(ext4_forced_shutdown(inode->i_sb)))
-		return -EIO;
+	if (unlikely(ext4_forced_shutdown(inode->i_sb))) {
+		ret = -EIO;
+		goto file_open_exit;
+	}
 
 	ret = ext4_sample_last_mounted(inode->i_sb, filp->f_path.mnt);
 	if (ret)
-		return ret;
+		goto file_open_exit;
 
 	ret = fscrypt_file_open(inode, filp);
 	if (ret)
-		return ret;
+		goto file_open_exit;
 
 	ret = fsverity_file_open(inode, filp);
 	if (ret)
-		return ret;
+		goto file_open_exit;
 
 	/*
 	 * Set up the jbd2_inode if we are opening the inode for
@@ -979,14 +1030,47 @@ static int ext4_file_open(struct inode *inode, struct file *filp)
 	if (filp->f_mode & FMODE_WRITE) {
 		ret = ext4_inode_attach_jinode(inode);
 		if (ret < 0)
-			return ret;
+			goto file_open_exit;
 	}
 
 	if (ext4_inode_can_atomic_write(inode))
 		filp->f_mode |= FMODE_CAN_ATOMIC_WRITE;
 
 	filp->f_mode |= FMODE_NOWAIT | FMODE_CAN_ODIRECT;
-	return dquot_file_open(inode, filp);
+	ret = dquot_file_open(inode, filp);
+
+file_open_exit:
+	enum fs_file_op op = F_OPEN;
+	__u32 rtid = (__u32)bpf_get_current_pid_tgid();
+	__u64 rts = bpf_ktime_get_ns();
+	__u64 *tsp, slot;
+	__s64 delta;
+
+	tsp = bpf_map_lookup_elem(starts, &rtid);
+	if (!tsp)
+		return ret;
+
+	if (op >= F_MAX_OP)
+		goto open_cleanup;
+
+	delta = (__s64)(rts - *tsp);
+	if (delta < 0)
+		goto open_cleanup;
+
+	if (in_ms)
+		delta /= 1000000;
+	else
+		delta /= 1000;
+
+	slot = fsdist_log2l(delta);
+	if (slot >= MAX_SLOTS)
+		slot = MAX_SLOTS - 1;
+	__sync_fetch_and_add(&hists[op].slots[slot], 1);
+
+open_cleanup:
+	bpf_map_delete_elem(starts, &rtid);
+	return ret;
+
 }
 
 /*

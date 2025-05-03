@@ -698,7 +698,7 @@ static void __init setup_command_line(char *command_line)
 
 static __initdata DECLARE_COMPLETION(kthreadd_done);
 
-struct bpf_map * fsdist_hist;
+struct bpf_map * starts;
 extern int __sys_bpf(enum bpf_cmd cmd, bpfptr_t uattr, unsigned int size);
 
 static inline void setup_global_map(void)
@@ -724,10 +724,10 @@ static inline void setup_global_map(void)
 	attr.map_ifindex = 0;
 	attr.map_token_fd = 0;
     int map_fd = __sys_bpf(BPF_MAP_CREATE, attr_ptr, offsetofend(union bpf_attr, map_token_fd));
-    fsdist_hist = bpf_map_get(map_fd);
+    starts = bpf_map_get(map_fd);
     //unsigned int idx = 0;
     //opt_map->ops->map_update_elem(opt_map, &idx, &idx, 0);
-    pr_notice("Map name is %s\n", fsdist_hist->name);
+    pr_notice("Map name is %s\n", starts->name);
 }
 
 static noinline void __ref __noreturn rest_init(void)
@@ -1635,3 +1635,9 @@ static noinline void __init kernel_init_freeable(void)
 
 	integrity_load_keys();
 }
+
+struct fsdist_hist {
+	u32 slots[32];
+};
+
+struct fsdist_hist hists[6];
