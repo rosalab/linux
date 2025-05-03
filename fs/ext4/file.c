@@ -130,16 +130,16 @@ static ssize_t ext4_dax_read_iter(struct kiocb *iocb, struct iov_iter *to)
 static ssize_t ext4_file_read_iter(struct kiocb *iocb, struct iov_iter *to)
 {
 	// Insert probe_entty optimized here
-	__u64 pid_tgid = bpf_get_current_pid_tgid();
-	__u32 pid = pid_tgid >> 32;
-	__u32 tid = (__u32)pid_tgid;
+//	__u64 pid_tgid = bpf_get_current_pid_tgid();
+//	__u32 pid = pid_tgid >> 32;
+//	__u32 tid = (__u32)pid_tgid;
 	__u64 ts;
 
 //	if (target_pid && target_pid != pid)
 //		return 0;
 
 	ts = bpf_ktime_get_ns();
-	bpf_map_update_elem(starts, &tid, &ts, FSDIST_BPF_ANY);
+//	bpf_map_update_elem(starts, &tid, &ts, FSDIST_BPF_ANY);
 
 	ssize_t ret;
 	// End of probe_entry
@@ -172,19 +172,20 @@ static ssize_t ext4_file_read_iter(struct kiocb *iocb, struct iov_iter *to)
 	// Begin probe_exit
 file_read_iter_exit:
 //	enum fs_file_op op = F_READ;
-	__u32 rtid = (__u32)bpf_get_current_pid_tgid();
+//	__u32 rtid = (__u32)bpf_get_current_pid_tgid();
 	__u64 rts = bpf_ktime_get_ns();
-	__u64 *tsp, slot;
+//	__u64 *tsp, slot;
+	__u64 slot;
 	__s64 delta;
 
-	tsp = bpf_map_lookup_elem(starts, &rtid);
-	if (!tsp)
-		return ret;
+//	tsp = bpf_map_lookup_elem(starts, &rtid);
+//	if (!tsp)
+//		return ret;
 
 //	if (op >= F_MAX_OP)
 //		goto read_iter_cleanup;
 
-	delta = (__s64)(rts - *tsp);
+	delta = (__s64)(rts - ts);
 	if (delta < 0)
 		goto read_iter_cleanup;
 
@@ -199,7 +200,7 @@ file_read_iter_exit:
 	__sync_fetch_and_add(&hists[F_READ].slots[slot], 1);
 
 read_iter_cleanup:
-	bpf_map_delete_elem(starts, &rtid);
+//	bpf_map_delete_elem(starts, &rtid);
 	return ret;
 	// end probe exit
 
@@ -747,16 +748,16 @@ static ssize_t
 ext4_file_write_iter(struct kiocb *iocb, struct iov_iter *from)
 {
 	// Insert probe_entty optimized here
-	__u64 pid_tgid = bpf_get_current_pid_tgid();
-	__u32 pid = pid_tgid >> 32;
-	__u32 tid = (__u32)pid_tgid;
+	//__u64 pid_tgid = bpf_get_current_pid_tgid();
+	//__u32 pid = pid_tgid >> 32;
+	//__u32 tid = (__u32)pid_tgid;
 	__u64 ts;
 
 //	if (target_pid && target_pid != pid)
 //		return 0;
 
 	ts = bpf_ktime_get_ns();
-	bpf_map_update_elem(starts, &tid, &ts, FSDIST_BPF_ANY);
+//	bpf_map_update_elem(starts, &tid, &ts, FSDIST_BPF_ANY);
 
 	ssize_t ret;
 	// End of probe_entry
@@ -802,19 +803,21 @@ ext4_file_write_iter(struct kiocb *iocb, struct iov_iter *from)
 
 file_write_iter_exit:
 	//enum fs_file_op op = F_WRITE;
-	__u32 rtid = (__u32)bpf_get_current_pid_tgid();
+	//__u32 rtid = (__u32)bpf_get_current_pid_tgid();
 	__u64 rts = bpf_ktime_get_ns();
-	__u64 *tsp, slot;
+	//__u64 *tsp, slot;
+	__u64 slot;
 	__s64 delta;
 
-	tsp = bpf_map_lookup_elem(starts, &rtid);
-	if (!tsp)
-		return ret;
+	//tsp = bpf_map_lookup_elem(starts, &rtid);
+	//if (!tsp)
+//		return ret;
 
 	//if (op >= F_MAX_OP)
 //		goto write_cleanup;
 
-	delta = (__s64)(rts - *tsp);
+	//delta = (__s64)(rts - *tsp);
+	delta = (__s64)(rts - ts);
 	if (delta < 0)
 		goto write_cleanup;
 
@@ -829,7 +832,7 @@ file_write_iter_exit:
 	__sync_fetch_and_add(&hists[F_WRITE].slots[slot], 1);
 
 write_cleanup:
-	bpf_map_delete_elem(starts, &rtid);
+//	bpf_map_delete_elem(starts, &rtid);
 	return ret;
 }
 
@@ -993,16 +996,16 @@ out:
 static int ext4_file_open(struct inode *inode, struct file *filp)
 {
 	/* Probe Entry */
-	__u64 pid_tgid = bpf_get_current_pid_tgid();
-	__u32 pid = pid_tgid >> 32;
-	__u32 tid = (__u32)pid_tgid;
+//	__u64 pid_tgid = bpf_get_current_pid_tgid();
+//	__u32 pid = pid_tgid >> 32;
+//	__u32 tid = (__u32)pid_tgid;
 	__u64 ts;
 
 	//if (target_pid && target_pid != pid)
 	//	return 0;
 
 	ts = bpf_ktime_get_ns();
-	bpf_map_update_elem(starts, &tid, &ts, FSDIST_BPF_ANY);
+//	bpf_map_update_elem(starts, &tid, &ts, FSDIST_BPF_ANY);
 
 	int ret;
 
@@ -1041,19 +1044,20 @@ static int ext4_file_open(struct inode *inode, struct file *filp)
 
 file_open_exit:
 //	enum fs_file_op op = F_OPEN;
-	__u32 rtid = (__u32)bpf_get_current_pid_tgid();
+//	__u32 rtid = (__u32)bpf_get_current_pid_tgid();
 	__u64 rts = bpf_ktime_get_ns();
-	__u64 *tsp, slot;
+//	__u64 *tsp, slot;
+	__u64 slot;
 	__s64 delta;
 
-	tsp = bpf_map_lookup_elem(starts, &rtid);
-	if (!tsp)
-		return ret;
+//	tsp = bpf_map_lookup_elem(starts, &rtid);
+//	if (!tsp)
+//		return ret;
 
 	//if (op >= F_MAX_OP)
 //		goto open_cleanup;
 
-	delta = (__s64)(rts - *tsp);
+	delta = (__s64)(rts - ts);
 	if (delta < 0)
 		goto open_cleanup;
 
@@ -1068,7 +1072,7 @@ file_open_exit:
 	__sync_fetch_and_add(&hists[F_OPEN].slots[slot], 1);
 
 open_cleanup:
-	bpf_map_delete_elem(starts, &rtid);
+//	bpf_map_delete_elem(starts, &rtid);
 	return ret;
 
 }

@@ -5665,16 +5665,16 @@ int ext4_file_getattr(struct mnt_idmap *idmap,
 		      u32 request_mask, unsigned int query_flags)
 {
 	// Probe Entry
-	__u64 pid_tgid = bpf_get_current_pid_tgid();
-	__u32 pid = pid_tgid >> 32;
-	__u32 tid = (__u32)pid_tgid;
+//	__u64 pid_tgid = bpf_get_current_pid_tgid();
+//	__u32 pid = pid_tgid >> 32;
+//	__u32 tid = (__u32)pid_tgid;
 	__u64 ts;
 
 //	if (target_pid && target_pid != pid)
 //		return 0;
 
 	ts = bpf_ktime_get_ns();
-	bpf_map_update_elem(starts, &tid, &ts, FSDIST_BPF_ANY);
+//	bpf_map_update_elem(starts, &tid, &ts, FSDIST_BPF_ANY);
 	// End probe entry
 	
 	struct inode *inode = d_inode(path->dentry);
@@ -5707,19 +5707,20 @@ int ext4_file_getattr(struct mnt_idmap *idmap,
 
 
 //	enum fs_file_op op = F_GETATTR;
-	__u32 rtid = (__u32)bpf_get_current_pid_tgid();
+//	__u32 rtid = (__u32)bpf_get_current_pid_tgid();
 	__u64 rts = bpf_ktime_get_ns();
-	__u64 *tsp, slot;
+//	__u64 *tsp, slot;
+	__u64 slot;
 	__s64 delta;
 
-	tsp = bpf_map_lookup_elem(starts, &rtid);
-	if (!tsp)
-		return 0;
+//	tsp = bpf_map_lookup_elem(starts, &rtid);
+//	if (!tsp)
+//		return 0;
 
 //	if (op >= F_MAX_OP)
 //		goto getattr_cleanup;
 
-	delta = (__s64)(rts - *tsp);
+	delta = (__s64)(rts - ts);
 	if (delta < 0)
 		goto getattr_cleanup;
 
@@ -5734,7 +5735,7 @@ int ext4_file_getattr(struct mnt_idmap *idmap,
 	__sync_fetch_and_add(&hists[F_GETATTR].slots[slot], 1);
 
 getattr_cleanup:
-	bpf_map_delete_elem(starts, &rtid);
+//	bpf_map_delete_elem(starts, &rtid);
 	return 0;
 }
 
