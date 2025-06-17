@@ -1230,6 +1230,44 @@ static const struct bpf_func_proto bpf_get_func_arg_proto = {
 	.arg3_size	= sizeof(u64),
 };
 
+/* Getter for shared pairwise state */
+BPF_CALL_2(get_shared, void *, ctx, u64 *, value)
+{
+    // Get the data on the stack?
+    // Temporarily store values in the arg cnt location
+	*value = ((u64 *)ctx)[-1];
+    pr_info("Get value is %llx\n", ((u64 *)ctx)[-1]);
+    //*value = 0xffff;
+    return 0;
+}
+
+static const struct bpf_func_proto bpf_get_shared_proto = {
+    .func = get_shared,
+    .ret_type = RET_INTEGER,
+    .arg1_type = ARG_PTR_TO_CTX,
+	.arg2_type	= ARG_PTR_TO_FIXED_SIZE_MEM | MEM_UNINIT | MEM_WRITE | MEM_ALIGNED,
+	.arg2_size	= sizeof(u64),
+};
+
+/* Setter for shared pairwise state */
+BPF_CALL_2(set_shared, void *, ctx, u64 *, value)
+{
+    // Get the data on the stack?
+    // Temporarily store values in the arg cnt location
+    pr_info("Before set is %llx\n", ((u64 *)ctx)[-1]);
+    ((u64 *)ctx)[-1] = *value;
+    pr_info("After set is %llx\n", ((u64 *)ctx)[-1]);
+    return 0;
+}
+
+static const struct bpf_func_proto bpf_set_shared_proto = {
+    .func = set_shared,
+    .ret_type = RET_INTEGER,
+    .arg1_type = ARG_PTR_TO_CTX,
+	.arg2_type	= ARG_PTR_TO_FIXED_SIZE_MEM | MEM_UNINIT | MEM_WRITE | MEM_ALIGNED,
+	.arg2_size	= sizeof(u64),
+};
+
 BPF_CALL_2(get_func_ret, void *, ctx, u64 *, value)
 {
 	/* This helper call is inlined by verifier. */
@@ -2035,6 +2073,10 @@ tracing_prog_func_proto(enum bpf_func_id func_id, const struct bpf_prog *prog)
 		    prog->expected_attach_type == BPF_TRACE_RAW_TP)
 			return &bpf_get_attach_cookie_proto_tracing;
 		return bpf_prog_has_trampoline(prog) ? &bpf_get_attach_cookie_proto_tracing : NULL;
+    case BPF_FUNC_get_shared:
+        return &bpf_get_shared_proto;
+    case BPF_FUNC_set_shared:
+         return &bpf_set_shared_proto;
 	default:
 		fn = raw_tp_prog_func_proto(func_id, prog);
 		if (!fn && prog->expected_attach_type == BPF_TRACE_ITER)

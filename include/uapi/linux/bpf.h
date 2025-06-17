@@ -5795,6 +5795,18 @@ union bpf_attr {
  *		0 on success.
  *
  *		**-ENOENT** if the bpf_local_storage cannot be found.
+ *
+ * int bpf_get_shared(void *ctx, u64 *value)
+ *	Description
+ *		Helper to get shared state.
+ *	Return
+ *		0 on success.
+ *		
+ * int bpf_set_shared(void *ctx, u64 *value)
+ *	Description
+ *		Helper to set shared state.
+ *	Return
+ *		0 on success.
  */
 #define ___BPF_FUNC_MAPPER(FN, ctx...)			\
 	FN(unspec, 0, ##ctx)				\
@@ -6009,6 +6021,8 @@ union bpf_attr {
 	FN(user_ringbuf_drain, 209, ##ctx)		\
 	FN(cgrp_storage_get, 210, ##ctx)		\
 	FN(cgrp_storage_delete, 211, ##ctx)		\
+    FN(get_shared, 212, ##ctx)  \
+    FN(set_shared, 213, ##ctx) \
 	/* */
 
 /* backwards-compatibility macros for users of __BPF_FUNC_MAPPER that don't
