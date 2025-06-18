@@ -1236,7 +1236,7 @@ BPF_CALL_2(get_shared, void *, ctx, u64 *, value)
     // Get the data on the stack?
     // Temporarily store values in the arg cnt location
 	*value = ((u64 *)ctx)[-1];
-    pr_info("Get value is %llx\n", ((u64 *)ctx)[-1]);
+    //pr_info("Get value is %llx\n", ((u64 *)ctx)[-1]);
     //*value = 0xffff;
     return 0;
 }
@@ -1254,9 +1254,9 @@ BPF_CALL_2(set_shared, void *, ctx, u64 *, value)
 {
     // Get the data on the stack?
     // Temporarily store values in the arg cnt location
-    pr_info("Before set is %llx\n", ((u64 *)ctx)[-1]);
+    //pr_info("Before set is %llx\n", ((u64 *)ctx)[-1]);
     ((u64 *)ctx)[-1] = *value;
-    pr_info("After set is %llx\n", ((u64 *)ctx)[-1]);
+    //pr_info("After set is %llx\n", ((u64 *)ctx)[-1]);
     return 0;
 }
 
