@@ -1646,6 +1646,7 @@ struct bpf_link {
 	enum bpf_link_type type;
 	const struct bpf_link_ops *ops;
 	struct bpf_prog *prog;
+    u64 pw_stack_offset;
 	/* whether BPF link itself has "sleepable" semantics, which can differ
 	 * from underlying BPF program having a "sleepable" semantics, as BPF
 	 * link's semantics is determined by target attach hook

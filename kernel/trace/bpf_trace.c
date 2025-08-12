@@ -1231,11 +1231,15 @@ static const struct bpf_func_proto bpf_get_func_arg_proto = {
 };
 
 /* Getter for shared pairwise state */
-BPF_CALL_2(get_shared, void *, ctx, u64 *, value)
+BPF_CALL_3(get_shared, void *, ctx, void **, value, u64, size)
 {
+    u64 off = *((u64 *)ctx - 2);
+    pr_info("PW stack is %lu\n", off);
+    // Copy memory from stack to pointer?
+    //memcpy(value, (void *)ctx[-1], size);
     // Get the data on the stack?
     // Temporarily store values in the arg cnt location
-	*value = ((u64 *)ctx)[-1];
+	//*value = ((u64 *)ctx)[-1];
     //pr_info("Get value is %llx\n", ((u64 *)ctx)[-1]);
     //*value = 0xffff;
     return 0;
@@ -1247,15 +1251,18 @@ static const struct bpf_func_proto bpf_get_shared_proto = {
     .arg1_type = ARG_PTR_TO_CTX,
 	.arg2_type	= ARG_PTR_TO_FIXED_SIZE_MEM | MEM_UNINIT | MEM_WRITE | MEM_ALIGNED,
 	.arg2_size	= sizeof(u64),
+    .arg3_type = ARG_ANYTHING,
 };
 
 /* Setter for shared pairwise state */
-BPF_CALL_2(set_shared, void *, ctx, u64 *, value)
+BPF_CALL_3(set_shared, void *, ctx, void *, value, u64, size)
 {
+    u64 off = *((u64 *)ctx - 2);
+    pr_info("PW stack is %lu\n", off);
     // Get the data on the stack?
     // Temporarily store values in the arg cnt location
     //pr_info("Before set is %llx\n", ((u64 *)ctx)[-1]);
-    ((u64 *)ctx)[-1] = *value;
+    //((u64 *)ctx)[-1] = *value;
     //pr_info("After set is %llx\n", ((u64 *)ctx)[-1]);
     return 0;
 }
@@ -1266,6 +1273,7 @@ static const struct bpf_func_proto bpf_set_shared_proto = {
     .arg1_type = ARG_PTR_TO_CTX,
 	.arg2_type	= ARG_PTR_TO_FIXED_SIZE_MEM | MEM_UNINIT | MEM_WRITE | MEM_ALIGNED,
 	.arg2_size	= sizeof(u64),
+    .arg3_type = ARG_ANYTHING,
 };
 
 BPF_CALL_2(get_func_ret, void *, ctx, u64 *, value)

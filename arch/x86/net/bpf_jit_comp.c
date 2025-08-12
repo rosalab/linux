@@ -2698,6 +2698,7 @@ static void restore_regs(const struct btf_func_model *m, u8 **prog,
 	}
 }
 
+/* stack size = regs_off -> ctx pointer */
 static int invoke_bpf_prog(const struct btf_func_model *m, u8 **pprog,
 			   struct bpf_tramp_link *l, int stack_size,
 			   int run_ctx_off, bool save_ret,
@@ -2707,7 +2708,16 @@ static int invoke_bpf_prog(const struct btf_func_model *m, u8 **pprog,
 	u8 *jmp_insn;
 	int ctx_cookie_off = offsetof(struct bpf_tramp_run_ctx, bpf_cookie);
 	struct bpf_prog *p = l->link.prog;
+    struct bpf_link link = l->link;
 	u64 cookie = l->cookie;
+
+    /* Store the offset for the pw stack if needed */
+    // offset is stored at 16 off of ctx (nr_regs - 8)
+    // if probe is pairwise
+    if (link.pw_stack_offset != 0) {
+      emit_mov_imm64(&prog, BPF_REG_1, (long) link.pw_stack_offset >> 32, (u32) (long) link.pw_stack_offset);
+      emit_stx(&prog, BPF_DW, BPF_REG_FP, BPF_REG_1, -stack_size - 16);
+    }
 
 	/* mov rdi, cookie */
 	emit_mov_imm64(&prog, BPF_REG_1, (long) cookie >> 32, (u32) (long) cookie);
@@ -2979,8 +2989,8 @@ static int __arch_prepare_bpf_trampoline(struct bpf_tramp_image *im, void *rw_im
 	 *                 [ reg_argN        ]  always
 	 *                 [ ...             ]
 	 * RBP - regs_off  [ reg_arg1        ]  program's ctx pointer
-	 *
 	 * RBP - nregs_off [ regs count	     ]  always
+	 * RBP - pw_off    [ pw_stack        ]  offset to pairwise stack
 	 *
 	 * RBP - ip_off    [ traced function ]  BPF_TRAMP_F_IP_ARG flag
 	 *
@@ -3003,9 +3013,13 @@ static int __arch_prepare_bpf_trampoline(struct bpf_tramp_image *im, void *rw_im
 	stack_size += nr_regs * 8;
 	regs_off = stack_size;
 
+
 	/* regs count  */
 	stack_size += 8;
 	nregs_off = stack_size;
+
+    // Add 8 bytes for pw offset
+    stack_size += 8;
 
 	if (flags & BPF_TRAMP_F_IP_ARG)
 		stack_size += 8; /* room for IP address argument */

@@ -3053,6 +3053,7 @@ void bpf_link_init_sleepable(struct bpf_link *link, enum bpf_link_type type,
 	link->id = 0;
 	link->ops = ops;
 	link->prog = prog;
+    link->pw_stack_offset = 128; // hardcode for now
 }
 
 void bpf_link_init(struct bpf_link *link, enum bpf_link_type type,
