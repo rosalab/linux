@@ -1647,6 +1647,9 @@ struct bpf_link {
 	const struct bpf_link_ops *ops;
 	struct bpf_prog *prog;
     u64 pw_stack_offset;
+    u64 pw_stack_size;
+    bool pw_entry;
+    struct bpf_link * pw_link;
 	/* whether BPF link itself has "sleepable" semantics, which can differ
 	 * from underlying BPF program having a "sleepable" semantics, as BPF
 	 * link's semantics is determined by target attach hook

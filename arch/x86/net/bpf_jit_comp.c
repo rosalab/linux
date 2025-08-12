@@ -3069,6 +3069,15 @@ static int __arch_prepare_bpf_trampoline(struct bpf_tramp_image *im, void *rw_im
 		 */
 		x86_call_depth_emit_accounting(&prog, NULL, image);
 	}
+
+    // Allocate stack space here
+    for (int i = 0; i < fentry->nr_links; i++) {
+       if (fentry->links[i]->link.pw_stack_size != 0) {
+           fentry->links[i]->link.pw_stack_offset = stack_size - regs_off;
+           stack_size += fentry->links[i]->link.pw_stack_size;
+       }
+    }
+
 	EMIT1(0x55);		 /* push rbp */
 	EMIT3(0x48, 0x89, 0xE5); /* mov rbp, rsp */
 	if (!is_imm8(stack_size)) {
