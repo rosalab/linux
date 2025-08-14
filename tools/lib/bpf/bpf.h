@@ -111,7 +111,7 @@ struct bpf_prog_load_opts {
     __u32 pair_fd;
 	size_t :0;
 };
-#define bpf_prog_load_opts__last_field token_fd
+#define bpf_prog_load_opts__last_field pair_fd
 
 LIBBPF_API int bpf_prog_load(enum bpf_prog_type prog_type,
 			     const char *prog_name, const char *license,

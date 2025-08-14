@@ -7526,8 +7526,10 @@ static int bpf_object_load_prog(struct bpf_object *obj, struct bpf_program *prog
     // If we load a program that is an exit then
     // we connect the entry to the exit
     // We always load the entry first
+    printf("about to load pw\n");
     if (obj->pw && prog == obj->exit) {
         load_attr.pair_fd = obj->entry->fd;
+        printf("load attr pair_fd = %d\n", load_attr.pair_fd);
     }
 
 
@@ -7910,14 +7912,17 @@ bpf_object__load_progs(struct bpf_object *obj, int log_level)
 
     if (obj->pw == true && obj->entry && obj->exit) {
         // Load the entry prog
+        
         prog = obj->entry;
 		err = bpf_object_load_prog(obj, prog, prog->insns, prog->insns_cnt,
 					   obj->license, obj->kern_version, &prog->fd);
+        printf("Loaded entry with fd %d\n", prog->fd);
         // Store a fd of the entry
         // Load the exit with the pw flag and lin && obj->entry && obj->exitk them together in the kernel
         prog = obj->exit;
 		err = bpf_object_load_prog(obj, prog, prog->insns, prog->insns_cnt,
 					   obj->license, obj->kern_version, &prog->fd);
+        printf("Loaded exit with fd %d\n", prog->fd);
     }
 
 	for (i = 0; i < obj->nr_programs; i++) {

@@ -212,7 +212,7 @@ struct bpf_object_open_opts {
 
 	size_t :0;
 };
-#define bpf_object_open_opts__last_field bpf_token_path
+#define bpf_object_open_opts__last_field pw
 
 /**
  * @brief **bpf_object__open()** creates a bpf_object by opening
