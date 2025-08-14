@@ -184,6 +184,12 @@ struct bpf_link {
 	bool disconnected;
 };
 
+struct bpf_pw_link {
+    int fd;
+    struct bpf_link *entry;
+    struct bpf_link *exit;
+};
+    
 /*
  * Re-implement glibc's reallocarray() for libbpf internal-only use.
  * reallocarray(), unfortunately, is not available in all versions of glibc,

@@ -702,6 +702,20 @@ struct bpf_token_create_opts {
 LIBBPF_API int bpf_token_create(int bpffs_fd,
 				struct bpf_token_create_opts *opts);
 
+
+struct pw_create {
+    int entry_fd;
+    int exit_fd;
+    enum bpf_attach_type entry_type;
+    enum bpf_attach_type exit_type;
+    struct bpf_link_create_opts *entry_opts;
+    struct bpf_link_create_opts *exit_opts;
+    int entry_pfd;
+    int exit_pfd;
+};
+
+LIBBPF_API int bpf_pw_link_create(struct pw_create *pw);
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif

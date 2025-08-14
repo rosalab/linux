@@ -1494,6 +1494,8 @@ struct bpf_pairwise {
     bool pairwise;
     bool entry;
     struct bpf_prog * pair;
+    // How much stack space this pairwise needs
+    u64 pw_stack_size;
 };
 
 struct bpf_prog_aux {
@@ -1656,7 +1658,7 @@ struct bpf_link {
     u64 pw_stack_offset;
     u64 pw_stack_size;
     bool pw_entry;
-    struct bpf_link * pw_link;
+    struct bpf_pw_link *pw_link;
 	/* whether BPF link itself has "sleepable" semantics, which can differ
 	 * from underlying BPF program having a "sleepable" semantics, as BPF
 	 * link's semantics is determined by target attach hook
@@ -1669,6 +1671,17 @@ struct bpf_link {
 		struct rcu_head rcu;
 		struct work_struct work;
 	};
+};
+
+/* Struct for a single pairwise attachment */
+struct bpf_pw_link {
+    atomic64_t refcnt;
+    struct bpf_prog *entry;
+    struct bpf_prog *exit;
+    struct bpf_link *entry_link;
+    struct bpf_link *exit_link;
+    u64 pw_stack_size;
+    u64 pw_stack_offset;
 };
 
 struct bpf_link_ops {

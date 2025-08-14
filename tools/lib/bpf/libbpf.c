@@ -12679,6 +12679,78 @@ static struct bpf_link *bpf_program__attach_btf_id(const struct bpf_program *pro
 	return link;
 }
 
+
+struct bpf_pw_link *bpf_program__attach_pw(const struct bpf_program *entry, const struct bpf_program *exit)
+{
+	LIBBPF_OPTS(bpf_link_create_opts, entry_link_opts);
+	LIBBPF_OPTS(bpf_link_create_opts, exit_link_opts);
+    int pw_fd;
+	struct bpf_link *entry_link;
+    struct bpf_link *exit_link;
+    struct pw_create pw;
+
+	int entry_prog_fd, exit_prog_fd;
+    struct bpf_pw_link *pw_link = calloc(1, sizeof(struct bpf_pw_link));
+
+    if (entry->type != BPF_PROG_TYPE_TRACING || exit->type != BPF_PROG_TYPE_TRACING) {
+        return NULL;
+    }
+
+
+
+	entry_prog_fd = bpf_program__fd(entry);
+	exit_prog_fd = bpf_program__fd(exit);
+
+	if (entry_prog_fd < 0) {
+		pr_warn("prog '%s': can't attach before loaded\n", entry->name);
+		return libbpf_err_ptr(-EINVAL);
+	}
+
+	if (exit_prog_fd < 0) {
+		pr_warn("prog '%s': can't attach before loaded\n", exit->name);
+		return libbpf_err_ptr(-EINVAL);
+	}
+
+	entry_link = calloc(1, sizeof(*entry_link));
+	if (!entry_link)
+		return libbpf_err_ptr(-ENOMEM);
+	entry_link->detach = &bpf_link__detach_fd;
+
+	exit_link = calloc(1, sizeof(*exit_link));
+	if (!exit_link)
+		return libbpf_err_ptr(-ENOMEM);
+	exit_link->detach = &bpf_link__detach_fd;
+
+	/* libbpf is smart enough to redirect to BPF_RAW_TRACEPOINT_OPEN on old kernels */
+	entry_link_opts.tracing.cookie = 0;
+	exit_link_opts.tracing.cookie = 0;
+
+    // Need to get two pfd out of this function
+	//pfd = bpf_link_create(prog_fd, 0, bpf_program__expected_attach_type(prog), &link_opts);
+
+    pw.entry_fd = entry_prog_fd;
+    pw.exit_fd = exit_prog_fd;
+    pw.entry_type = bpf_program__expected_attach_type(entry);
+    pw.exit_type = bpf_program__expected_attach_type(exit);
+    pw.entry_opts = &entry_link_opts;
+    pw.exit_opts = &exit_link_opts;
+
+    pw_fd = bpf_pw_link_create(&pw);
+    pw_link->fd = pw_fd;
+
+	//entry_link->fd = entry_pfd;
+    //exit_link->fd = exit_pfd;
+
+    pw_link->entry = entry_link;
+    pw_link->exit = exit_link;
+
+    return pw_link;
+}
+
+
+
+
+
 struct bpf_link *bpf_program__attach_trace(const struct bpf_program *prog)
 {
 	return bpf_program__attach_btf_id(prog, NULL);

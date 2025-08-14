@@ -958,6 +958,7 @@ enum bpf_cmd {
 	BPF_LINK_DETACH,
 	BPF_PROG_BIND_MAP,
 	BPF_TOKEN_CREATE,
+    BPF_PW_LINK_CREATE,
 	__MAX_BPF_CMD,
 };
 
@@ -1827,6 +1828,11 @@ union bpf_attr {
 		__u32		flags;
 		__u32		bpffs_fd;
 	} token_create;
+
+    struct { /* struct used by BPF_PW_LINK_CREATE command */
+        __aligned_u64 entry_attr_ptr;
+        __aligned_u64 exit_attr_ptr;
+    } pw_link_create;
 
 } __attribute__((aligned(8)));
 

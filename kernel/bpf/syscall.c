@@ -5435,6 +5435,55 @@ out:
 	return ret;
 }
 
+// TODO: Needs to return a FD for a pw_link struct
+static int pw_link_create(union bpf_attr *attr, bpfptr_t uattr)
+{
+    union bpf_attr entry_attr, exit_attr;
+    bpfptr_t entry_ptr, exit_ptr;
+    int entry_fd, exit_fd;
+    struct bpf_link *link;
+    struct bpf_pw_link *pw_link = kzalloc(sizeof(struct bpf_pw_link), GFP_USER);
+    if (!pw_link) {
+        return -1;
+    }
+
+    // Setup bpfptr_t for the two attrs
+    entry_ptr.user = (void *)attr->pw_link_create.entry_attr_ptr;
+    entry_ptr.is_kernel = false;
+    
+    exit_ptr.user = (void *)attr->pw_link_create.exit_attr_ptr;
+    exit_ptr.is_kernel = false;
+    
+    // Copy the attrs to memory 
+	memset(&entry_attr, 0, sizeof(*attr));
+	if (copy_from_bpfptr(&entry_attr, entry_ptr, sizeof(entry_attr.link_create)) != 0)
+		return -EFAULT;
+
+	memset(&exit_attr, 0, sizeof(*attr));
+	if (copy_from_bpfptr(&exit_attr, exit_ptr, sizeof(exit_attr.link_create)) != 0)
+		return -EFAULT;
+
+    // Call the link_create
+    entry_fd = link_create(&entry_attr, entry_ptr);
+    link = bpf_link_get_from_fd(entry_fd);
+
+    pw_link->entry = link->prog;
+    pw_link->entry_link = link;
+
+    exit_fd = link_create(&exit_attr, exit_ptr);
+    link = bpf_link_get_from_fd(exit_fd);
+
+    pw_link->exit = link->prog;
+    pw_link->exit_link = link;
+
+    pw_link->pw_stack_size = link->prog->aux->pw.pw_stack_size;
+
+    return 0;
+}
+
+
+
+
 static int link_update_map(struct bpf_link *link, union bpf_attr *attr)
 {
 	struct bpf_map *new_map, *old_map = NULL;
@@ -5911,6 +5960,9 @@ static int __sys_bpf(enum bpf_cmd cmd, bpfptr_t uattr, unsigned int size)
 	case BPF_TOKEN_CREATE:
 		err = token_create(&attr);
 		break;
+    case BPF_PW_LINK_CREATE:
+        err = pw_link_create(&attr, uattr);
+        break;
 	default:
 		err = -EINVAL;
 		break;

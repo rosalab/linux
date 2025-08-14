@@ -1925,6 +1925,12 @@ LIBBPF_API int libbpf_register_prog_handler(const char *sec,
  */
 LIBBPF_API int libbpf_unregister_prog_handler(int handler_id);
 
+/**
+ * attach a pw program
+ */
+LIBBPF_API struct bpf_pw_link *bpf_program__attach_pw(const struct bpf_program *entry, 
+                                                      const struct bpf_program *exit);
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif

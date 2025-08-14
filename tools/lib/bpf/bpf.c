@@ -878,6 +878,68 @@ proceed:
 	}
 }
 
+int bpf_pw_link_create(struct pw_create *pw)
+{
+    int entry_fd, exit_fd, pw_fd;
+    enum bpf_attach_type entry_type, exit_type;
+    struct bpf_link_create_opts *entry_opts, *exit_opts;
+    union bpf_attr pw_attr;
+
+    size_t pw_attr_sz, attr_sz;
+	union bpf_attr entry_attr, exit_attr;
+
+    entry_fd = pw->entry_fd;
+    exit_fd = pw->exit_fd;
+    entry_type = pw->entry_type;
+    exit_type = pw->exit_type;
+    entry_opts = pw->entry_opts;
+    exit_opts = pw->exit_opts;
+
+    // Combined attr for pw link
+    pw_attr_sz = offsetofend(union bpf_attr, pw_link_create);
+
+    attr_sz = offsetofend(union bpf_attr, link_create);
+
+	//if (!OPTS_VALID(opts, bpf_link_create_opts))
+	//	return libbpf_err(-EINVAL);
+
+	//iter_info_len = OPTS_GET(opts, iter_info_len, 0);
+	//target_btf_id = OPTS_GET(opts, target_btf_id, 0);
+
+	/* validate we don't have unexpected combinations of non-zero fields */
+
+	memset(&entry_attr, 0, attr_sz);
+	memset(&exit_attr, 0, attr_sz);
+	entry_attr.link_create.prog_fd = entry_fd;
+	exit_attr.link_create.prog_fd = exit_fd;
+
+	entry_attr.link_create.target_fd = 0;
+	exit_attr.link_create.target_fd = 0;
+
+	entry_attr.link_create.attach_type = entry_type;
+	exit_attr.link_create.attach_type = exit_type;
+
+	entry_attr.link_create.flags = OPTS_GET(entry_opts, flags, 0);
+	exit_attr.link_create.flags = OPTS_GET(exit_opts, flags, 0);
+
+	//if (target_btf_id) {
+	//	attr.link_create.target_btf_id = target_btf_id;
+	//	goto proceed;
+	//}
+	entry_attr.link_create.tracing.cookie = OPTS_GET(entry_opts, tracing.cookie, 0);
+	exit_attr.link_create.tracing.cookie = OPTS_GET(exit_opts, tracing.cookie, 0);
+    
+    pw_attr.pw_link_create.entry_attr_ptr = (__aligned_u64) &entry_attr;
+    pw_attr.pw_link_create.exit_attr_ptr = (__aligned_u64) &exit_attr;
+
+    pw_fd = sys_bpf(BPF_PW_LINK_CREATE, &pw_attr, pw_attr_sz); 
+
+	//fd = sys_bpf_fd(BPF_LINK_CREATE, &attr, attr_sz);
+	if (pw_fd >= 0)
+		return pw_fd;
+    return 0;
+}
+
 int bpf_link_detach(int link_fd)
 {
 	const size_t attr_sz = offsetofend(union bpf_attr, link_detach);
