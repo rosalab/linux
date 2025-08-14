@@ -1573,6 +1573,7 @@ union bpf_attr {
 		 * If provided, prog_flags should have BPF_F_TOKEN_FD flag set.
 		 */
 		__s32		prog_token_fd;
+        __u32       pair_fd;
 	};
 
 	struct { /* anonymous struct used by BPF_OBJ_* commands */

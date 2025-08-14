@@ -268,6 +268,8 @@ int bpf_prog_load(enum bpf_prog_type prog_type,
 	attr.prog_ifindex = OPTS_GET(opts, prog_ifindex, 0);
 	attr.kern_version = OPTS_GET(opts, kern_version, 0);
 	attr.prog_token_fd = OPTS_GET(opts, token_fd, 0);
+    // Get the pair fd into the attr
+    attr.pair_fd = OPTS_GET(opts, pair_fd, 0);
 
 	if (prog_name && feat_supported(NULL, FEAT_PROG_NAME))
 		libbpf_strlcpy(attr.prog_name, prog_name, sizeof(attr.prog_name));

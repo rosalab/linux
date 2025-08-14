@@ -465,6 +465,10 @@ struct bpf_program {
 	struct reloc_desc *reloc_desc;
 	int nr_reloc;
 
+    /* pairwise state for the bpf program */
+    enum bpf_pw_state pw_state;
+    struct bpf_program * pair;
+
 	/* BPF verifier log settings */
 	char *log_buf;
 	size_t log_size;
@@ -715,6 +719,11 @@ struct bpf_object {
 	bool btf_modules_loaded;
 	size_t btf_module_cnt;
 	size_t btf_module_cap;
+    
+    /* bpf_object fields for pairwise */
+    bool pw;
+    struct bpf_program *entry;
+    struct bpf_program *exit;
 
 	/* optional log settings passed to BPF_BTF_LOAD and BPF_PROG_LOAD commands */
 	char *log_buf;
@@ -7513,6 +7522,15 @@ static int bpf_object_load_prog(struct bpf_object *obj, struct bpf_program *prog
 	if (obj->token_fd)
 		load_attr.prog_flags |= BPF_F_TOKEN_FD;
 
+    /* Handle pairwise load */
+    // If we load a program that is an exit then
+    // we connect the entry to the exit
+    // We always load the entry first
+    if (obj->pw && prog == obj->exit) {
+        load_attr.pair_fd = obj->entry->fd;
+    }
+
+
 	/* adjust load_attr if sec_def provides custom preload callback */
 	if (prog->sec_def && prog->sec_def->prog_prepare_load_fn) {
 		err = prog->sec_def->prog_prepare_load_fn(prog, &load_attr, prog->sec_def->cookie);
@@ -7890,7 +7908,23 @@ bpf_object__load_progs(struct bpf_object *obj, int log_level)
 			return err;
 	}
 
+    if (obj->pw == true && obj->entry && obj->exit) {
+        // Load the entry prog
+        prog = obj->entry;
+		err = bpf_object_load_prog(obj, prog, prog->insns, prog->insns_cnt,
+					   obj->license, obj->kern_version, &prog->fd);
+        // Store a fd of the entry
+        // Load the exit with the pw flag and lin && obj->entry && obj->exitk them together in the kernel
+        prog = obj->exit;
+		err = bpf_object_load_prog(obj, prog, prog->insns, prog->insns_cnt,
+					   obj->license, obj->kern_version, &prog->fd);
+    }
+
 	for (i = 0; i < obj->nr_programs; i++) {
+        // If pairwise skip loading twice
+        if (obj->pw && (&obj->programs[i] == obj->entry || &obj->programs[i] == obj->exit)) {
+            continue;
+        }
 		prog = &obj->programs[i];
 		if (prog_is_subprog(obj, prog))
 			continue;
@@ -7960,6 +7994,7 @@ static struct bpf_object *bpf_object_open(const char *path, const void *obj_buf,
 	char *log_buf;
 	size_t log_size;
 	__u32 log_level;
+    bool pw;
 
 	if (obj_buf && !obj_name)
 		return ERR_PTR(-EINVAL);
@@ -7999,6 +8034,9 @@ static struct bpf_object *bpf_object_open(const char *path, const void *obj_buf,
 	if (token_path && strlen(token_path) >= PATH_MAX)
 		return ERR_PTR(-ENAMETOOLONG);
 
+    pw = OPTS_GET(opts, pw, false);
+
+
 	obj = bpf_object__new(path, obj_buf, obj_buf_sz, obj_name);
 	if (IS_ERR(obj))
 		return obj;
@@ -8006,6 +8044,7 @@ static struct bpf_object *bpf_object_open(const char *path, const void *obj_buf,
 	obj->log_buf = log_buf;
 	obj->log_size = log_size;
 	obj->log_level = log_level;
+    obj->pw = pw;
 
 	if (token_path) {
 		obj->token_path = strdup(token_path);
@@ -14039,4 +14078,29 @@ void bpf_object__destroy_skeleton(struct bpf_object_skeleton *s)
 	free(s->maps);
 	free(s->progs);
 	free(s);
+}
+
+void bpf_program__set_pw(struct bpf_program *prog, enum bpf_pw_state pw_state)
+{
+    if (!prog)
+        return;
+    
+    // Store the pw state var in the program
+    prog->pw_state = pw_state;
+
+    // Update the object to point to entry and exit
+    if (pw_state == BPF_PW_ENTRY) {
+        prog->obj->entry = prog;
+    }
+    else if (pw_state == BPF_PW_EXIT) {
+        prog->obj->exit = prog;
+    }
+}
+
+enum bpf_pw_state bpf_program__get_pw(struct bpf_program *prog)
+{
+    if (!prog)
+        return BPF_PW_ERR;
+
+    return prog->pw_state;
 }

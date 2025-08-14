@@ -49,6 +49,14 @@ enum libbpf_errno {
 	__LIBBPF_ERRNO__END,
 };
 
+/* Enum for bpf pairwise state */
+enum bpf_pw_state {
+    BPF_PW_NONE,
+    BPF_PW_ENTRY,
+    BPF_PW_EXIT,
+    BPF_PW_ERR,
+};
+
 LIBBPF_API int libbpf_strerror(int err, char *buf, size_t size);
 
 /**
@@ -199,6 +207,8 @@ struct bpf_object_open_opts {
 	 * point (/sys/fs/bpf), in case this default behavior is undesirable.
 	 */
 	const char *bpf_token_path;
+    /* Option for if the object contains a pairwise BPF program */
+    bool pw;
 
 	size_t :0;
 };
@@ -341,6 +351,9 @@ LIBBPF_API bool bpf_program__autoload(const struct bpf_program *prog);
 LIBBPF_API int bpf_program__set_autoload(struct bpf_program *prog, bool autoload);
 LIBBPF_API bool bpf_program__autoattach(const struct bpf_program *prog);
 LIBBPF_API void bpf_program__set_autoattach(struct bpf_program *prog, bool autoattach);
+
+LIBBPF_API void bpf_program__set_pw(struct bpf_program *prog, enum bpf_pw_state pw_state);
+LIBBPF_API enum bpf_pw_state bpf_program__get_pw(struct bpf_program *prog);
 
 struct bpf_insn;
 
@@ -793,6 +806,7 @@ bpf_program__attach_raw_tracepoint_opts(const struct bpf_program *prog,
 struct bpf_trace_opts {
 	/* size of this struct, for forward/backward compatibility */
 	size_t sz;
+    /* pairwise information */
 	/* custom user-provided value fetchable through bpf_get_attach_cookie() */
 	__u64 cookie;
 };

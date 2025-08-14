@@ -1490,6 +1490,12 @@ struct btf_mod_pair {
 
 struct bpf_kfunc_desc_tab;
 
+struct bpf_pairwise {
+    bool pairwise;
+    bool entry;
+    struct bpf_prog * pair;
+};
+
 struct bpf_prog_aux {
 	atomic64_t refcnt;
 	u32 used_map_cnt;
@@ -1542,6 +1548,7 @@ struct bpf_prog_aux {
 	struct bpf_kfunc_desc_tab *kfunc_tab;
 	struct bpf_kfunc_btf_tab *kfunc_btf_tab;
 	u32 size_poke_tab;
+    struct bpf_pairwise pw;
 #ifdef CONFIG_FINEIBT
 	struct bpf_ksym ksym_prefix;
 #endif

@@ -2872,6 +2872,31 @@ static int bpf_prog_load(union bpf_attr *attr, bpfptr_t uattr, u32 uattr_size)
 	prog->aux->dev_bound = !!attr->prog_ifindex;
 	prog->aux->xdp_has_frags = attr->prog_flags & BPF_F_XDP_HAS_FRAGS;
 
+    /* Connect pairwise BPF
+     * Works by loading one prog first, then connecting the other 
+     */
+    if (attr->pair_fd) {
+        struct bpf_prog * pair_prog = bpf_prog_get(attr->pair_fd);
+        if (!pair_prog)
+            goto free_prog;
+
+        if (prog->expected_attach_type == BPF_TRACE_FENTRY) {
+            prog->aux->pw.entry = true;
+            pair_prog->aux->pw.entry = false;
+
+        }
+        else {
+            prog->aux->pw.entry = false;
+            pair_prog->aux->pw.entry = true;
+        }
+
+        prog->aux->pw.pairwise = true;
+        pair_prog->aux->pw.pairwise = true;
+        prog->aux->pw.pair = pair_prog;
+        pair_prog->aux->pw.pair = prog;
+    }
+
+
 	/* move token into prog->aux, reuse taken refcnt */
 	prog->aux->token = token;
 	token = NULL;

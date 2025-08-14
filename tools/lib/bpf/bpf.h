@@ -107,6 +107,8 @@ struct bpf_prog_load_opts {
 	 */
 	__u32 log_true_size;
 	__u32 token_fd;
+    // fd for pw prog to link together
+    __u32 pair_fd;
 	size_t :0;
 };
 #define bpf_prog_load_opts__last_field token_fd
