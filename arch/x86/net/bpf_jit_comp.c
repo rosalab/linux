@@ -2709,13 +2709,14 @@ static int invoke_bpf_prog(const struct btf_func_model *m, u8 **pprog,
 	int ctx_cookie_off = offsetof(struct bpf_tramp_run_ctx, bpf_cookie);
 	struct bpf_prog *p = l->link.prog;
     struct bpf_link link = l->link;
+    struct bpf_pw_link *pw_link = link.pw_link;
 	u64 cookie = l->cookie;
 
     /* Store the offset for the pw stack if needed */
     // offset is stored at 16 off of ctx (nr_regs - 8)
     // if probe is pairwise
-    if (link.pw_stack_offset != 0) {
-      emit_mov_imm64(&prog, BPF_REG_1, (long) link.pw_stack_offset >> 32, (u32) (long) link.pw_stack_offset);
+    if (pw_link) {
+      emit_mov_imm64(&prog, BPF_REG_1, (long) pw_link->pw_stack_offset >> 32, (u32) (long) pw_link->pw_stack_offset);
       emit_stx(&prog, BPF_DW, BPF_REG_FP, BPF_REG_1, -stack_size - 16);
     }
 
@@ -3072,9 +3073,10 @@ static int __arch_prepare_bpf_trampoline(struct bpf_tramp_image *im, void *rw_im
 
     // Allocate stack space here
     for (int i = 0; i < fentry->nr_links; i++) {
-       if (fentry->links[i]->link.pw_stack_size != 0) {
-           fentry->links[i]->link.pw_stack_offset = stack_size - regs_off;
-           stack_size += fentry->links[i]->link.pw_stack_size;
+       if (fentry->links[i]->link.pw_link) {
+       //if (fentry->links[i]->link.pw_link->pw_stack_size != 0) {
+           fentry->links[i]->link.pw_link->pw_stack_offset = stack_size - regs_off;
+           stack_size += fentry->links[i]->link.pw_link->pw_stack_size;
        }
     }
 
@@ -3096,8 +3098,8 @@ static int __arch_prepare_bpf_trampoline(struct bpf_tramp_image *im, void *rw_im
 	 *   mov rax, nr_regs
 	 *   mov QWORD PTR [rbp - nregs_off], rax
 	 */
-	//emit_mov_imm64(&prog, BPF_REG_0, 0, (u32) nr_regs);
-	//emit_stx(&prog, BPF_DW, BPF_REG_FP, BPF_REG_0, -nregs_off);
+	emit_mov_imm64(&prog, BPF_REG_0, 0, (u32) nr_regs);
+	emit_stx(&prog, BPF_DW, BPF_REG_FP, BPF_REG_0, -nregs_off);
 
 	if (flags & BPF_TRAMP_F_IP_ARG) {
 		/* Store IP address of the traced function:

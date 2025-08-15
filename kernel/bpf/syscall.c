@@ -2894,6 +2894,8 @@ static int bpf_prog_load(union bpf_attr *attr, bpfptr_t uattr, u32 uattr_size)
         pair_prog->aux->pw.pairwise = true;
         prog->aux->pw.pair = pair_prog;
         pair_prog->aux->pw.pair = prog;
+
+        bpf_prog_put(pair_prog);
     }
 
 
@@ -3435,7 +3437,8 @@ static const struct bpf_link_ops bpf_tracing_link_lops = {
 static int bpf_tracing_prog_attach(struct bpf_prog *prog,
 				   int tgt_prog_fd,
 				   u32 btf_id,
-				   u64 bpf_cookie)
+				   u64 bpf_cookie,
+                   struct bpf_pw_link *pw_link)
 {
 	struct bpf_link_primer link_primer;
 	struct bpf_prog *tgt_prog = NULL;
@@ -3506,6 +3509,19 @@ static int bpf_tracing_prog_attach(struct bpf_prog *prog,
 		      &bpf_tracing_link_lops, prog);
 	link->attach_type = prog->expected_attach_type;
 	link->link.cookie = bpf_cookie;
+
+    if (pw_link) {
+       if (prog->expected_attach_type == BPF_TRACE_FENTRY) {
+           pw_link->entry_link = &link->link.link;
+       }
+       else if (prog->expected_attach_type == BPF_TRACE_FEXIT) {
+           pw_link->exit_link = &link->link.link;
+       }
+
+       link->link.link.pw_link = pw_link;
+    }
+
+
 
 	mutex_lock(&prog->aux->dst_mutex);
 
@@ -3972,7 +3988,7 @@ static int bpf_raw_tp_link_attach(struct bpf_prog *prog,
 			tp_name = prog->aux->attach_func_name;
 			break;
 		}
-		return bpf_tracing_prog_attach(prog, 0, 0, 0);
+		return bpf_tracing_prog_attach(prog, 0, 0, 0, NULL);
 	case BPF_PROG_TYPE_RAW_TRACEPOINT:
 	case BPF_PROG_TYPE_RAW_TRACEPOINT_WRITABLE:
 		if (strncpy_from_user(buf, user_tp_name, sizeof(buf) - 1) < 0)
@@ -5334,7 +5350,7 @@ err_put:
 }
 
 #define BPF_LINK_CREATE_LAST_FIELD link_create.uprobe_multi.pid
-static int link_create(union bpf_attr *attr, bpfptr_t uattr)
+static int link_create(union bpf_attr *attr, bpfptr_t uattr, struct bpf_pw_link *pw_link)
 {
 	struct bpf_prog *prog;
 	int ret;
@@ -5368,7 +5384,8 @@ static int link_create(union bpf_attr *attr, bpfptr_t uattr)
 		ret = bpf_tracing_prog_attach(prog,
 					      attr->link_create.target_fd,
 					      attr->link_create.target_btf_id,
-					      attr->link_create.tracing.cookie);
+					      attr->link_create.tracing.cookie,
+                          NULL);
 		break;
 	case BPF_PROG_TYPE_LSM:
 	case BPF_PROG_TYPE_TRACING:
@@ -5386,7 +5403,8 @@ static int link_create(union bpf_attr *attr, bpfptr_t uattr)
 			ret = bpf_tracing_prog_attach(prog,
 						      attr->link_create.target_fd,
 						      attr->link_create.target_btf_id,
-						      attr->link_create.tracing.cookie);
+						      attr->link_create.tracing.cookie,
+                              pw_link);
 		break;
 	case BPF_PROG_TYPE_FLOW_DISSECTOR:
 	case BPF_PROG_TYPE_SK_LOOKUP:
@@ -5463,20 +5481,27 @@ static int pw_link_create(union bpf_attr *attr, bpfptr_t uattr)
 	if (copy_from_bpfptr(&exit_attr, exit_ptr, sizeof(exit_attr.link_create)) != 0)
 		return -EFAULT;
 
+    pw_link->pw_stack_size = 128; //link->prog->aux->pw.pw_stack_size;
+
     // Call the link_create
-    entry_fd = link_create(&entry_attr, entry_ptr);
+    entry_fd = link_create(&entry_attr, entry_ptr, pw_link);
     link = bpf_link_get_from_fd(entry_fd);
 
+    link->pw_link = pw_link;
     pw_link->entry = link->prog;
     pw_link->entry_link = link;
 
-    exit_fd = link_create(&exit_attr, exit_ptr);
+    bpf_link_put(link);
+
+    exit_fd = link_create(&exit_attr, exit_ptr, pw_link);
     link = bpf_link_get_from_fd(exit_fd);
 
+    link->pw_link = pw_link;
     pw_link->exit = link->prog;
     pw_link->exit_link = link;
 
-    pw_link->pw_stack_size = link->prog->aux->pw.pw_stack_size;
+    bpf_link_put(link);
+
 
     return 0;
 }
@@ -5933,7 +5958,7 @@ static int __sys_bpf(enum bpf_cmd cmd, bpfptr_t uattr, unsigned int size)
 		err = bpf_map_do_batch(&attr, uattr.user, BPF_MAP_DELETE_BATCH);
 		break;
 	case BPF_LINK_CREATE:
-		err = link_create(&attr, uattr);
+		err = link_create(&attr, uattr, NULL);
 		break;
 	case BPF_LINK_UPDATE:
 		err = link_update(&attr);
