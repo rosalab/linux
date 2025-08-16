@@ -1571,6 +1571,7 @@ union bpf_attr {
 		 */
 		__u32		log_true_size;
         __u32       pair_fd;
+        __u64       pw_stack_size; // stack size used by pw only valid if pair_fd
 		/* BPF token FD to use with BPF_PROG_LOAD operation.
 		 * If provided, prog_flags should have BPF_F_TOKEN_FD flag set.
 		 */

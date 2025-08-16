@@ -57,6 +57,12 @@ enum bpf_pw_state {
     BPF_PW_ERR,
 };
 
+struct bpf_pw_info {
+    enum bpf_pw_state pw_state;
+    struct bpf_program * pair;
+    __u64 pw_stack_size;
+};
+
 LIBBPF_API int libbpf_strerror(int err, char *buf, size_t size);
 
 /**
@@ -352,8 +358,8 @@ LIBBPF_API int bpf_program__set_autoload(struct bpf_program *prog, bool autoload
 LIBBPF_API bool bpf_program__autoattach(const struct bpf_program *prog);
 LIBBPF_API void bpf_program__set_autoattach(struct bpf_program *prog, bool autoattach);
 
-LIBBPF_API void bpf_program__set_pw(struct bpf_program *prog, enum bpf_pw_state pw_state);
-LIBBPF_API enum bpf_pw_state bpf_program__get_pw(struct bpf_program *prog);
+LIBBPF_API void bpf_program__set_pw(struct bpf_program *prog, struct bpf_pw_info *pw_info);
+LIBBPF_API struct bpf_pw_info * bpf_program__get_pw(struct bpf_program *prog);
 
 struct bpf_insn;
 

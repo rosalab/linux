@@ -2895,6 +2895,10 @@ static int bpf_prog_load(union bpf_attr *attr, bpfptr_t uattr, u32 uattr_size)
         prog->aux->pw.pair = pair_prog;
         pair_prog->aux->pw.pair = prog;
 
+        /* Set the stack size needed by pw prog */
+        prog->aux->pw.pw_stack_size = attr->pw_stack_size;
+        pair_prog->aux->pw.pw_stack_size = attr->pw_stack_size;
+
         bpf_prog_put(pair_prog);
     }
 
@@ -5365,6 +5369,11 @@ static int link_create(union bpf_attr *attr, bpfptr_t uattr, struct bpf_pw_link 
 	if (IS_ERR(prog))
 		return PTR_ERR(prog);
 
+    /* Set the stack size when loading */
+    if (pw_link) {
+        pw_link->pw_stack_size = prog->aux->pw.pw_stack_size;
+    }
+
 	ret = bpf_prog_attach_check_attach_type(prog,
 						attr->link_create.attach_type);
 	if (ret)
@@ -5481,7 +5490,10 @@ static int pw_link_create(union bpf_attr *attr, bpfptr_t uattr)
 	if (copy_from_bpfptr(&exit_attr, exit_ptr, sizeof(exit_attr.link_create)) != 0)
 		return -EFAULT;
 
-    pw_link->pw_stack_size = 128; //link->prog->aux->pw.pw_stack_size;
+    /* Stack size gets set in link_create
+     * will re set for entry and exit but should be the same size
+     */
+    //pw_link->pw_stack_size = 128; //link->prog->aux->pw.pw_stack_size;
 
     // Call the link_create
     entry_fd = link_create(&entry_attr, entry_ptr, pw_link);

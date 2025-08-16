@@ -466,8 +466,11 @@ struct bpf_program {
 	int nr_reloc;
 
     /* pairwise state for the bpf program */
-    enum bpf_pw_state pw_state;
-    struct bpf_program * pair;
+    struct bpf_pw_info pw_info;
+    // Containts these fields: 
+    // enum bpf_pw_state pw_state;
+    // struct bpf_program * pair;
+    // __u64 pw_stack_size;
 
 	/* BPF verifier log settings */
 	char *log_buf;
@@ -7527,8 +7530,15 @@ static int bpf_object_load_prog(struct bpf_object *obj, struct bpf_program *prog
     // we connect the entry to the exit
     // We always load the entry first
     printf("about to load pw\n");
+    
+    // Store the stack size
+    if (obj->pw) {
+        load_attr.pw_stack_size = prog->pw_info.pw_stack_size;
+    }
+
     if (obj->pw && prog == obj->exit) {
         load_attr.pair_fd = obj->entry->fd;
+        // TODO: Connect pw_stack_size
         printf("load attr pair_fd = %d\n", load_attr.pair_fd);
     }
 
@@ -14157,27 +14167,28 @@ void bpf_object__destroy_skeleton(struct bpf_object_skeleton *s)
 	free(s);
 }
 
-void bpf_program__set_pw(struct bpf_program *prog, enum bpf_pw_state pw_state)
+void bpf_program__set_pw(struct bpf_program *prog, struct bpf_pw_info *info) 
 {
     if (!prog)
         return;
     
     // Store the pw state var in the program
-    prog->pw_state = pw_state;
+    prog->pw_info.pw_state = info->pw_state;
+    prog->pw_info.pw_stack_size = info->pw_stack_size;
 
     // Update the object to point to entry and exit
-    if (pw_state == BPF_PW_ENTRY) {
+    if (info->pw_state == BPF_PW_ENTRY) {
         prog->obj->entry = prog;
     }
-    else if (pw_state == BPF_PW_EXIT) {
+    else if (info->pw_state == BPF_PW_EXIT) {
         prog->obj->exit = prog;
     }
 }
 
-enum bpf_pw_state bpf_program__get_pw(struct bpf_program *prog)
+struct bpf_pw_info * bpf_program__get_pw(struct bpf_program *prog)
 {
     if (!prog)
-        return BPF_PW_ERR;
+        return NULL;
 
-    return prog->pw_state;
+    return &prog->pw_info;
 }

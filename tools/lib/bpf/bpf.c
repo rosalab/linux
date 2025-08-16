@@ -270,6 +270,8 @@ int bpf_prog_load(enum bpf_prog_type prog_type,
 	attr.prog_token_fd = OPTS_GET(opts, token_fd, 0);
     // Get the pair fd into the attr
     attr.pair_fd = OPTS_GET(opts, pair_fd, 0);
+    // Get the pw stack size into the attr
+    attr.pw_stack_size = OPTS_GET(opts, pw_stack_size, 0);
 
 	if (prog_name && feat_supported(NULL, FEAT_PROG_NAME))
 		libbpf_strlcpy(attr.prog_name, prog_name, sizeof(attr.prog_name));

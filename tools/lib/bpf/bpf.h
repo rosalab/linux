@@ -109,9 +109,11 @@ struct bpf_prog_load_opts {
 	__u32 token_fd;
     // fd for pw prog to link together
     __u32 pair_fd;
+    // stack size for pw prog
+    __u64 pw_stack_size;
 	size_t :0;
 };
-#define bpf_prog_load_opts__last_field pair_fd
+#define bpf_prog_load_opts__last_field pw_stack_size 
 
 LIBBPF_API int bpf_prog_load(enum bpf_prog_type prog_type,
 			     const char *prog_name, const char *license,
