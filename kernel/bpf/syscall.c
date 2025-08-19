@@ -2880,6 +2880,9 @@ static int bpf_prog_load(union bpf_attr *attr, bpfptr_t uattr, u32 uattr_size)
         if (!pair_prog)
             goto free_prog;
 
+        if (IS_ERR(pair_prog))
+            goto free_prog;
+
         if (prog->expected_attach_type == BPF_TRACE_FENTRY) {
             prog->aux->pw.entry = true;
             pair_prog->aux->pw.entry = false;
@@ -2900,6 +2903,11 @@ static int bpf_prog_load(union bpf_attr *attr, bpfptr_t uattr, u32 uattr_size)
         pair_prog->aux->pw.pw_stack_size = attr->pw_stack_size;
 
         bpf_prog_put(pair_prog);
+    }
+    else if (attr->pw_stack_size != 0) {
+        // If stack size isn't 0 then we have a pw progr, but can't link yet
+        prog->aux->pw.pw_stack_size = attr->pw_stack_size;
+        prog->aux->pw.pairwise = true;
     }
 
 

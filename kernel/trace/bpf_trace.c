@@ -1231,10 +1231,13 @@ static const struct bpf_func_proto bpf_get_func_arg_proto = {
 };
 
 /* Getter for shared pairwise state */
-BPF_CALL_3(get_shared, void *, ctx, void **, value, u64, size)
+BPF_CALL_1(get_shared, void *, ctx)
 {
     u64 off = *((u64 *)ctx - 2);
-    pr_info("PW stack is %lu\n", off);
+    //pr_info("PW stack is %llu\n", off);
+    //*value = ctx + off;
+    return (u64)(ctx + off);
+    //return 0;
     // Copy memory from stack to pointer?
     //memcpy(value, (void *)ctx[-1], size);
     // Get the data on the stack?
@@ -1242,23 +1245,24 @@ BPF_CALL_3(get_shared, void *, ctx, void **, value, u64, size)
 	//*value = ((u64 *)ctx)[-1];
     //pr_info("Get value is %llx\n", ((u64 *)ctx)[-1]);
     //*value = 0xffff;
-    return 0;
+    //return 0;
 }
 
 static const struct bpf_func_proto bpf_get_shared_proto = {
     .func = get_shared,
-    .ret_type = RET_INTEGER,
+    .ret_type = RET_PTR_TO_MEM | MEM_WRITE | PTR_TRUSTED,
+    //.ret_type = RET_PTR_TO_MAP_VALUE_OR_NULL,
     .arg1_type = ARG_PTR_TO_CTX,
-	.arg2_type	= ARG_PTR_TO_FIXED_SIZE_MEM | MEM_UNINIT | MEM_WRITE | MEM_ALIGNED,
-	.arg2_size	= sizeof(u64),
-    .arg3_type = ARG_ANYTHING,
+	//.arg2_type	= ARG_PTR_TO_FIXED_SIZE_MEM | MEM_UNINIT | MEM_WRITE | MEM_ALIGNED,
+	//.arg2_size	= sizeof(u64),
+    //.arg3_type = ARG_ANYTHING,
 };
 
 /* Setter for shared pairwise state */
 BPF_CALL_3(set_shared, void *, ctx, void *, value, u64, size)
 {
     u64 off = *((u64 *)ctx - 2);
-    pr_info("PW stack is %lu\n", off);
+    pr_info("PW stack is %llu\n", off);
     // Get the data on the stack?
     // Temporarily store values in the arg cnt location
     //pr_info("Before set is %llx\n", ((u64 *)ctx)[-1]);

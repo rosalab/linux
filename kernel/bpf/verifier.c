@@ -11008,6 +11008,11 @@ static int check_helper_call(struct bpf_verifier_env *env, struct bpf_insn *insn
 		mark_reg_known_zero(env, regs, BPF_REG_0);
 		regs[BPF_REG_0].type = PTR_TO_MEM | ret_flag;
 		regs[BPF_REG_0].mem_size = meta.mem_size;
+        if (func_id == BPF_FUNC_get_shared) {
+            // Set the memory region to the needed stack space for this prog
+            regs[BPF_REG_0].mem_size = env->prog->aux->pw.pw_stack_size;
+            //pr_info("Get Shared call for size %u\n", regs[BPF_REG_0].mem_size);
+        } 
 		break;
 	case RET_PTR_TO_MEM_OR_BTF_ID:
 	{

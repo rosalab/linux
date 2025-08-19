@@ -5804,13 +5804,13 @@ union bpf_attr {
  *
  *		**-ENOENT** if the bpf_local_storage cannot be found.
  *
- * int bpf_get_shared(void *ctx, u64 *value, u64 size)
+ * void *bpf_get_shared(void *ctx)
  *	Description
  *		Helper to get shared state.
  *	Return
  *		0 on success.
  *		
- * int bpf_set_shared(void *ctx, u64 *value, u64 size)
+ * void *bpf_set_shared(void *ctx, u64 *value, u64 size)
  *	Description
  *		Helper to set shared state.
  *	Return
