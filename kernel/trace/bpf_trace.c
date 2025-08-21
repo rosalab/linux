@@ -1236,7 +1236,7 @@ BPF_CALL_1(get_shared, void *, ctx)
     u64 off = *((u64 *)ctx - 2);
     //pr_info("PW stack is %llu\n", off);
     //*value = ctx + off;
-    return (u64)(ctx + off);
+    return (u64)(ctx - off);
     //return 0;
     // Copy memory from stack to pointer?
     //memcpy(value, (void *)ctx[-1], size);

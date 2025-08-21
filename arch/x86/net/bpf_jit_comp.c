@@ -3075,8 +3075,9 @@ static int __arch_prepare_bpf_trampoline(struct bpf_tramp_image *im, void *rw_im
     for (int i = 0; i < fentry->nr_links; i++) {
        if (fentry->links[i]->link.pw_link) {
        //if (fentry->links[i]->link.pw_link->pw_stack_size != 0) {
-           fentry->links[i]->link.pw_link->pw_stack_offset = stack_size - regs_off;
            stack_size += fentry->links[i]->link.pw_link->pw_stack_size;
+           fentry->links[i]->link.pw_link->pw_stack_offset = stack_size - regs_off;
+           //pr_info("Stack size is %llu\n Offset is %d\n", stack_size, stack_size - regs_off);
        }
     }
 
