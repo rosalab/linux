@@ -55,6 +55,7 @@
 #include <linux/pgtable.h>
 #include <linux/buildid.h>
 #include <linux/task_work.h>
+#include <linux/kprobes.h>
 
 #include "internal.h"
 
@@ -6063,7 +6064,7 @@ static long _perf_ioctl(struct perf_event *event, unsigned int cmd, unsigned lon
 		if (IS_ERR(prog))
 			return PTR_ERR(prog);
 
-		err = perf_event_set_bpf_prog(event, prog, 0);
+		err = perf_event_set_bpf_prog(event, prog, 0, NULL);
 		if (err) {
 			bpf_prog_put(prog);
 			return err;
@@ -10746,10 +10747,13 @@ static inline bool perf_event_is_tracing(struct perf_event *event)
 	return false;
 }
 
+extern struct tracepoint __tracepoint_sys_enter;
+extern struct tracepoint __tracepoint_sys_exit;
 int perf_event_set_bpf_prog(struct perf_event *event, struct bpf_prog *prog,
-			    u64 bpf_cookie)
+			    u64 bpf_cookie, union bpf_attr *attr)
 {
 	bool is_kprobe, is_uprobe, is_tracepoint, is_syscall_tp;
+    u64 link_color = 1;
 
 	if (!perf_event_is_tracing(event))
 		return perf_event_set_bpf_handler(event, prog, bpf_cookie);
@@ -10782,6 +10786,33 @@ int perf_event_set_bpf_prog(struct perf_event *event, struct bpf_prog *prog,
 			return -EACCES;
 	}
 
+    if (attr != NULL) {
+        link_color = attr->link_create.color;
+    }
+
+    prog->bpf_prog_color = link_color | 0x1;
+
+    if (is_tracepoint || is_syscall_tp) {
+        struct tracepoint * tp_struct;
+        if (is_tracepoint) {
+            tp_struct = event->tp_event->tp;
+        }
+        else if (is_syscall_tp) {
+            if (event->tp_event->class == &event_class_syscall_enter) {
+                tp_struct = &__tracepoint_sys_enter;
+            }
+            else {
+                tp_struct = &__tracepoint_sys_exit;
+            }
+        }
+
+        tp_struct->tracepoint_color = tp_struct->tracepoint_color | prog->bpf_prog_color;
+    }
+    else if (is_kprobe) {
+        struct kprobe *kp = event->tp_event->kp;
+        kp->kprobe_color = kp->kprobe_color | prog->bpf_prog_color;
+    }
+
 	return perf_event_attach_bpf_prog(event, prog, bpf_cookie);
 }
 
@@ -10805,7 +10836,7 @@ static void perf_event_free_filter(struct perf_event *event)
 }
 
 int perf_event_set_bpf_prog(struct perf_event *event, struct bpf_prog *prog,
-			    u64 bpf_cookie)
+			    u64 bpf_cookie, union bpf_attr *attr)
 {
 	return -ENOENT;
 }

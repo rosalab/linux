@@ -68,6 +68,11 @@
 struct bpf_mem_alloc bpf_global_ma;
 bool bpf_global_ma_set;
 
+u64 __hook_ftrace_test(void)
+{
+    return ktime_get_ns();
+}
+
 /* No hurry in this branch
  *
  * Exported for the bpf jit load helper.

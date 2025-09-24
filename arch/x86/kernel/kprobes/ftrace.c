@@ -30,6 +30,11 @@ void kprobe_ftrace_handler(unsigned long ip, unsigned long parent_ip,
 		return;
 
 	p = get_kprobe((kprobe_opcode_t *)ip);
+    if (p) {
+        if (!(current->process_color & p->kprobe_color)) {
+            goto out;
+        }
+    }
 	if (unlikely(!p) || kprobe_disabled(p))
 		goto out;
 

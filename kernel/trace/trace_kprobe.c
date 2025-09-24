@@ -1938,6 +1938,7 @@ create_local_trace_kprobe(char *func, void *addr, unsigned long offs,
 	if (ret < 0)
 		goto error;
 
+    tk->tp.event->call.kp = &tk->rp.kp;
 	return trace_probe_event_call(&tk->tp);
 error:
 	free_trace_kprobe(tk);

@@ -1724,6 +1724,7 @@ union bpf_attr {
 		};
 		__u32		attach_type;	/* attach type */
 		__u32		flags;		/* extra flags */
+        __u64 color;
 		union {
 			__u32	target_btf_id;	/* btf_id of target to attach to */
 			struct {
@@ -7544,4 +7545,10 @@ enum bpf_kfunc_flags {
 	BPF_F_PAD_ZEROS = (1ULL << 0),
 };
 
+struct hook_test_attr {
+    __u64 tracepoint_time;
+    __u64 ftrace_kprobe_time;
+    __u64 unopt_kprobe_time;
+    __u64 opt_kprobe_time;
+};
 #endif /* _UAPI__LINUX_BPF_H__ */

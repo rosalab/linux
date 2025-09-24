@@ -19,6 +19,7 @@
 
 #include "libbpf_common.h"
 #include "libbpf_legacy.h"
+#include "bpf.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -505,6 +506,7 @@ struct bpf_perf_event_opts {
 	__u64 bpf_cookie;
 	/* don't use BPF link when attach BPF program */
 	bool force_ioctl_attach;
+    __u64 color;
 	size_t :0;
 };
 #define bpf_perf_event_opts__last_field force_ioctl_attach
@@ -1937,6 +1939,7 @@ LIBBPF_API int libbpf_unregister_prog_handler(int handler_id);
 LIBBPF_API struct bpf_pw_link *bpf_program__attach_pw(const struct bpf_program *entry, 
                                                       const struct bpf_program *exit);
 
+LIBBPF_API int bpf_program__set_color(struct bpf_program *prog, __u64 color);
 #ifdef __cplusplus
 } /* extern "C" */
 #endif

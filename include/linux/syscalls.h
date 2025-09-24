@@ -78,6 +78,7 @@ struct cachestat;
 struct statmount;
 struct mnt_id_req;
 struct xattr_args;
+struct hook_test_attr;
 
 #include <linux/types.h>
 #include <linux/aio_abi.h>
@@ -984,6 +985,10 @@ asmlinkage long sys_lsm_get_self_attr(unsigned int attr, struct lsm_ctx __user *
 asmlinkage long sys_lsm_set_self_attr(unsigned int attr, struct lsm_ctx __user *ctx,
 				      u32 size, u32 flags);
 asmlinkage long sys_lsm_list_modules(u64 __user *ids, u32 __user *size, u32 flags);
+
+asmlinkage long sys_process_set_color(int pid, u64 color);
+asmlinkage long sys_process_get_color(int pid, u64 __user *ptr);
+asmlinkage long sys_hook_test(const struct hook_test_attr __user *attr);
 
 /*
  * Architecture-specific system calls

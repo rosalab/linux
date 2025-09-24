@@ -278,10 +278,13 @@ static inline struct tracepoint *tracepoint_ptr_deref(tracepoint_ptr_t *p)
 	static inline void trace_##name(proto)				\
 	{								\
 		if (static_branch_unlikely(&__tracepoint_##name.key)) { \
-			if (cond) {					\
-				guard(preempt_notrace)();		\
-				__DO_TRACE_CALL(name, TP_ARGS(args));	\
-			}						\
+            u64 color = current->process_color; \
+            if (color & __tracepoint_##name.tracepoint_color) { \
+			    if (cond) {					\
+				    guard(preempt_notrace)();		\
+				    __DO_TRACE_CALL(name, TP_ARGS(args));	\
+			    }						\
+            }                       \
 		}							\
 		if (IS_ENABLED(CONFIG_LOCKDEP) && (cond)) {		\
 			WARN_ONCE(!rcu_is_watching(),			\

@@ -488,6 +488,8 @@ struct bpf_program {
 	enum bpf_attach_type expected_attach_type;
 	int exception_cb_idx;
 
+    __u64 color;
+
 	int prog_ifindex;
 	__u32 attach_btf_obj_fd;
 	__u32 attach_btf_id;
@@ -10884,6 +10886,9 @@ struct bpf_link *bpf_program__attach_perf_event_opts(const struct bpf_program *p
 		DECLARE_LIBBPF_OPTS(bpf_link_create_opts, link_opts,
 			.perf_event.bpf_cookie = OPTS_GET(opts, bpf_cookie, 0));
 
+        __u64 color = prog->color;
+        link_opts.color = color;
+
 		link_fd = bpf_link_create(prog_fd, pfd, BPF_PERF_EVENT, &link_opts);
 		if (link_fd < 0) {
 			err = -errno;
@@ -14191,4 +14196,10 @@ struct bpf_pw_info * bpf_program__get_pw(struct bpf_program *prog)
         return NULL;
 
     return &prog->pw_info;
+}
+
+LIBBPF_API int bpf_program__set_color(struct bpf_program *prog, __u64 color)
+{
+    prog->color = color;
+    return 0;
 }

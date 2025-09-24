@@ -850,8 +850,16 @@ __SYSCALL(__NR_listxattrat, sys_listxattrat)
 #define __NR_removexattrat 466
 __SYSCALL(__NR_removexattrat, sys_removexattrat)
 
+#define __NR_process_set_color 467
+__SYSCALL(__NR_process_set_color, sys_process_set_color)
+#define __NR_process_get_color 468
+__SYSCALL(__NR_process_get_color, sys_process_get_color)
+#define __NR_hook_test 469
+__SYSCALL(__NR_hook_test, sys_hook_test)
+
+
 #undef __NR_syscalls
-#define __NR_syscalls 467
+#define __NR_syscalls 470
 
 /*
  * 32 bit systems traditionally used different

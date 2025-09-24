@@ -1025,6 +1025,8 @@ struct task_struct {
 	pid_t				pid;
 	pid_t				tgid;
 
+    u64                 process_color;
+
 #ifdef CONFIG_STACKPROTECTOR
 	/* Canary value for the -fstack-protector GCC feature: */
 	unsigned long			stack_canary;

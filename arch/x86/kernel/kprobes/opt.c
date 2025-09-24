@@ -181,6 +181,12 @@ optimized_callback(struct optimized_kprobe *op, struct pt_regs *regs)
 		return;
 
 	preempt_disable();
+    if (op) {
+        if (!(current->process_color & op->kp.kprobe_color)) {
+            preempt_enable();
+            return;
+        }
+    }
 	if (kprobe_running()) {
 		kprobes_inc_nmissed_count(&op->kp);
 	} else {
@@ -430,6 +436,8 @@ int arch_prepare_optimized_kprobe(struct optimized_kprobe *op,
 	len = TMPL_END_IDX + op->optinsn.size;
 
 	synthesize_clac(buf + TMPL_CLAC_IDX);
+
+    op->kp.kprobe_color = __unused->kprobe_color;
 
 	/* Set probe information */
 	synthesize_set_arg1(buf + TMPL_MOVE_IDX, (unsigned long)op);
