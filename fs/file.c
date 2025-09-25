@@ -657,6 +657,7 @@ struct file *file_close_fd_locked(struct files_struct *files, unsigned fd)
 	}
 	return file;
 }
+EXPORT_SYMBOL(file_close_fd_locked);
 
 int close_fd(unsigned fd)
 {
