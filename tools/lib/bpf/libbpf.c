@@ -12746,6 +12746,9 @@ struct bpf_pw_link *bpf_program__attach_pw(const struct bpf_program *entry, cons
 
     // Need to get two pfd out of this function
 	//pfd = bpf_link_create(prog_fd, 0, bpf_program__expected_attach_type(prog), &link_opts);
+    //
+    entry_link_opts.color = entry->color;
+    exit_link_opts.color = exit->color;
 
     pw.entry_fd = entry_prog_fd;
     pw.exit_fd = exit_prog_fd;

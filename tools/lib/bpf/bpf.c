@@ -937,6 +937,9 @@ int bpf_pw_link_create(struct pw_create *pw)
     pw_attr.pw_link_create.entry_attr_ptr = (__aligned_u64) &entry_attr;
     pw_attr.pw_link_create.exit_attr_ptr = (__aligned_u64) &exit_attr;
 
+    entry_attr.link_create.color = pw->entry_opts->color;
+    exit_attr.link_create.color = pw->exit_opts->color;
+
     pw_fd = sys_bpf(BPF_PW_LINK_CREATE, &pw_attr, pw_attr_sz); 
 
 	//fd = sys_bpf_fd(BPF_LINK_CREATE, &attr, attr_sz);

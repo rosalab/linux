@@ -2702,7 +2702,7 @@ static void restore_regs(const struct btf_func_model *m, u8 **prog,
 // returns 0 if we should skip
 static int color_check(struct bpf_prog *p)
 {
-    //pr_info("Testing color check call: current %lx prog: %lx  es is %lx\n", current->process_color, p->bpf_prog_color, current->process_color & p->bpf_prog_color);
+    pr_info("Testing color check call: current %lx prog: %lx  es is %lx\n", current->process_color, p->bpf_prog_color, current->process_color & p->bpf_prog_color);
     return (current->process_color & p->bpf_prog_color);
 }
 
