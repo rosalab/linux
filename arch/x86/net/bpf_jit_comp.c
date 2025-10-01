@@ -2698,6 +2698,14 @@ static void restore_regs(const struct btf_func_model *m, u8 **prog,
 	}
 }
 
+// Function to compare the color
+// returns 0 if we should skip
+static int color_check(struct bpf_prog *p)
+{
+    //pr_info("Testing color check call: current %lx prog: %lx  es is %lx\n", current->process_color, p->bpf_prog_color, current->process_color & p->bpf_prog_color);
+    return (current->process_color & p->bpf_prog_color);
+}
+
 /* stack size = regs_off -> ctx pointer */
 static int invoke_bpf_prog(const struct btf_func_model *m, u8 **pprog,
 			   struct bpf_tramp_link *l, int stack_size,
@@ -2706,11 +2714,24 @@ static int invoke_bpf_prog(const struct btf_func_model *m, u8 **pprog,
 {
 	u8 *prog = *pprog;
 	u8 *jmp_insn;
+    u8 *color_insn;
 	int ctx_cookie_off = offsetof(struct bpf_tramp_run_ctx, bpf_cookie);
 	struct bpf_prog *p = l->link.prog;
     struct bpf_link link = l->link;
     struct bpf_pw_link *pw_link = link.pw_link;
 	u64 cookie = l->cookie;
+
+    // If the program should not be run then we need to bail out
+    // 1. Check if the program should be run
+    // Prep registers for color check call
+    emit_mov_imm64(&prog, BPF_REG_1, (long) p >> 32, (u32) (long) p);
+    if (emit_rsb_call(&prog, color_check, image + (prog - (u8 *)rw_image))) {
+        return -EINVAL;
+    }
+	EMIT3(0x48, 0x85, 0xC0);  /* test rax,rax */
+    // Store where we have the needed jmp to skip exec
+    color_insn = prog;
+    emit_nops(&prog, 2); 
 
     /* Store the offset for the pw stack if needed */
     // offset is stored at 16 off of ctx (nr_regs - 8)
@@ -2794,6 +2815,8 @@ static int invoke_bpf_prog(const struct btf_func_model *m, u8 **pprog,
 	if (emit_rsb_call(&prog, bpf_trampoline_exit(p), image + (prog - (u8 *)rw_image)))
 		return -EINVAL;
 
+    color_insn[0] = X86_JE;
+    color_insn[1] = prog - color_insn - 2;
 	*pprog = prog;
 	return 0;
 }

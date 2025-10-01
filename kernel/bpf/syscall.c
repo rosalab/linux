@@ -5412,6 +5412,7 @@ static int link_create(union bpf_attr *attr, bpfptr_t uattr, struct bpf_pw_link 
 		break;
 	case BPF_PROG_TYPE_LSM:
 	case BPF_PROG_TYPE_TRACING:
+        prog->bpf_prog_color = attr->link_create.color; // set prog color here for tracing
 		if (attr->link_create.attach_type != prog->expected_attach_type) {
 			ret = -EINVAL;
 			goto out;

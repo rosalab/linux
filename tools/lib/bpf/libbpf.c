@@ -7523,6 +7523,7 @@ static int bpf_object_load_prog(struct bpf_object *obj, struct bpf_program *prog
 	load_attr.prog_flags = prog->prog_flags;
 	load_attr.fd_array = obj->fd_array;
 
+
 	load_attr.token_fd = obj->token_fd;
 	if (obj->token_fd)
 		load_attr.prog_flags |= BPF_F_TOKEN_FD;
@@ -7982,6 +7983,7 @@ static int bpf_object_init_progs(struct bpf_object *obj, const struct bpf_object
 			continue;
 		}
 
+        prog->color = 0x1; // Default prog color;
 		prog->type = prog->sec_def->prog_type;
 		prog->expected_attach_type = prog->sec_def->expected_attach_type;
 
@@ -12679,6 +12681,8 @@ static struct bpf_link *bpf_program__attach_btf_id(const struct bpf_program *pro
 	if (!link)
 		return libbpf_err_ptr(-ENOMEM);
 	link->detach = &bpf_link__detach_fd;
+
+    link_opts.color = prog->color; // Set color for all attach btf id
 
 	/* libbpf is smart enough to redirect to BPF_RAW_TRACEPOINT_OPEN on old kernels */
 	link_opts.tracing.cookie = OPTS_GET(opts, cookie, 0);
