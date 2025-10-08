@@ -3634,6 +3634,9 @@ static int bpf_tracing_prog_attach(struct bpf_prog *prog,
 	link->tgt_prog = tgt_prog;
 	link->trampoline = tr;
 
+    // Update trampoline color
+    tr->trampoline_color |= prog->bpf_prog_color;
+
 	/* Always clear the trampoline and target prog from prog->aux to make
 	 * sure the original attach destination is not kept alive after a
 	 * program is (re-)attached to another target.

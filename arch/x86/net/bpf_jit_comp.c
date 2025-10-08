@@ -3098,7 +3098,7 @@ static int __arch_prepare_bpf_trampoline(struct bpf_tramp_image *im, void *rw_im
         // 3. AND betwee n BPF_REG_0 and BPF_REG_1
         EMIT3(0x4c, 0x85, 0xD0); /* test rax, r10 */
         // 4. if zero then return
-        EMIT2(0x0F, 0x84); // jz
+        EMIT2(0x0F, 0x85); // jnz if there are bits shared then execute trampoline
         EMIT4(0x01, 0x00, 0x00, 0x00); // if zero then skip next instruction
         EMIT1(0xC3); // return from trampoline
      }
