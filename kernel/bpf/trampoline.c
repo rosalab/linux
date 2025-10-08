@@ -163,6 +163,7 @@ static struct bpf_trampoline *bpf_trampoline_lookup(u64 key)
 	tr->fops->ops_func = bpf_tramp_ftrace_ops_func;
 #endif
 
+    tr->trampoline_color = 0x1; // Default trampoline color
 	tr->key = key;
 	INIT_HLIST_NODE(&tr->hlist);
 	hlist_add_head(&tr->hlist, head);
@@ -438,7 +439,7 @@ again:
 #endif
 
 	size = arch_bpf_trampoline_size(&tr->func.model, tr->flags,
-					tlinks, tr->func.addr);
+					tlinks, tr->func.addr, tr);
 	if (size < 0) {
 		err = size;
 		goto out;
@@ -457,7 +458,7 @@ again:
 
 	err = arch_prepare_bpf_trampoline(im, im->image, im->image + size,
 					  &tr->func.model, tr->flags, tlinks,
-					  tr->func.addr);
+					  tr->func.addr, tr);
 	if (err < 0)
 		goto out_free;
 
@@ -1089,7 +1090,7 @@ int __weak
 arch_prepare_bpf_trampoline(struct bpf_tramp_image *im, void *image, void *image_end,
 			    const struct btf_func_model *m, u32 flags,
 			    struct bpf_tramp_links *tlinks,
-			    void *func_addr)
+			    void *func_addr, struct bpf_trampoline * tr)
 {
 	return -ENOTSUPP;
 }
@@ -1122,7 +1123,7 @@ int __weak arch_protect_bpf_trampoline(void *image, unsigned int size)
 }
 
 int __weak arch_bpf_trampoline_size(const struct btf_func_model *m, u32 flags,
-				    struct bpf_tramp_links *tlinks, void *func_addr)
+				    struct bpf_tramp_links *tlinks, void *func_addr, struct bpf_trampoline * tr)
 {
 	return -ENOTSUPP;
 }

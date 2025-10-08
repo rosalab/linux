@@ -2702,7 +2702,7 @@ static void restore_regs(const struct btf_func_model *m, u8 **prog,
 // returns 0 if we should skip
 static int color_check(struct bpf_prog *p)
 {
-    pr_info("Testing color check call: current %lx prog: %lx  es is %lx\n", current->process_color, p->bpf_prog_color, current->process_color & p->bpf_prog_color);
+    //pr_info("Testing color check call: current %lx prog: %lx  es is %lx\n", current->process_color, p->bpf_prog_color, current->process_color & p->bpf_prog_color);
     return (current->process_color & p->bpf_prog_color);
 }
 
@@ -2906,6 +2906,11 @@ static int invoke_bpf_mod_ret(const struct btf_func_model *m, u8 **pprog,
 #define LOAD_TRAMP_TAIL_CALL_CNT_PTR(stack)	\
 	__LOAD_TCC_PTR(-round_up(stack, 8) - 8)
 
+static u64 get_current_color(void)
+{
+    return current->process_color;
+}
+
 /* Example:
  * __be16 eth_type_trans(struct sk_buff *skb, struct net_device *dev);
  * its 'struct btf_func_model' will be nr_args=2
@@ -2970,7 +2975,7 @@ static int __arch_prepare_bpf_trampoline(struct bpf_tramp_image *im, void *rw_im
 					 void *rw_image_end, void *image,
 					 const struct btf_func_model *m, u32 flags,
 					 struct bpf_tramp_links *tlinks,
-					 void *func_addr)
+					 void *func_addr, struct bpf_trampoline *tr)
 {
 	int i, ret, nr_regs = m->nr_args, stack_size = 0;
 	int regs_off, nregs_off, ip_off, run_ctx_off, arg_stack_off, rbx_off;
@@ -2981,6 +2986,7 @@ static int __arch_prepare_bpf_trampoline(struct bpf_tramp_image *im, void *rw_im
 	u8 **branches = NULL;
 	u8 *prog;
 	bool save_ret;
+    
 
 	/*
 	 * F_INDIRECT is only compatible with F_RET_FENTRY_RET, it is
@@ -3080,6 +3086,22 @@ static int __arch_prepare_bpf_trampoline(struct bpf_tramp_image *im, void *rw_im
 	}
 
 	prog = rw_image;
+
+    // If trampoline not null 
+    if (tr) { 
+        // 1. Get the current color in RAX
+        if (emit_rsb_call(&prog, get_current_color, image + (prog - (u8 *)rw_image))) {
+            return -EINVAL;
+        }
+        // 2. Load trampoline color in R10 temp (hacky?)
+        emit_mov_imm64(&prog, BPF_REG_AX, (long) tr->trampoline_color >> 32, (u32) (long) tr->trampoline_color);
+        // 3. AND betwee n BPF_REG_0 and BPF_REG_1
+        EMIT3(0x4c, 0x85, 0xD0); /* test rax, r10 */
+        // 4. if zero then return
+        EMIT2(0x0F, 0x84); // jz
+        EMIT4(0x01, 0x00, 0x00, 0x00); // if zero then skip next instruction
+        EMIT1(0xC3); // return from trampoline
+     }
 
 	if (flags & BPF_TRAMP_F_INDIRECT) {
 		/*
@@ -3279,7 +3301,7 @@ int arch_protect_bpf_trampoline(void *image, unsigned int size)
 int arch_prepare_bpf_trampoline(struct bpf_tramp_image *im, void *image, void *image_end,
 				const struct btf_func_model *m, u32 flags,
 				struct bpf_tramp_links *tlinks,
-				void *func_addr)
+				void *func_addr, struct bpf_trampoline * tr)
 {
 	void *rw_image, *tmp;
 	int ret;
@@ -3293,7 +3315,7 @@ int arch_prepare_bpf_trampoline(struct bpf_tramp_image *im, void *image, void *i
 		return -ENOMEM;
 
 	ret = __arch_prepare_bpf_trampoline(im, rw_image, rw_image + size, image, m,
-					    flags, tlinks, func_addr);
+					    flags, tlinks, func_addr, tr);
 	if (ret < 0)
 		goto out;
 
@@ -3306,7 +3328,7 @@ out:
 }
 
 int arch_bpf_trampoline_size(const struct btf_func_model *m, u32 flags,
-			     struct bpf_tramp_links *tlinks, void *func_addr)
+			     struct bpf_tramp_links *tlinks, void *func_addr, struct bpf_trampoline * tr)
 {
 	struct bpf_tramp_image im;
 	void *image;
@@ -3324,7 +3346,7 @@ int arch_bpf_trampoline_size(const struct btf_func_model *m, u32 flags,
 		return -ENOMEM;
 
 	ret = __arch_prepare_bpf_trampoline(&im, image, image + PAGE_SIZE, image,
-					    m, flags, tlinks, func_addr);
+					    m, flags, tlinks, func_addr, tr);
 	bpf_jit_free_exec(image);
 	return ret;
 }

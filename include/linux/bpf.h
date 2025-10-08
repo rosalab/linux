@@ -1167,15 +1167,16 @@ struct bpf_tramp_run_ctx;
  *      fexit = a set of program to run after original function
  */
 struct bpf_tramp_image;
+struct bpf_trampoline;
 int arch_prepare_bpf_trampoline(struct bpf_tramp_image *im, void *image, void *image_end,
 				const struct btf_func_model *m, u32 flags,
 				struct bpf_tramp_links *tlinks,
-				void *func_addr);
+				void *func_addr, struct bpf_trampoline * tr);
 void *arch_alloc_bpf_trampoline(unsigned int size);
 void arch_free_bpf_trampoline(void *image, unsigned int size);
 int __must_check arch_protect_bpf_trampoline(void *image, unsigned int size);
 int arch_bpf_trampoline_size(const struct btf_func_model *m, u32 flags,
-			     struct bpf_tramp_links *tlinks, void *func_addr);
+			     struct bpf_tramp_links *tlinks, void *func_addr, struct bpf_trampoline * tr);
 
 u64 notrace __bpf_prog_enter_sleepable_recur(struct bpf_prog *prog,
 					     struct bpf_tramp_run_ctx *run_ctx);
@@ -1243,6 +1244,8 @@ struct bpf_trampoline {
 	struct hlist_head progs_hlist[BPF_TRAMP_MAX];
 	/* Number of attached programs. A counter per kind. */
 	int progs_cnt[BPF_TRAMP_MAX];
+    /* Color for the trampoline: union of all colors of attached progs */
+    u64 trampoline_color;
 	/* Executable image of trampoline */
 	struct bpf_tramp_image *cur_image;
 };

@@ -558,7 +558,7 @@ int bpf_struct_ops_prepare_trampoline(struct bpf_tramp_links *tlinks,
 	if (model->ret_size > 0)
 		flags |= BPF_TRAMP_F_RET_FENTRY_RET;
 
-	size = arch_bpf_trampoline_size(model, flags, tlinks, NULL);
+	size = arch_bpf_trampoline_size(model, flags, tlinks, NULL, NULL);
 	if (size <= 0)
 		return size ? : -EFAULT;
 
@@ -575,7 +575,7 @@ int bpf_struct_ops_prepare_trampoline(struct bpf_tramp_links *tlinks,
 
 	size = arch_prepare_bpf_trampoline(NULL, image + image_off,
 					   image + image_off + size,
-					   model, flags, tlinks, stub_func);
+					   model, flags, tlinks, stub_func, NULL);
 	if (size <= 0) {
 		if (image != *_image)
 			bpf_struct_ops_image_free(image);
