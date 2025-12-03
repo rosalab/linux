@@ -53,6 +53,8 @@
 
 #define BPF_OBJ_FLAG_MASK   (BPF_F_RDONLY | BPF_F_WRONLY)
 
+static void __color_test(void);
+
 DEFINE_PER_CPU(int, bpf_prog_active);
 static DEFINE_IDR(prog_idr);
 static DEFINE_SPINLOCK(prog_idr_lock);
@@ -6363,8 +6365,48 @@ static long __sys_hook_test(struct hook_test_attr __user * attr)
     return 0;
 }
 
+static void attach_test_probe(void);
+
+static int color_test_val = 0;
+
 SYSCALL_DEFINE1(hook_test, struct hook_test_attr __user *, attr)
 {
+    attach_test_probe();
     return __sys_hook_test(attr);
+}
+
+static void attach_test_probe() {
+    if (color_test_val > 0) {
+        printk(KERN_INFO "Val is %d\n", color_test_val);
+        return;
+    }
+    unsigned long addr = kallsyms_lookup_name("__x64_sys_execve");
+    if (addr == 0) {
+        printk(KERN_INFO "failed to lookup name\n");
+        return;
+    }
+
+    unsigned long faddr = ftrace_location(addr);
+    if (faddr == 0) {
+        printk(KERN_INFO "failed to find ftrace location\n");
+        return;
+    }
+    
+    int ret = bpf_arch_text_poke(faddr, BPF_MOD_CALL, NULL, __color_test);
+    if (ret) {
+        printk(KERN_INFO "failed to poke the text\n");
+        return;
+    }
+    color_test_val++;
+    printk(KERN_INFO "Installed test function\n");
+
+}
+
+
+static void __color_test(void)
+{
+    color_test_val++;
+//    printk(KERN_INFO "Color Test\n");
+    return;
 }
 #endif /* CONFIG_SYSCTL */
