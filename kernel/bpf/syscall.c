@@ -5891,6 +5891,10 @@ static int __sys_bpf(enum bpf_cmd cmd, bpfptr_t uattr, unsigned int size)
 
 	return err;
 }
+SYSCALL_DEFINE0(empty_syscall)
+{
+    return 0;
+}
 
 SYSCALL_DEFINE3(bpf, int, cmd, union bpf_attr __user *, uattr, unsigned int, size)
 {
