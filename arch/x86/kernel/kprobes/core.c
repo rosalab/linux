@@ -1023,7 +1023,8 @@ int kprobe_int3_handler(struct pt_regs *regs)
 	p = get_kprobe(addr);
 
 	if (p) {
-        if (!(current->process_color & p->kprobe_color)) {
+        if (!((current->process_static_color & p->kprobe_static_color) &
+              (current->process_dynamic_color & p->kprobe_dynamic_color))) {
             return 1;
         }
         else if (kprobe_running()) {

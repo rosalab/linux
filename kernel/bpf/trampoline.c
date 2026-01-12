@@ -163,7 +163,8 @@ static struct bpf_trampoline *bpf_trampoline_lookup(u64 key)
 	tr->fops->ops_func = bpf_tramp_ftrace_ops_func;
 #endif
 
-    tr->trampoline_color = 0x0; // Default trampoline color
+    tr->trampoline_static_color = 0x0; // Default trampoline color
+    tr->trampoline_dynamic_color = 0x0; // Default trampoline color
 	tr->key = key;
 	INIT_HLIST_NODE(&tr->hlist);
 	hlist_add_head(&tr->hlist, head);

@@ -2877,7 +2877,8 @@ static int bpf_prog_load(union bpf_attr *attr, bpfptr_t uattr, u32 uattr_size)
 	prog->aux->xdp_has_frags = attr->prog_flags & BPF_F_XDP_HAS_FRAGS;
 
     // Default BPF program color
-    prog->bpf_prog_color = 1;
+    prog->bpf_prog_static_color = 1;
+    prog->bpf_prog_dynamic_color = 1;
 
     /* Connect pairwise BPF
      * Works by loading one prog first, then connecting the other 
@@ -3637,7 +3638,8 @@ static int bpf_tracing_prog_attach(struct bpf_prog *prog,
 	link->trampoline = tr;
 
     // Update trampoline color
-    tr->trampoline_color |= prog->bpf_prog_color;
+    tr->trampoline_static_color |= prog->bpf_prog_static_color;
+    tr->trampoline_dynamic_color |= prog->bpf_prog_dynamic_color;
 
 	/* Always clear the trampoline and target prog from prog->aux to make
 	 * sure the original attach destination is not kept alive after a
@@ -4026,7 +4028,8 @@ static int bpf_raw_tp_link_attach(struct bpf_prog *prog,
 	if (!btp)
 		return -ENOENT;
 
-    btp->tp->tracepoint_color = btp->tp->tracepoint_color | 1;
+    btp->tp->tracepoint_static_color = btp->tp->tracepoint_static_color | 1;
+    btp->tp->tracepoint_dynamic_color = btp->tp->tracepoint_dynamic_color | 1;
 	link = kzalloc(sizeof(*link), GFP_USER);
 	if (!link) {
 		err = -ENOMEM;
@@ -5417,7 +5420,9 @@ static int link_create(union bpf_attr *attr, bpfptr_t uattr, struct bpf_pw_link 
 		break;
 	case BPF_PROG_TYPE_LSM:
 	case BPF_PROG_TYPE_TRACING:
-        prog->bpf_prog_color = attr->link_create.color; // set prog color here for tracing
+        prog->bpf_prog_static_color = attr->link_create.color; // set prog color here for tracing
+        prog->bpf_prog_dynamic_color = attr->link_create.color; // set prog color here for tracing
+                                                                // TODO: add dynamic color field to attr
 		if (attr->link_create.attach_type != prog->expected_attach_type) {
 			ret = -EINVAL;
 			goto out;
@@ -5800,6 +5805,7 @@ static int bpf_iter_create(union bpf_attr *attr)
 	return err;
 }
 
+// TODO: update to include dynamic color
 static int __sys_process_set_color(int pid, u64 color)
 {
     struct task_struct * ts;
@@ -5810,7 +5816,8 @@ static int __sys_process_set_color(int pid, u64 color)
     }
 
     if (bpf_capable()) {
-        ts->process_color = color;
+        ts->process_static_color = color;
+        ts->process_dynamic_color = color;
         return 0;
     }
     else {
@@ -5818,6 +5825,7 @@ static int __sys_process_set_color(int pid, u64 color)
     }
 }
 
+// TODO: update to include dynamic color
 static int __sys_process_get_color(int pid, u64 __user *ptr)
 {
     struct task_struct * ts = find_task_by_vpid(pid);
@@ -5825,7 +5833,7 @@ static int __sys_process_get_color(int pid, u64 __user *ptr)
         return -1;
     }
 
-    if (copy_to_user(ptr, &(ts->process_color), sizeof(u64))) 
+    if (copy_to_user(ptr, &(ts->process_static_color), sizeof(u64))) 
         return -1;
 
     return 0;

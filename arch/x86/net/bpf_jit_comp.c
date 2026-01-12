@@ -2703,7 +2703,8 @@ static void restore_regs(const struct btf_func_model *m, u8 **prog,
 static int color_check(struct bpf_prog *p)
 {
     //pr_info("Testing color check call: current %lx prog: %lx  es is %lx\n", current->process_color, p->bpf_prog_color, current->process_color & p->bpf_prog_color);
-    return (current->process_color & p->bpf_prog_color);
+    return ((current->process_static_color & p->bpf_prog_static_color) && 
+            (current->process_dynamic_color & p->bpf_prog_dynamic_color));
 }
 
 /* stack size = regs_off -> ctx pointer */
@@ -2906,9 +2907,10 @@ static int invoke_bpf_mod_ret(const struct btf_func_model *m, u8 **pprog,
 #define LOAD_TRAMP_TAIL_CALL_CNT_PTR(stack)	\
 	__LOAD_TCC_PTR(-round_up(stack, 8) - 8)
 
-static u64 get_current_color(void)
+static u64 bpf_check_color(struct bpf_trampoline *tr)
 {
-    return current->process_color;
+    return (current->process_static_color & tr->trampoline_static_color) &&
+           (current->process_dynamic_color & tr->trampoline_dynamic_color);
 }
 
 /* Example:
@@ -3089,15 +3091,23 @@ static int __arch_prepare_bpf_trampoline(struct bpf_tramp_image *im, void *rw_im
 
     // If trampoline not null 
     if (tr) { 
-        // 1. Get the current color in RAX
-        if (emit_rsb_call(&prog, get_current_color, image + (prog - (u8 *)rw_image))) {
+        // Function signature bool check_color(struct bpf_trampoline * tr);
+        // Call the check function (maybe this should be inlined for perf once we get it finished
+        // Based on the result either return from trampoline, or continue.
+
+        // 0. Push RDI to stack
+        EMIT1(0x57);
+        // 1. Get the trampoline struct into RDI for function calling convention
+        emit_mov_imm64(&prog, BPF_REG_1, (long) tr >> 32, (u32) (long) tr);
+        // 2. Call the bpf_check_color function
+        if (emit_rsb_call(&prog, bpf_check_color, image + (prog - (u8 *)rw_image))) {
             return -EINVAL;
         }
-        // 2. Load trampoline color in R10 temp (hacky?)
-        emit_mov_imm64(&prog, BPF_REG_AX, (long) tr->trampoline_color >> 32, (u32) (long) tr->trampoline_color);
-        // 3. AND betwee n BPF_REG_0 and BPF_REG_1
-        EMIT3(0x4c, 0x85, 0xD0); /* test rax, r10 */
-        // 4. if zero then return
+        // 3. Pop stack (rdi) to register
+        EMIT1(0x5F);
+        // 4. Test return value for zero
+        EMIT3(0x48, 0x85, 0xC0);
+        // 5. If the return value is zero then return from the trampline, otherwise trace
         EMIT2(0x0F, 0x85); // jnz if there are bits shared then execute trampoline
         EMIT4(0x01, 0x00, 0x00, 0x00); // if zero then skip next instruction
         EMIT1(0xC3); // return from trampoline

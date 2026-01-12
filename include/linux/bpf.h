@@ -1245,7 +1245,8 @@ struct bpf_trampoline {
 	/* Number of attached programs. A counter per kind. */
 	int progs_cnt[BPF_TRAMP_MAX];
     /* Color for the trampoline: union of all colors of attached progs */
-    u64 trampoline_color;
+    u64 trampoline_static_color;
+    u64 trampoline_dynamic_color;
 	/* Executable image of trampoline */
 	struct bpf_tramp_image *cur_image;
 };
@@ -1637,7 +1638,8 @@ struct bpf_prog {
 					    const struct bpf_insn *insn);
 	struct bpf_prog_aux	*aux;		/* Auxiliary fields */
 	struct sock_fprog_kern	*orig_prog;	/* Original BPF program */
-    u64 bpf_prog_color;
+    u64 bpf_prog_static_color;
+    u64 bpf_prog_dynamic_color;
 	/* Instructions for interpreter */
 	union {
 		DECLARE_FLEX_ARRAY(struct sock_filter, insns);
@@ -2203,7 +2205,8 @@ bpf_prog_run_array(const struct bpf_prog_array *array,
 	item = &array->items[0];
 	while ((prog = READ_ONCE(item->prog))) {
 		run_ctx.bpf_cookie = item->bpf_cookie;
-        if (current->process_color & prog->bpf_prog_color) {
+        if ((current->process_static_color & prog->bpf_prog_static_color) &&
+            (current->process_dynamic_color & prog->bpf_prog_dynamic_color)) {
 		    ret &= run_prog(prog, ctx);
         }
 		item++;

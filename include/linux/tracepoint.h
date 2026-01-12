@@ -278,8 +278,10 @@ static inline struct tracepoint *tracepoint_ptr_deref(tracepoint_ptr_t *p)
 	static inline void trace_##name(proto)				\
 	{								\
 		if (static_branch_unlikely(&__tracepoint_##name.key)) { \
-            u64 color = current->process_color; \
-            if (color & __tracepoint_##name.tracepoint_color) { \
+            u64 static_color = current->process_static_color; \
+            u64 dynamic_color = current->process_dynamic_color; \
+            if ((static_color & __tracepoint_##name.tracepoint_static_color) && \
+                (dynamic_color & __tracepoint_##name.tracepoint_dynamic_color)) { \
 			    if (cond) {					\
 				    guard(preempt_notrace)();		\
 				    __DO_TRACE_CALL(name, TP_ARGS(args));	\

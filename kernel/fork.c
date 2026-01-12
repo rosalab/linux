@@ -2832,7 +2832,8 @@ pid_t kernel_clone(struct kernel_clone_args *args)
      * 0xFFFFFFFE00000001
      * This gives 31 opt-out. 32 opt-in and 1 default
      */
-    p->process_color = 0xFFFFFFFE00000001;
+    p->process_static_color = 0xFFFFFFFE00000001;
+    p->process_dynamic_color = 0x1;
 
 	if (IS_ENABLED(CONFIG_LRU_GEN_WALKS_MMU) && !(clone_flags & CLONE_VM)) {
 		/* lock the task to synchronize with memcg migration */

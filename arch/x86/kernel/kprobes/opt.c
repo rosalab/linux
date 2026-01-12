@@ -182,7 +182,8 @@ optimized_callback(struct optimized_kprobe *op, struct pt_regs *regs)
 
 	preempt_disable();
     if (op) {
-        if (!(current->process_color & op->kp.kprobe_color)) {
+        if (!((current->process_static_color & op->kp.kprobe_static_color) &&
+              (current->process_dynamic_color & op->kp.kprobe_dynamic_color))) {
             preempt_enable();
             return;
         }
@@ -437,7 +438,8 @@ int arch_prepare_optimized_kprobe(struct optimized_kprobe *op,
 
 	synthesize_clac(buf + TMPL_CLAC_IDX);
 
-    op->kp.kprobe_color = __unused->kprobe_color;
+    op->kp.kprobe_static_color = __unused->kprobe_static_color;
+    op->kp.kprobe_dynamic_color = __unused->kprobe_dynamic_color;
 
 	/* Set probe information */
 	synthesize_set_arg1(buf + TMPL_MOVE_IDX, (unsigned long)op);

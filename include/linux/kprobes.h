@@ -86,7 +86,8 @@ struct kprobe {
 	/* copy of the original instruction */
 	struct arch_specific_insn ainsn;
 
-    u64 kprobe_color;
+    u64 kprobe_static_color;
+    u64 kprobe_dynamic_color;
 
 	/*
 	 * Indicates various status flags.

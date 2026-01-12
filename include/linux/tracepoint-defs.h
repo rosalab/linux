@@ -45,7 +45,8 @@ struct tracepoint {
 	void *probestub;
 	struct tracepoint_func __rcu *funcs;
 	struct tracepoint_ext *ext;
-    u64 tracepoint_color;
+    u64 tracepoint_static_color;
+    u64 tracepoint_dynamic_color;
 };
 
 #ifdef CONFIG_HAVE_ARCH_PREL32_RELOCATIONS

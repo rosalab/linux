@@ -10790,7 +10790,8 @@ int perf_event_set_bpf_prog(struct perf_event *event, struct bpf_prog *prog,
         link_color = attr->link_create.color;
     }
 
-    prog->bpf_prog_color = link_color | 0x1;
+    prog->bpf_prog_static_color = link_color | 0x1;
+    prog->bpf_prog_dynamic_color = link_color | 0x1;
 
     if (is_tracepoint || is_syscall_tp) {
         struct tracepoint * tp_struct;
@@ -10806,11 +10807,13 @@ int perf_event_set_bpf_prog(struct perf_event *event, struct bpf_prog *prog,
             }
         }
 
-        tp_struct->tracepoint_color = tp_struct->tracepoint_color | prog->bpf_prog_color;
+        tp_struct->tracepoint_static_color = tp_struct->tracepoint_static_color | prog->bpf_prog_static_color;
+        tp_struct->tracepoint_dynamic_color = tp_struct->tracepoint_dynamic_color | prog->bpf_prog_dynamic_color;
     }
     else if (is_kprobe) {
         struct kprobe *kp = event->tp_event->kp;
-        kp->kprobe_color = kp->kprobe_color | prog->bpf_prog_color;
+        kp->kprobe_static_color = kp->kprobe_static_color | prog->bpf_prog_static_color;
+        kp->kprobe_dynamic_color = kp->kprobe_dynamic_color | prog->bpf_prog_dynamic_color;
     }
 
 	return perf_event_attach_bpf_prog(event, prog, bpf_cookie);
