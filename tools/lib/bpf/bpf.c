@@ -1401,3 +1401,24 @@ int bpf_token_create(int bpffs_fd, struct bpf_token_create_opts *opts)
 	fd = sys_bpf_fd(BPF_TOKEN_CREATE, &attr, attr_sz);
 	return libbpf_err_errno(fd);
 }
+
+int bpf_set_color_palette(union color_palette *pal, enum bpf_color_palette palette_type, int prog_fd)
+{
+    const size_t attr_sz = offsetofend(union bpf_attr, flw_set_palette);
+    union bpf_attr attr;
+    int ret;
+
+    memset(&attr, 0, attr_sz);
+    attr.flw_set_palette.target_prog_fd = prog_fd;
+
+    
+    switch (palette_type) {
+        case ENTRY_DEP:
+            attr.flw_set_palette.palette_args = (__aligned_u64)pal->entry_dep.syscalls;
+            attr.flw_set_palette.palette_args_len = pal->entry_dep.syscalls_len;
+        default:
+    }
+
+    ret = sys_bpf(BPF_FLW_SET_PALETTE, &attr, attr_sz);
+    return ret;
+}

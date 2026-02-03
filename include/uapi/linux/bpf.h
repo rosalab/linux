@@ -51,8 +51,8 @@
 #define BPF_XCHG	(0xe0 | BPF_FETCH)	/* atomic exchange */
 #define BPF_CMPXCHG	(0xf0 | BPF_FETCH)	/* atomic compare-and-write */
 
-// Enum for bpf_flow_palette codes
-enum bpf_flow_palette {
+// Enum for bpf_color_palette codes
+enum bpf_color_palette {
     ENTRY_DEP = 0,
 };
 
@@ -1843,9 +1843,10 @@ union bpf_attr {
     } pw_link_create;
 
     struct { /* struct used by BPF_FLW_SET_PALETTE commang */
-        enum bpf_flow_palette palette_type; // Should be enum
+        enum bpf_color_palette palette_type; // Should be enum
         __aligned_u64 palette_args; // Array of arguments to the palette
         __u64 palette_args_len; // Length of the array in bytes
+        __u32 target_prog_fd; // This needs to be the extension app management object eventually
     } flw_set_palette;
 
 } __attribute__((aligned(8)));
@@ -7562,6 +7563,13 @@ struct hook_test_attr {
     __u64 ftrace_kprobe_time;
     __u64 unopt_kprobe_time;
     __u64 opt_kprobe_time;
+};
+
+struct flow_aware_bpf {
+    struct bpf_prog ** progs;
+    __u32 prog_len;
+    struct bpf_link ** links;
+    __u32 link_len;
 };
 
 #endif /* _UAPI__LINUX_BPF_H__ */

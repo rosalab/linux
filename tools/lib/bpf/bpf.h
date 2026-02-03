@@ -719,6 +719,15 @@ struct pw_create {
 
 LIBBPF_API int bpf_pw_link_create(struct pw_create *pw);
 
+union color_palette {
+    struct {
+        __u64 * syscalls;
+        __u64 syscalls_len;
+    } entry_dep;
+};
+
+LIBBPF_API int bpf_set_color_palette(union color_palette *pal, enum bpf_color_palette palette_type, int prog_fd);
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif

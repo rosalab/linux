@@ -36,6 +36,7 @@
 #include <linux/memcontrol.h>
 #include <linux/trace_events.h>
 #include <linux/tracepoint.h>
+#include <linux/ftrace.h>
 
 #include <net/netfilter/nf_bpf_link.h>
 #include <net/netkit.h>
@@ -5543,13 +5544,17 @@ static int pw_link_create(union bpf_attr *attr, bpfptr_t uattr)
     return 0;
 }
 
+
+
 extern const char *get_syscall_name(int syscall);
 
-static int flow_set_entry_dep(u64 * arg_array, u64 arg_array_len)
+
+static int flow_set_entry_dep(struct bpf_prog *prog, u64 * arg_array, u64 arg_array_len)
 {
     // Args are a list of system call numbers
     for (u64 i = 0; i < arg_array_len; i++) {
-        pr_info("%s\n", get_syscall_name(*(arg_array+i)));
+        pr_info("%lu %s Addr: %llx\n", *(arg_array + i), get_syscall_name(*(arg_array+i)), sys_call_table[*(arg_array+i)]);
+
     }
     return 0;
 }
@@ -5560,16 +5565,22 @@ static int flow_set_palette(union bpf_attr *attr, bpfptr_t uattr)
     palette_ptr.user = (void*)attr->flw_set_palette.palette_args;
     palette_ptr.is_kernel = false;
 
+    struct bpf_prog * target_prog = bpf_prog_get(attr->flw_set_palette.target_prog_fd);
+    if (!target_prog) {
+        return -EFAULT;
+    }
+    pr_info("Prog name is %s\n", target_prog->aux->name);
+
     // Allocate memory for the palette args
-    u64 * arg_array = kzalloc(attr->flw_set_palette.palette_args_len, GFP_KERNEL);
+    u64 * arg_array = kzalloc((attr->flw_set_palette.palette_args_len * sizeof(u64)), GFP_KERNEL);
     // Copy from user pointer to kernel memory
-    if (copy_from_bpfptr(arg_array, palette_ptr, attr->flw_set_palette.palette_args_len) != 0) {
+    if (copy_from_bpfptr(arg_array, palette_ptr, attr->flw_set_palette.palette_args_len * sizeof(u64)) != 0) {
         return -EFAULT;
     }
     // For each palette type we will have a handler to set up the color palette
     switch (attr->flw_set_palette.palette_type) {
         case ENTRY_DEP:
-            flow_set_entry_dep(arg_array, attr->flw_set_palette.palette_args_len);
+            flow_set_entry_dep(target_prog, arg_array, attr->flw_set_palette.palette_args_len);
         default: 
     }
 

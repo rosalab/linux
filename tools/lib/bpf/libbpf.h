@@ -1940,6 +1940,18 @@ LIBBPF_API struct bpf_pw_link *bpf_program__attach_pw(const struct bpf_program *
                                                       const struct bpf_program *exit);
 
 LIBBPF_API int bpf_program__set_color(struct bpf_program *prog, __u64 color);
+
+
+union color_palette_args {
+    struct {
+        __u64 * syscall_nums;
+        __u64 num_syscalls;
+    } entry_dep;
+};
+/** 
+ * Expose operator set color palette
+ */
+LIBBPF_API int bpf_program__set_flow_palette(struct bpf_program *prog, enum bpf_color_palette palette_type, union color_palette_args palette_args);
 #ifdef __cplusplus
 } /* extern "C" */
 #endif
