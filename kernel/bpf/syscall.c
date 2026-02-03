@@ -5543,6 +5543,40 @@ static int pw_link_create(union bpf_attr *attr, bpfptr_t uattr)
     return 0;
 }
 
+extern const char *get_syscall_name(int syscall);
+
+static int flow_set_entry_dep(u64 * arg_array, u64 arg_array_len)
+{
+    // Args are a list of system call numbers
+    for (u64 i = 0; i < arg_array_len; i++) {
+        pr_info("%s\n", get_syscall_name(*(arg_array+i)));
+    }
+    return 0;
+}
+
+static int flow_set_palette(union bpf_attr *attr, bpfptr_t uattr)
+{
+    bpfptr_t palette_ptr;
+    palette_ptr.user = (void*)attr->flw_set_palette.palette_args;
+    palette_ptr.is_kernel = false;
+
+    // Allocate memory for the palette args
+    u64 * arg_array = kzalloc(attr->flw_set_palette.palette_args_len, GFP_KERNEL);
+    // Copy from user pointer to kernel memory
+    if (copy_from_bpfptr(arg_array, palette_ptr, attr->flw_set_palette.palette_args_len) != 0) {
+        return -EFAULT;
+    }
+    // For each palette type we will have a handler to set up the color palette
+    switch (attr->flw_set_palette.palette_type) {
+        case ENTRY_DEP:
+            flow_set_entry_dep(arg_array, attr->flw_set_palette.palette_args_len);
+        default: 
+    }
+
+    // Free the palette args
+    kfree(arg_array);
+    return 0;
+}
 
 
 
@@ -6068,6 +6102,9 @@ static int __sys_bpf(enum bpf_cmd cmd, bpfptr_t uattr, unsigned int size)
 		break;
     case BPF_PW_LINK_CREATE:
         err = pw_link_create(&attr, uattr);
+        break;
+    case BPF_FLW_SET_PALETTE:
+        err = flow_set_palette(&attr, uattr);
         break;
 	default:
 		err = -EINVAL;
