@@ -488,7 +488,8 @@ struct bpf_program {
 	enum bpf_attach_type expected_attach_type;
 	int exception_cb_idx;
 
-    __u64 color;
+    __u64 static_color;
+    __u64 dynamic_color;
 
 	int prog_ifindex;
 	__u32 attach_btf_obj_fd;
@@ -7983,7 +7984,8 @@ static int bpf_object_init_progs(struct bpf_object *obj, const struct bpf_object
 			continue;
 		}
 
-        prog->color = 0x1; // Default prog color;
+        prog->static_color = 0x1; // Default prog color;
+        prog->dynamic_color = 0x1;                  //
 		prog->type = prog->sec_def->prog_type;
 		prog->expected_attach_type = prog->sec_def->expected_attach_type;
 
@@ -10888,8 +10890,8 @@ struct bpf_link *bpf_program__attach_perf_event_opts(const struct bpf_program *p
 		DECLARE_LIBBPF_OPTS(bpf_link_create_opts, link_opts,
 			.perf_event.bpf_cookie = OPTS_GET(opts, bpf_cookie, 0));
 
-        __u64 color = prog->color;
-        link_opts.color = color;
+        link_opts.static_color = prog->static_color;
+        link_opts.dynamic_color = prog->dynamic_color;
 
 		link_fd = bpf_link_create(prog_fd, pfd, BPF_PERF_EVENT, &link_opts);
 		if (link_fd < 0) {
@@ -12682,7 +12684,8 @@ static struct bpf_link *bpf_program__attach_btf_id(const struct bpf_program *pro
 		return libbpf_err_ptr(-ENOMEM);
 	link->detach = &bpf_link__detach_fd;
 
-    link_opts.color = prog->color; // Set color for all attach btf id
+    link_opts.static_color = prog->static_color; // Set color for all attach btf id
+    link_opts.dynamic_color = prog->dynamic_color;
 
 	/* libbpf is smart enough to redirect to BPF_RAW_TRACEPOINT_OPEN on old kernels */
 	link_opts.tracing.cookie = OPTS_GET(opts, cookie, 0);
@@ -12747,8 +12750,11 @@ struct bpf_pw_link *bpf_program__attach_pw(const struct bpf_program *entry, cons
     // Need to get two pfd out of this function
 	//pfd = bpf_link_create(prog_fd, 0, bpf_program__expected_attach_type(prog), &link_opts);
     //
-    entry_link_opts.color = entry->color;
-    exit_link_opts.color = exit->color;
+    entry_link_opts.static_color = entry->static_color;
+    entry_link_opts.dynamic_color = entry->dynamic_color;
+
+    exit_link_opts.static_color = exit->static_color;
+    exit_link_opts.dynamic_color = exit->dynamic_color;
 
     pw.entry_fd = entry_prog_fd;
     pw.exit_fd = exit_prog_fd;
@@ -14205,8 +14211,9 @@ struct bpf_pw_info * bpf_program__get_pw(struct bpf_program *prog)
     return &prog->pw_info;
 }
 
-LIBBPF_API int bpf_program__set_color(struct bpf_program *prog, __u64 color)
+LIBBPF_API int bpf_program__set_color(struct bpf_program *prog, __u64 static_color, __u64 dynamic_color)
 {
-    prog->color = color;
+    prog->static_color = static_color;
+    prog->dynamic_color = dynamic_color;
     return 0;
 }

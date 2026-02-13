@@ -64,6 +64,11 @@ struct bpf_pw_info {
     __u64 pw_stack_size;
 };
 
+struct bpf_prog_color {
+    __u64 static_color;
+    __u64 dynamic_color;
+};
+
 LIBBPF_API int libbpf_strerror(int err, char *buf, size_t size);
 
 /**
@@ -1939,7 +1944,7 @@ LIBBPF_API int libbpf_unregister_prog_handler(int handler_id);
 LIBBPF_API struct bpf_pw_link *bpf_program__attach_pw(const struct bpf_program *entry, 
                                                       const struct bpf_program *exit);
 
-LIBBPF_API int bpf_program__set_color(struct bpf_program *prog, __u64 color);
+LIBBPF_API int bpf_program__set_color(struct bpf_program *prog, __u64 static_color, __u64 dynamic_color);
 
 
 union color_palette_args {

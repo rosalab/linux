@@ -5421,8 +5421,8 @@ static int link_create(union bpf_attr *attr, bpfptr_t uattr, struct bpf_pw_link 
 		break;
 	case BPF_PROG_TYPE_LSM:
 	case BPF_PROG_TYPE_TRACING:
-        prog->bpf_prog_static_color = attr->link_create.color; // set prog color here for tracing
-        prog->bpf_prog_dynamic_color = attr->link_create.color; // set prog color here for tracing
+        prog->bpf_prog_static_color = attr->link_create.static_color; // set prog color here for tracing
+        prog->bpf_prog_dynamic_color = attr->link_create.dynamic_color; // set prog color here for tracing
                                                                 // TODO: add dynamic color field to attr
 		if (attr->link_create.attach_type != prog->expected_attach_type) {
 			ret = -EINVAL;
@@ -5548,14 +5548,25 @@ static int pw_link_create(union bpf_attr *attr, bpfptr_t uattr)
 
 extern const char *get_syscall_name(int syscall);
 
+static void test_ftrace_handler(unsigned long ip, unsigned long parent_ip,
+			      struct ftrace_ops *op, struct ftrace_regs *fregs)
+{
+    //struct task_struct * t = current;
+    pr_info("PID: %d In ftrace handler!\n", current->pid);
+    current->process_dynamic_color = 0x2;
+    pr_info("Static color: %llu Dynamic color: %llu\n", current->process_static_color, current->process_dynamic_color);
+}
 
 static int flow_set_entry_dep(struct bpf_prog *prog, u64 * arg_array, u64 arg_array_len)
 {
+    struct ftrace_ops * ops = kzalloc(sizeof(struct ftrace_ops), GFP_KERNEL);
+    ops->func = (ftrace_func_t)test_ftrace_handler;
     // Args are a list of system call numbers
     for (u64 i = 0; i < arg_array_len; i++) {
         pr_info("%lu %s Addr: %llx\n", *(arg_array + i), get_syscall_name(*(arg_array+i)), sys_call_table[*(arg_array+i)]);
-
+        ftrace_set_filter_ip(ops, sys_call_table[*(arg_array+i)], 0, 0);
     }
+    register_ftrace_function(ops);
     return 0;
 }
 
@@ -6384,6 +6395,7 @@ late_initcall(bpf_syscall_sysctl_init);
 
 extern u64 __hook_ftrace_test(void);
 
+
 static long __sys_hook_test(struct hook_test_attr __user * attr)
 {
     u64 tp_start, tp_end, ftrace_kprobe_start, ftrace_kprobe_end, 
@@ -6427,8 +6439,12 @@ static int color_test_val = 0;
 
 SYSCALL_DEFINE1(hook_test, struct hook_test_attr __user *, attr)
 {
-    attach_test_probe();
-    return __sys_hook_test(attr);
+    void * ptr = kmalloc(1, GFP_KERNEL);
+    kfree(ptr);
+    return 0;
+    
+    //attach_test_probe();
+    //return __sys_hook_test(attr);
 }
 
 static void attach_test_probe() {

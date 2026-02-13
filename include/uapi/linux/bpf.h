@@ -1730,7 +1730,8 @@ union bpf_attr {
 		};
 		__u32		attach_type;	/* attach type */
 		__u32		flags;		/* extra flags */
-        __u64 color;
+        __u64 static_color;
+        __u64 dynamic_color;
 		union {
 			__u32	target_btf_id;	/* btf_id of target to attach to */
 			struct {

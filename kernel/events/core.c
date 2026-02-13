@@ -10753,7 +10753,8 @@ int perf_event_set_bpf_prog(struct perf_event *event, struct bpf_prog *prog,
 			    u64 bpf_cookie, union bpf_attr *attr)
 {
 	bool is_kprobe, is_uprobe, is_tracepoint, is_syscall_tp;
-    u64 link_color = 1;
+    u64 static_link_color = 1;
+    u64 dynamic_link_color = 1;
 
 	if (!perf_event_is_tracing(event))
 		return perf_event_set_bpf_handler(event, prog, bpf_cookie);
@@ -10787,11 +10788,12 @@ int perf_event_set_bpf_prog(struct perf_event *event, struct bpf_prog *prog,
 	}
 
     if (attr != NULL) {
-        link_color = attr->link_create.color;
+        static_link_color = attr->link_create.static_color;
+        dynamic_link_color = attr->link_create.dynamic_color;
     }
 
-    prog->bpf_prog_static_color = link_color | 0x1;
-    prog->bpf_prog_dynamic_color = link_color | 0x1;
+    prog->bpf_prog_static_color = static_link_color | 0x1;
+    prog->bpf_prog_dynamic_color = dynamic_link_color | 0x1;
 
     if (is_tracepoint || is_syscall_tp) {
         struct tracepoint * tp_struct;

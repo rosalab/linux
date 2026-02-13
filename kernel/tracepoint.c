@@ -458,11 +458,18 @@ int tracepoint_probe_register_prio(struct tracepoint *tp, void *probe,
 	int ret;
 
 	mutex_lock(&tracepoints_mutex);
+    if (!strncmp(tp->name, "bpf_trace_printk\0", 16)) {
+        tp->tracepoint_static_color = 0xffffffffffffffff; // Default color for tracepoints
+        tp->tracepoint_dynamic_color = 0xffffffffffffffff; // Default color for tracepoints
+    }
+    else { 
+        tp->tracepoint_static_color = 0x1; // Default color for tracepoints
+        tp->tracepoint_dynamic_color = 0x1; // Default color for tracepoints
+    }
+
 	tp_func.func = probe;
 	tp_func.data = data;
 	tp_func.prio = prio;
-    tp->tracepoint_static_color = 0x1; // Default color for tracepoints
-    tp->tracepoint_dynamic_color = 0x1; // Default color for tracepoints
 	ret = tracepoint_add_func(tp, &tp_func, prio, true);
 	mutex_unlock(&tracepoints_mutex);
 	return ret;

@@ -400,7 +400,8 @@ struct bpf_link_create_opts {
 	union bpf_iter_link_info *iter_info;
 	__u32 iter_info_len;
 	__u32 target_btf_id;
-    __u64 color;
+    __u64 static_color;
+    __u64 dynamic_color;
 	union {
 		struct {
 			__u64 bpf_cookie;

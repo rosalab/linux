@@ -2702,9 +2702,14 @@ static void restore_regs(const struct btf_func_model *m, u8 **prog,
 // returns 0 if we should skip
 static int color_check(struct bpf_prog *p)
 {
-    //pr_info("Testing color check call: current %lx prog: %lx  es is %lx\n", current->process_color, p->bpf_prog_color, current->process_color & p->bpf_prog_color);
-    return ((current->process_static_color & p->bpf_prog_static_color) && 
+    int val = ((current->process_static_color & p->bpf_prog_static_color) && 
             (current->process_dynamic_color & p->bpf_prog_dynamic_color));
+    //pr_info("Color check val is %d\n", val);
+    return val;
+    //pr_info("Testing color check call: current %lx prog: %lx  es is %lx\n", current->process_color, p->bpf_prog_color, current->process_color & p->bpf_prog_color);
+    //
+    //return ((current->process_static_color & p->bpf_prog_static_color) && 
+    //        (current->process_dynamic_color & p->bpf_prog_dynamic_color));
 }
 
 /* stack size = regs_off -> ctx pointer */
@@ -2909,8 +2914,17 @@ static int invoke_bpf_mod_ret(const struct btf_func_model *m, u8 **pprog,
 
 static u64 bpf_check_color(struct bpf_trampoline *tr)
 {
-    return (current->process_static_color & tr->trampoline_static_color) &&
+    u64 val = (current->process_static_color & tr->trampoline_static_color) &&
            (current->process_dynamic_color & tr->trampoline_dynamic_color);
+    //pr_info("%llx\n", val);
+    //pr_info("%llx %llx\n%llx %llx\n", current->process_static_color,
+    //                                  tr->trampoline_static_color,
+    //                                  current->process_dynamic_color,
+    //                                  tr->trampoline_dynamic_color);
+
+    //return (current->process_static_color & tr->trampoline_static_color) &&
+    //       (current->process_dynamic_color & tr->trampoline_dynamic_color);
+    return val;
 }
 
 /* Example:

@@ -733,14 +733,15 @@ int bpf_link_create(int prog_fd, int target_fd,
 	__u32 target_btf_id, iter_info_len, relative_id;
 	int fd, err, relative_fd;
 	union bpf_attr attr;
-    __u64 color;
+    __u64 static_color, dynamic_color;
 
 	if (!OPTS_VALID(opts, bpf_link_create_opts))
 		return libbpf_err(-EINVAL);
 
 	iter_info_len = OPTS_GET(opts, iter_info_len, 0);
 	target_btf_id = OPTS_GET(opts, target_btf_id, 0);
-    color = OPTS_GET(opts, color, 0);
+    static_color = OPTS_GET(opts, static_color, 0);
+    dynamic_color = OPTS_GET(opts, dynamic_color, 0);
 
 	/* validate we don't have unexpected combinations of non-zero fields */
 	if (iter_info_len || target_btf_id) {
@@ -755,7 +756,8 @@ int bpf_link_create(int prog_fd, int target_fd,
 	attr.link_create.target_fd = target_fd;
 	attr.link_create.attach_type = attach_type;
 	attr.link_create.flags = OPTS_GET(opts, flags, 0);
-    attr.link_create.color = color;
+    attr.link_create.static_color = static_color;
+    attr.link_create.dynamic_color = dynamic_color;
 
 	if (target_btf_id) {
 		attr.link_create.target_btf_id = target_btf_id;
@@ -937,8 +939,11 @@ int bpf_pw_link_create(struct pw_create *pw)
     pw_attr.pw_link_create.entry_attr_ptr = (__aligned_u64) &entry_attr;
     pw_attr.pw_link_create.exit_attr_ptr = (__aligned_u64) &exit_attr;
 
-    entry_attr.link_create.color = pw->entry_opts->color;
-    exit_attr.link_create.color = pw->exit_opts->color;
+    entry_attr.link_create.static_color = pw->entry_opts->static_color;
+    entry_attr.link_create.dynamic_color = pw->entry_opts->dynamic_color;
+
+    exit_attr.link_create.static_color = pw->exit_opts->static_color;
+    exit_attr.link_create.dynamic_color = pw->exit_opts->dynamic_color;
 
     pw_fd = sys_bpf(BPF_PW_LINK_CREATE, &pw_attr, pw_attr_sz); 
 
