@@ -78,6 +78,75 @@ static const struct bpf_map_ops * const bpf_map_types[] = {
 #undef BPF_LINK_TYPE
 };
 
+// Statically define all possible entry dependent handlers
+// This is not scalable?
+
+#define ENTRY_HANDLER(BIT) static void __entry_handle_##BIT(void) { current->process_dynamic_color |= 1ULL << BIT; }
+ENTRY_HANDLER(0)
+ENTRY_HANDLER(1)
+ENTRY_HANDLER(2)
+ENTRY_HANDLER(3)
+ENTRY_HANDLER(4)
+ENTRY_HANDLER(5)
+ENTRY_HANDLER(6)
+ENTRY_HANDLER(7)
+ENTRY_HANDLER(8)
+ENTRY_HANDLER(9)
+ENTRY_HANDLER(10)
+ENTRY_HANDLER(11)
+ENTRY_HANDLER(12)
+ENTRY_HANDLER(13)
+ENTRY_HANDLER(14)
+ENTRY_HANDLER(15)
+ENTRY_HANDLER(16)
+ENTRY_HANDLER(17)
+ENTRY_HANDLER(18)
+ENTRY_HANDLER(19)
+ENTRY_HANDLER(20)
+ENTRY_HANDLER(21)
+ENTRY_HANDLER(22)
+ENTRY_HANDLER(23)
+ENTRY_HANDLER(24)
+ENTRY_HANDLER(25)
+ENTRY_HANDLER(26)
+ENTRY_HANDLER(27)
+ENTRY_HANDLER(28)
+ENTRY_HANDLER(29)
+ENTRY_HANDLER(30)
+ENTRY_HANDLER(31)
+ENTRY_HANDLER(32)
+ENTRY_HANDLER(33)
+ENTRY_HANDLER(34)
+ENTRY_HANDLER(35)
+ENTRY_HANDLER(36)
+ENTRY_HANDLER(37)
+ENTRY_HANDLER(38)
+ENTRY_HANDLER(39)
+ENTRY_HANDLER(40)
+ENTRY_HANDLER(41)
+ENTRY_HANDLER(42)
+ENTRY_HANDLER(43)
+ENTRY_HANDLER(44)
+ENTRY_HANDLER(45)
+ENTRY_HANDLER(46)
+ENTRY_HANDLER(47)
+ENTRY_HANDLER(48)
+ENTRY_HANDLER(49)
+ENTRY_HANDLER(50)
+ENTRY_HANDLER(51)
+ENTRY_HANDLER(52)
+ENTRY_HANDLER(53)
+ENTRY_HANDLER(54)
+ENTRY_HANDLER(55)
+ENTRY_HANDLER(56)
+ENTRY_HANDLER(57)
+ENTRY_HANDLER(58)
+ENTRY_HANDLER(59)
+ENTRY_HANDLER(60)
+ENTRY_HANDLER(61)
+ENTRY_HANDLER(62)
+ENTRY_HANDLER(63)
+
 /*
  * If we're handed a bigger struct than we know of, ensure all the unknown bits
  * are 0 - i.e. new user-space does not rely on any kernel feature extensions
@@ -5560,7 +5629,8 @@ static void test_ftrace_handler(unsigned long ip, unsigned long parent_ip,
 static int flow_set_entry_dep(struct bpf_prog *prog, u64 * arg_array, u64 arg_array_len)
 {
     struct ftrace_ops * ops = kzalloc(sizeof(struct ftrace_ops), GFP_KERNEL);
-    ops->func = (ftrace_func_t)test_ftrace_handler;
+    //ops->func = (ftrace_func_t)test_ftrace_handler;
+    ops->func = (ftrace_func_t)__entry_handle_1;
     // Args are a list of system call numbers
     for (u64 i = 0; i < arg_array_len; i++) {
         pr_info("%lu %s Addr: %llx\n", *(arg_array + i), get_syscall_name(*(arg_array+i)), sys_call_table[*(arg_array+i)]);
@@ -6481,4 +6551,6 @@ static void __color_test(void)
 //    printk(KERN_INFO "Color Test\n");
     return;
 }
+
+    
 #endif /* CONFIG_SYSCTL */
