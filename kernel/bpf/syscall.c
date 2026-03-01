@@ -2403,6 +2403,11 @@ static void bpf_prog_put_deferred(struct work_struct *work)
 
 	aux = container_of(work, struct bpf_prog_aux, work);
 	prog = aux->prog;
+    // Unregister ftrace funcs and cleanup
+    for (int i = 0; i < aux->ft_ops_len; i++) {
+        unregister_ftrace_function(aux->ft_ops[i]);
+        kfree(aux->ft_ops[i]);
+    }
 	perf_event_bpf_event(prog, PERF_BPF_EVENT_PROG_UNLOAD, 0);
 	bpf_audit_prog(prog, BPF_AUDIT_UNLOAD);
 	bpf_prog_free_id(prog);
@@ -5637,6 +5642,9 @@ static int flow_set_entry_dep(struct bpf_prog *prog, u64 * arg_array, u64 arg_ar
         ftrace_set_filter_ip(ops, sys_call_table[*(arg_array+i)], 0, 0);
     }
     register_ftrace_function(ops);
+    // Store reference to ftrace ops and inc len
+    prog->aux->ft_ops[prog->aux->ft_ops_len] = ops;
+    prog->aux->ft_ops_len++;
     return 0;
 }
 

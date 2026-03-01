@@ -1556,6 +1556,8 @@ struct bpf_prog_aux {
 	u32 size_poke_tab;
     struct bpf_pairwise pw;
     struct flow_aware_bpf *flw; // If this is set, then the prog is a management object
+    struct ftrace_ops *ft_ops[10]; // Static array size
+    u32 ft_ops_len;
 #ifdef CONFIG_FINEIBT
 	struct bpf_ksym ksym_prefix;
 #endif
