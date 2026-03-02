@@ -730,6 +730,9 @@ struct bpf_object {
     bool pw;
     struct bpf_program *entry;
     struct bpf_program *exit;
+    
+    /* Field for if the object is flow based */
+    bool flow_based;
 
 	/* optional log settings passed to BPF_BTF_LOAD and BPF_PROG_LOAD commands */
 	char *log_buf;
@@ -8015,7 +8018,7 @@ static struct bpf_object *bpf_object_open(const char *path, const void *obj_buf,
 	char *log_buf;
 	size_t log_size;
 	__u32 log_level;
-    bool pw;
+    bool pw, flow_based;
 
 	if (obj_buf && !obj_name)
 		return ERR_PTR(-EINVAL);
@@ -8056,6 +8059,7 @@ static struct bpf_object *bpf_object_open(const char *path, const void *obj_buf,
 		return ERR_PTR(-ENAMETOOLONG);
 
     pw = OPTS_GET(opts, pw, false);
+    flow_based = OPTS_GET(opts, flow_based, false);
 
 
 	obj = bpf_object__new(path, obj_buf, obj_buf_sz, obj_name);
@@ -8066,6 +8070,7 @@ static struct bpf_object *bpf_object_open(const char *path, const void *obj_buf,
 	obj->log_size = log_size;
 	obj->log_level = log_level;
     obj->pw = pw;
+    obj->flow_based = flow_based;
 
 	if (token_path) {
 		obj->token_path = strdup(token_path);
@@ -8613,6 +8618,10 @@ static int bpf_object_load(struct bpf_object *obj, int extra_log_level, const ch
 		return libbpf_err(-LIBBPF_ERRNO__ENDIAN);
 	}
 
+    if (obj->flow_based) {
+        bpf_begin_flow();
+    }
+
 	err = bpf_object_prepare_token(obj);
 	err = err ? : bpf_object__probe_loading(obj);
 	err = err ? : bpf_object__load_vmlinux_btf(obj, false);
@@ -8626,6 +8635,10 @@ static int bpf_object_load(struct bpf_object *obj, int extra_log_level, const ch
 	err = err ? : bpf_object__load_progs(obj, extra_log_level);
 	err = err ? : bpf_object_init_prog_arrays(obj);
 	err = err ? : bpf_object_prepare_struct_ops(obj);
+
+    if (obj->flow_based) {
+        bpf_end_flow();
+    }
 
 	if (obj->gen_loader) {
 		/* reset FDs */
@@ -14216,4 +14229,9 @@ LIBBPF_API int bpf_program__set_color(struct bpf_program *prog, __u64 static_col
     prog->static_color = static_color;
     prog->dynamic_color = dynamic_color;
     return 0;
+}
+
+LIBBPF_API void bpf_object__set_flow_based(struct bpf_object *obj, bool flow_based)
+{
+    obj->flow_based = flow_based;
 }

@@ -965,6 +965,8 @@ enum bpf_cmd {
 	BPF_TOKEN_CREATE,
     BPF_PW_LINK_CREATE,
     BPF_FLW_SET_PALETTE,
+    BPF_FLOW_BEGIN,
+    BPF_FLOW_END,
 	__MAX_BPF_CMD,
 };
 
@@ -1849,6 +1851,10 @@ union bpf_attr {
         __u64 palette_args_len; // Length of the array in bytes
         __u32 target_prog_fd; // This needs to be the extension app management object eventually
     } flw_set_palette;
+
+    struct { /* struct used for begin and end flow */
+        __u32 id;
+    } flow;
 
 } __attribute__((aligned(8)));
 

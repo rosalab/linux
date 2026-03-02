@@ -3121,6 +3121,19 @@ put_token:
 	return err;
 }
 
+static int bpf_flow_begin(union bpf_attr *attr, bpfptr_t uattr)
+{
+    pr_info("Started flow\n");
+    return 0;
+}
+
+static int bpf_flow_end(union bpf_attr *attr, bpfptr_t uattr)
+{
+    pr_info("Ended flow\n");
+    return 0;
+}
+
+
 #define BPF_OBJ_LAST_FIELD path_fd
 
 static int bpf_obj_pin(const union bpf_attr *attr)
@@ -6206,6 +6219,12 @@ static int __sys_bpf(enum bpf_cmd cmd, bpfptr_t uattr, unsigned int size)
     case BPF_FLW_SET_PALETTE:
         err = flow_set_palette(&attr, uattr);
         break;
+    case BPF_FLOW_BEGIN:
+         err = bpf_flow_begin(&attr, uattr);
+         break;
+    case BPF_FLOW_END:
+         err = bpf_flow_end(&attr, uattr);
+         break;
 	default:
 		err = -EINVAL;
 		break;

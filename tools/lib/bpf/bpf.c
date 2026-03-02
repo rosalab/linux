@@ -1427,3 +1427,21 @@ int bpf_set_color_palette(union color_palette *pal, enum bpf_color_palette palet
     ret = sys_bpf(BPF_FLW_SET_PALETTE, &attr, attr_sz);
     return ret;
 }
+
+void bpf_begin_flow(void)
+{
+    const size_t attr_sz = offsetofend(union bpf_attr, flow);
+    union bpf_attr attr;
+    memset(&attr, 0, attr_sz);
+    attr.flow.id = 0;
+    sys_bpf(BPF_FLOW_BEGIN, &attr, attr_sz);
+}
+
+void bpf_end_flow(void)
+{
+    const size_t attr_sz = offsetofend(union bpf_attr, flow);
+    union bpf_attr attr;
+    memset(&attr, 0, attr_sz);
+    attr.flow.id = 0;
+    sys_bpf(BPF_FLOW_END, &attr, attr_sz);
+}

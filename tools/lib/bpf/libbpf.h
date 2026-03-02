@@ -219,6 +219,8 @@ struct bpf_object_open_opts {
 	 * point (/sys/fs/bpf), in case this default behavior is undesirable.
 	 */
 	const char *bpf_token_path;
+    /* Option for if the object contains a flow-based BPF program */
+    bool flow_based;
     /* Option for if the object contains a pairwise BPF program */
     bool pw;
 
@@ -1957,6 +1959,8 @@ union color_palette_args {
  * Expose operator set color palette
  */
 LIBBPF_API int bpf_program__set_flow_palette(struct bpf_program *prog, enum bpf_color_palette palette_type, union color_palette_args palette_args);
+
+LIBBPF_API void bpf_object__set_flow_based(struct bpf_object *obj, bool flow_based);
 #ifdef __cplusplus
 } /* extern "C" */
 #endif

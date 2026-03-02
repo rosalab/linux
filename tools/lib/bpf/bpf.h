@@ -729,6 +729,10 @@ union color_palette {
 
 LIBBPF_API int bpf_set_color_palette(union color_palette *pal, enum bpf_color_palette palette_type, int prog_fd);
 
+void bpf_begin_flow(void);
+
+void bpf_end_flow(void);
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif
