@@ -5661,10 +5661,50 @@ static int flow_set_entry_dep(struct bpf_prog *prog, u64 * arg_array, u64 arg_ar
     return 0;
 }
 
+struct flow_path_dep {
+    char * path_string;
+    u64 path_string_len;
+};
+
+static void path_dep_handler(unsigned long ip, unsigned long parent_ip,
+			      struct ftrace_ops *ops, struct ftrace_regs *fregs)
+{
+    char str[PATH_MAX];
+    struct flow_path_dep * path_dep = (struct flow_path_dep *)ops->private;
+    struct pt_regs * regs = ftrace_get_regs(fregs);
+    u64 fd = regs->di;
+    struct file * f = fget(fd);
+    char * pa = d_path(&f->f_path, str, PATH_MAX);
+    pr_info("%s\n%s\n", path_dep->path_string, pa);
+    
+    //
+}
+
+static int flow_set_path_dep(struct bpf_prog *prog, struct flow_path_dep * path_dep, char * location_string, u64 location_len)
+{
+    struct ftrace_ops * ops = kzalloc(sizeof(struct ftrace_ops), GFP_KERNEL);
+    ops->private = (void*)path_dep;
+    ops->func = (ftrace_func_t)path_dep_handler;
+
+    u64 ip = kallsyms_lookup_name(location_string);
+    if (ip == 0) {
+        kfree(path_dep->path_string);
+        kfree(path_dep);
+        kfree(ops);
+        return -EFAULT;
+    }
+
+    ftrace_set_filter_ip(ops, ip, 0, 0);
+
+    register_ftrace_function(ops);
+    prog->aux->ft_ops[prog->aux->ft_ops_len] = ops;
+    prog->aux->ft_ops_len++;
+    return 0;
+}
+
 static int flow_set_palette(union bpf_attr *attr, bpfptr_t uattr)
 {
     bpfptr_t palette_ptr;
-    palette_ptr.user = (void*)attr->flw_set_palette.palette_args;
     palette_ptr.is_kernel = false;
 
     struct bpf_prog * target_prog = bpf_prog_get(attr->flw_set_palette.target_prog_fd);
@@ -5673,21 +5713,43 @@ static int flow_set_palette(union bpf_attr *attr, bpfptr_t uattr)
     }
     pr_info("Prog name is %s\n", target_prog->aux->name);
 
-    // Allocate memory for the palette args
-    u64 * arg_array = kzalloc((attr->flw_set_palette.palette_args_len * sizeof(u64)), GFP_KERNEL);
-    // Copy from user pointer to kernel memory
-    if (copy_from_bpfptr(arg_array, palette_ptr, attr->flw_set_palette.palette_args_len * sizeof(u64)) != 0) {
-        return -EFAULT;
-    }
     // For each palette type we will have a handler to set up the color palette
     switch (attr->flw_set_palette.palette_type) {
         case ENTRY_DEP:
+            palette_ptr.user = (void*)attr->flw_set_palette.palette_args;
+            // Allocate memory for the palette args
+            u64 * arg_array = kzalloc((attr->flw_set_palette.palette_args_len * sizeof(u64)), GFP_KERNEL);
+            // Copy from user pointer to kernel memory
+            if (copy_from_bpfptr(arg_array, palette_ptr, attr->flw_set_palette.palette_args_len * sizeof(u64)) != 0) {
+                return -EFAULT;
+            }
             flow_set_entry_dep(target_prog, arg_array, attr->flw_set_palette.palette_args_len);
+            kfree(arg_array);
+            break;
+        case PATH_DEP:
+            struct flow_path_dep * path_dep = kzalloc(sizeof(struct flow_path_dep), GFP_KERNEL);
+            
+            palette_ptr.user = (void*)attr->flw_set_palette.path_string;
+            u64 string_len = attr->flw_set_palette.path_string_len;
+            char * path_string = kzalloc(string_len, GFP_KERNEL);
+            if (copy_from_bpfptr(path_string, palette_ptr, attr->flw_set_palette.path_string_len) != 0) {
+                return -EFAULT;
+            }
+            path_dep->path_string_len = string_len;
+            path_dep->path_string = path_string;
+            palette_ptr.user = (void*)attr->flw_set_palette.location_name;
+            u64 location_len = attr->flw_set_palette.location_name_len;
+            char * location_string = kzalloc(string_len, GFP_KERNEL);
+            if (copy_from_bpfptr(location_string, palette_ptr, location_len) != 0) {
+                return -EFAULT;
+            }
+            flow_set_path_dep(target_prog, path_dep, location_string, location_len);
+            kfree(location_string);
+            break;
         default: 
+            break;
     }
 
-    // Free the palette args
-    kfree(arg_array);
     return 0;
 }
 

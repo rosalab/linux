@@ -725,6 +725,13 @@ union color_palette {
         __u64 * syscalls;
         __u64 syscalls_len;
     } entry_dep;
+
+    struct {
+        char * path_string;
+        __u64 path_string_len;
+        char * location_string;
+        __u64 location_string_len;
+    } path_dep;
 };
 
 LIBBPF_API int bpf_set_color_palette(union color_palette *pal, enum bpf_color_palette palette_type, int prog_fd);

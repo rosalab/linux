@@ -54,6 +54,7 @@
 // Enum for bpf_color_palette codes
 enum bpf_color_palette {
     ENTRY_DEP = 0,
+    PATH_DEP,
 };
 
 enum bpf_cond_pseudo_jmp {
@@ -1846,10 +1847,14 @@ union bpf_attr {
     } pw_link_create;
 
     struct { /* struct used by BPF_FLW_SET_PALETTE commang */
-        enum bpf_color_palette palette_type; // Should be enum
-        __aligned_u64 palette_args; // Array of arguments to the palette
-        __u64 palette_args_len; // Length of the array in bytes
-        __u32 target_prog_fd; // This needs to be the extension app management object eventually
+            enum bpf_color_palette palette_type; // Should be enum
+            __aligned_u64 palette_args; // Array of arguments to the palette
+            __u64 palette_args_len; // Length of the array in bytes
+            __u32 target_prog_fd; // This needs to be the extension app management object eventually
+            __aligned_u64 path_string;
+            __u64 path_string_len;
+            __aligned_u64 location_name;
+            __u64 location_name_len;
     } flw_set_palette;
 
     struct { /* struct used for begin and end flow */

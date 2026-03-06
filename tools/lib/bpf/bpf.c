@@ -1415,12 +1415,20 @@ int bpf_set_color_palette(union color_palette *pal, enum bpf_color_palette palet
 
     memset(&attr, 0, attr_sz);
     attr.flw_set_palette.target_prog_fd = prog_fd;
+    attr.flw_set_palette.palette_type = palette_type;
 
     
     switch (palette_type) {
         case ENTRY_DEP:
             attr.flw_set_palette.palette_args = (__aligned_u64)pal->entry_dep.syscalls;
             attr.flw_set_palette.palette_args_len = pal->entry_dep.syscalls_len;
+            break;
+        case PATH_DEP:
+            attr.flw_set_palette.path_string = (__aligned_u64)pal->path_dep.path_string;
+            attr.flw_set_palette.path_string_len = (__aligned_u64)pal->path_dep.path_string_len;
+            attr.flw_set_palette.location_name = (__aligned_u64)pal->path_dep.location_string;
+            attr.flw_set_palette.location_name_len = (__aligned_u64)pal->path_dep.location_string_len;
+            break;
         default:
     }
 
