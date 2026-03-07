@@ -5685,6 +5685,8 @@ static int flow_set_path_dep(struct bpf_prog *prog, struct flow_path_dep * path_
     struct ftrace_ops * ops = kzalloc(sizeof(struct ftrace_ops), GFP_KERNEL);
     ops->private = (void*)path_dep;
     ops->func = (ftrace_func_t)path_dep_handler;
+    pr_info("String is: %s\n", ((struct flow_path_dep *)(ops->private))->path_string);
+    ops->flags = FTRACE_OPS_FL_SAVE_REGS;
 
     u64 ip = kallsyms_lookup_name(location_string);
     if (ip == 0) {
@@ -5704,8 +5706,9 @@ static int flow_set_path_dep(struct bpf_prog *prog, struct flow_path_dep * path_
 
 static int flow_set_palette(union bpf_attr *attr, bpfptr_t uattr)
 {
-    bpfptr_t palette_ptr;
+    bpfptr_t palette_ptr, palette_ptr2;
     palette_ptr.is_kernel = false;
+    palette_ptr2.is_kernel = false;
 
     struct bpf_prog * target_prog = bpf_prog_get(attr->flw_set_palette.target_prog_fd);
     if (!target_prog) {
@@ -5737,10 +5740,11 @@ static int flow_set_palette(union bpf_attr *attr, bpfptr_t uattr)
             }
             path_dep->path_string_len = string_len;
             path_dep->path_string = path_string;
-            palette_ptr.user = (void*)attr->flw_set_palette.location_name;
+            pr_info("String is: %s\n", path_string);
+            palette_ptr2.user = (void*)attr->flw_set_palette.location_name;
             u64 location_len = attr->flw_set_palette.location_name_len;
             char * location_string = kzalloc(string_len, GFP_KERNEL);
-            if (copy_from_bpfptr(location_string, palette_ptr, location_len) != 0) {
+            if (copy_from_bpfptr(location_string, palette_ptr2, location_len) != 0) {
                 return -EFAULT;
             }
             flow_set_path_dep(target_prog, path_dep, location_string, location_len);
