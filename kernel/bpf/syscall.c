@@ -2406,7 +2406,7 @@ static void bpf_prog_put_deferred(struct work_struct *work)
     // Unregister ftrace funcs and cleanup
     for (int i = 0; i < aux->ft_ops_len; i++) {
         unregister_ftrace_function(aux->ft_ops[i]);
-        kfree(aux->ft_ops[i]);
+        kvfree(aux->ft_ops[i]);
     }
 	perf_event_bpf_event(prog, PERF_BPF_EVENT_PROG_UNLOAD, 0);
 	bpf_audit_prog(prog, BPF_AUDIT_UNLOAD);
@@ -5675,14 +5675,17 @@ static void path_dep_handler(unsigned long ip, unsigned long parent_ip,
     u64 fd = regs->di;
     struct file * f = fget(fd);
     char * pa = d_path(&f->f_path, str, PATH_MAX);
-    pr_info("%s\n%s\n", path_dep->path_string, pa);
+    if (strncmp(path_dep->path_string, pa, path_dep->path_string_len - 1) == 0) {
+        current->process_dynamic_color = 0x2;
+    }
+    //pr_info("Filter: %s Path: %s\n", path_dep->path_string, pa);
     
     //
 }
 
 static int flow_set_path_dep(struct bpf_prog *prog, struct flow_path_dep * path_dep, char * location_string, u64 location_len)
 {
-    struct ftrace_ops * ops = kzalloc(sizeof(struct ftrace_ops), GFP_KERNEL);
+    struct ftrace_ops * ops = vzalloc(sizeof(struct ftrace_ops));
     ops->private = (void*)path_dep;
     ops->func = (ftrace_func_t)path_dep_handler;
     pr_info("String is: %s\n", ((struct flow_path_dep *)(ops->private))->path_string);
@@ -5690,9 +5693,9 @@ static int flow_set_path_dep(struct bpf_prog *prog, struct flow_path_dep * path_
 
     u64 ip = kallsyms_lookup_name(location_string);
     if (ip == 0) {
-        kfree(path_dep->path_string);
-        kfree(path_dep);
-        kfree(ops);
+        kvfree(path_dep->path_string);
+        kvfree(path_dep);
+        kvfree(ops);
         return -EFAULT;
     }
 
@@ -5727,10 +5730,10 @@ static int flow_set_palette(union bpf_attr *attr, bpfptr_t uattr)
                 return -EFAULT;
             }
             flow_set_entry_dep(target_prog, arg_array, attr->flw_set_palette.palette_args_len);
-            kfree(arg_array);
+            kvfree(arg_array);
             break;
         case PATH_DEP:
-            struct flow_path_dep * path_dep = kzalloc(sizeof(struct flow_path_dep), GFP_KERNEL);
+            struct flow_path_dep * path_dep = vzalloc(sizeof(struct flow_path_dep));
             
             palette_ptr.user = (void*)attr->flw_set_palette.path_string;
             u64 string_len = attr->flw_set_palette.path_string_len;
@@ -5743,16 +5746,18 @@ static int flow_set_palette(union bpf_attr *attr, bpfptr_t uattr)
             pr_info("String is: %s\n", path_string);
             palette_ptr2.user = (void*)attr->flw_set_palette.location_name;
             u64 location_len = attr->flw_set_palette.location_name_len;
-            char * location_string = kzalloc(string_len, GFP_KERNEL);
+            char * location_string = vzalloc(location_len);
             if (copy_from_bpfptr(location_string, palette_ptr2, location_len) != 0) {
                 return -EFAULT;
             }
             flow_set_path_dep(target_prog, path_dep, location_string, location_len);
-            kfree(location_string);
+            kvfree(location_string);
             break;
         default: 
             break;
     }
+
+    bpf_prog_put(target_prog);
 
     return 0;
 }
