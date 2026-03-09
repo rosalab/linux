@@ -5678,6 +5678,9 @@ static void path_dep_handler(unsigned long ip, unsigned long parent_ip,
     if (strncmp(path_dep->path_string, pa, path_dep->path_string_len - 1) == 0) {
         current->process_dynamic_color = 0x2;
     }
+    else {
+        current->process_dynamic_color = 0x1;
+    }
     //pr_info("Filter: %s Path: %s\n", path_dep->path_string, pa);
     
     //
