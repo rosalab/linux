@@ -2730,6 +2730,7 @@ static int invoke_bpf_prog(const struct btf_func_model *m, u8 **pprog,
     // If the program should not be run then we need to bail out
     // 1. Check if the program should be run
     // Prep registers for color check call
+    
     emit_mov_imm64(&prog, BPF_REG_1, (long) p >> 32, (u32) (long) p);
     if (emit_rsb_call(&prog, color_check, image + (prog - (u8 *)rw_image))) {
         return -EINVAL;
@@ -2914,7 +2915,8 @@ static int invoke_bpf_mod_ret(const struct btf_func_model *m, u8 **pprog,
 
 static u64 bpf_check_color(struct bpf_trampoline *tr)
 {
-    u64 val = (current->process_static_color & tr->trampoline_static_color) &&
+    
+    return (current->process_static_color & tr->trampoline_static_color) &&
            (current->process_dynamic_color & tr->trampoline_dynamic_color);
     //pr_info("%llx\n", val);
     //pr_info("%llx %llx\n%llx %llx\n", current->process_static_color,
@@ -2924,7 +2926,7 @@ static u64 bpf_check_color(struct bpf_trampoline *tr)
 
     //return (current->process_static_color & tr->trampoline_static_color) &&
     //       (current->process_dynamic_color & tr->trampoline_dynamic_color);
-    return val;
+    //return val;
 }
 
 /* Example:
@@ -3111,14 +3113,23 @@ static int __arch_prepare_bpf_trampoline(struct bpf_tramp_image *im, void *rw_im
 
         // 0. Push RDI to stack
         EMIT1(0x57);
+        // Push RDX to stack
+        EMIT1(0x52);
+        // Push RSI to stack
+        EMIT1(0x56);
         // 1. Get the trampoline struct into RDI for function calling convention
         emit_mov_imm64(&prog, BPF_REG_1, (long) tr >> 32, (u32) (long) tr);
         // 2. Call the bpf_check_color function
         if (emit_rsb_call(&prog, bpf_check_color, image + (prog - (u8 *)rw_image))) {
             return -EINVAL;
         }
+        // Pop rsi
+        EMIT1(0x5E);
+        // pop RDX
+        EMIT1(0x5A);
         // 3. Pop stack (rdi) to register
         EMIT1(0x5F);
+        
         // 4. Test return value for zero
         EMIT3(0x48, 0x85, 0xC0);
         // 5. If the return value is zero then return from the trampline, otherwise trace
