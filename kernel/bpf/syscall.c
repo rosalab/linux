@@ -5646,7 +5646,11 @@ static void test_ftrace_handler(unsigned long ip, unsigned long parent_ip,
 
 static int flow_set_entry_dep(struct bpf_prog *prog, u64 * arg_array, u64 arg_array_len)
 {
+    if (arg_array_len == 0) {
+        return 0;
+    }
     struct ftrace_ops * ops = kzalloc(sizeof(struct ftrace_ops), GFP_KERNEL);
+        
     //ops->func = (ftrace_func_t)test_ftrace_handler;
     ops->func = (ftrace_func_t)__entry_handle_1;
     // Args are a list of system call numbers
