@@ -5674,7 +5674,12 @@ static void path_dep_handler(unsigned long ip, unsigned long parent_ip,
     struct pt_regs * regs = ftrace_get_regs(fregs);
     u64 fd = regs->di;
     struct file * f = fget(fd);
+    if (!f) {
+        current->process_dynamic_color = 0x1;
+        return;
+    }
     char * pa = d_path(&f->f_path, str, PATH_MAX);
+ 
     if (strncmp(path_dep->path_string, pa, path_dep->path_string_len - 1) == 0) {
         current->process_dynamic_color = 0x2;
     }
