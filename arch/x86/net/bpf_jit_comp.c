@@ -2702,14 +2702,8 @@ static void restore_regs(const struct btf_func_model *m, u8 **prog,
 // returns 0 if we should skip
 static int color_check(struct bpf_prog *p)
 {
-    int val = ((current->process_static_color & p->bpf_prog_static_color) && 
+    return  ((current->process_static_color & p->bpf_prog_static_color) && 
             (current->process_dynamic_color & p->bpf_prog_dynamic_color));
-    //pr_info("Color check val is %d\n", val);
-    return val;
-    //pr_info("Testing color check call: current %lx prog: %lx  es is %lx\n", current->process_color, p->bpf_prog_color, current->process_color & p->bpf_prog_color);
-    //
-    //return ((current->process_static_color & p->bpf_prog_static_color) && 
-    //        (current->process_dynamic_color & p->bpf_prog_dynamic_color));
 }
 
 /* stack size = regs_off -> ctx pointer */
@@ -2730,7 +2724,6 @@ static int invoke_bpf_prog(const struct btf_func_model *m, u8 **pprog,
     // If the program should not be run then we need to bail out
     // 1. Check if the program should be run
     // Prep registers for color check call
-    
     emit_mov_imm64(&prog, BPF_REG_1, (long) p >> 32, (u32) (long) p);
     if (emit_rsb_call(&prog, color_check, image + (prog - (u8 *)rw_image))) {
         return -EINVAL;
@@ -2918,15 +2911,6 @@ static u64 bpf_check_color(struct bpf_trampoline *tr)
     
     return (current->process_static_color & tr->trampoline_static_color) &&
            (current->process_dynamic_color & tr->trampoline_dynamic_color);
-    //pr_info("%llx\n", val);
-    //pr_info("%llx %llx\n%llx %llx\n", current->process_static_color,
-    //                                  tr->trampoline_static_color,
-    //                                  current->process_dynamic_color,
-    //                                  tr->trampoline_dynamic_color);
-
-    //return (current->process_static_color & tr->trampoline_static_color) &&
-    //       (current->process_dynamic_color & tr->trampoline_dynamic_color);
-    //return val;
 }
 
 /* Example:
@@ -3107,7 +3091,7 @@ static int __arch_prepare_bpf_trampoline(struct bpf_tramp_image *im, void *rw_im
 
     // If trampoline not null 
     if (tr) { 
-        // Function signature bool check_color(struct bpf_trampoline * tr);
+        // Function signature bool bpf_check_color(struct bpf_trampoline * tr);
         // Call the check function (maybe this should be inlined for perf once we get it finished
         // Based on the result either return from trampoline, or continue.
 
@@ -3129,7 +3113,6 @@ static int __arch_prepare_bpf_trampoline(struct bpf_tramp_image *im, void *rw_im
         EMIT1(0x5A);
         // 3. Pop stack (rdi) to register
         EMIT1(0x5F);
-        
         // 4. Test return value for zero
         EMIT3(0x48, 0x85, 0xC0);
         // 5. If the return value is zero then return from the trampline, otherwise trace

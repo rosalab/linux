@@ -7577,11 +7577,4 @@ struct hook_test_attr {
     __u64 opt_kprobe_time;
 };
 
-struct flow_aware_bpf {
-    struct bpf_prog ** progs;
-    __u32 prog_len;
-    struct bpf_link ** links;
-    __u32 link_len;
-};
-
 #endif /* _UAPI__LINUX_BPF_H__ */

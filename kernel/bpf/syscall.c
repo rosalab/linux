@@ -78,75 +78,6 @@ static const struct bpf_map_ops * const bpf_map_types[] = {
 #undef BPF_LINK_TYPE
 };
 
-// Statically define all possible entry dependent handlers
-// This is not scalable?
-
-//#define ENTRY_HANDLER(BIT) static void __entry_handle_##BIT(void) { current->process_dynamic_color |= 1ULL << BIT; }
-//ENTRY_HANDLER(0)
-//ENTRY_HANDLER(1)
-//ENTRY_HANDLER(2)
-//ENTRY_HANDLER(3)
-//ENTRY_HANDLER(4)
-//ENTRY_HANDLER(5)
-//ENTRY_HANDLER(6)
-//ENTRY_HANDLER(7)
-//ENTRY_HANDLER(8)
-//ENTRY_HANDLER(9)
-//ENTRY_HANDLER(10)
-//ENTRY_HANDLER(11)
-//ENTRY_HANDLER(12)
-//ENTRY_HANDLER(13)
-//ENTRY_HANDLER(14)
-//ENTRY_HANDLER(15)
-//ENTRY_HANDLER(16)
-//ENTRY_HANDLER(17)
-//ENTRY_HANDLER(18)
-//ENTRY_HANDLER(19)
-//ENTRY_HANDLER(20)
-//ENTRY_HANDLER(21)
-//ENTRY_HANDLER(22)
-//ENTRY_HANDLER(23)
-//ENTRY_HANDLER(24)
-//ENTRY_HANDLER(25)
-//ENTRY_HANDLER(26)
-//ENTRY_HANDLER(27)
-//ENTRY_HANDLER(28)
-//ENTRY_HANDLER(29)
-//ENTRY_HANDLER(30)
-//ENTRY_HANDLER(31)
-//ENTRY_HANDLER(32)
-//ENTRY_HANDLER(33)
-//ENTRY_HANDLER(34)
-//ENTRY_HANDLER(35)
-//ENTRY_HANDLER(36)
-//ENTRY_HANDLER(37)
-//ENTRY_HANDLER(38)
-//ENTRY_HANDLER(39)
-//ENTRY_HANDLER(40)
-//ENTRY_HANDLER(41)
-//ENTRY_HANDLER(42)
-//ENTRY_HANDLER(43)
-//ENTRY_HANDLER(44)
-//ENTRY_HANDLER(45)
-//ENTRY_HANDLER(46)
-//ENTRY_HANDLER(47)
-//ENTRY_HANDLER(48)
-//ENTRY_HANDLER(49)
-//ENTRY_HANDLER(50)
-//ENTRY_HANDLER(51)
-//ENTRY_HANDLER(52)
-//ENTRY_HANDLER(53)
-//ENTRY_HANDLER(54)
-//ENTRY_HANDLER(55)
-//ENTRY_HANDLER(56)
-//ENTRY_HANDLER(57)
-//ENTRY_HANDLER(58)
-//ENTRY_HANDLER(59)
-//ENTRY_HANDLER(60)
-//ENTRY_HANDLER(61)
-//ENTRY_HANDLER(62)
-//ENTRY_HANDLER(63)
-
 /*
  * If we're handed a bigger struct than we know of, ensure all the unknown bits
  * are 0 - i.e. new user-space does not rely on any kernel feature extensions
@@ -2404,6 +2335,7 @@ static void bpf_prog_put_deferred(struct work_struct *work)
 	aux = container_of(work, struct bpf_prog_aux, work);
 	prog = aux->prog;
     // Unregister ftrace funcs and cleanup
+    // TODO: This needs to free the private state for path dep
     for (int i = 0; i < aux->ft_ops_len; i++) {
         unregister_ftrace_function(aux->ft_ops[i]);
         kvfree(aux->ft_ops[i]);
@@ -3188,6 +3120,7 @@ void bpf_link_init_sleepable(struct bpf_link *link, enum bpf_link_type type,
 	link->id = 0;
 	link->ops = ops;
 	link->prog = prog;
+    // TODO: What do we need to do here
     link->pw_stack_offset = 128; // hardcode for now
     link->pw_stack_size = 8; // hardcode for now
 }
@@ -5510,7 +5443,6 @@ static int link_create(union bpf_attr *attr, bpfptr_t uattr, struct bpf_pw_link 
 	case BPF_PROG_TYPE_TRACING:
         prog->bpf_prog_static_color = attr->link_create.static_color; // set prog color here for tracing
         prog->bpf_prog_dynamic_color = attr->link_create.dynamic_color; // set prog color here for tracing
-                                                                // TODO: add dynamic color field to attr
 		if (attr->link_create.attach_type != prog->expected_attach_type) {
 			ret = -EINVAL;
 			goto out;
@@ -5631,7 +5563,7 @@ static int pw_link_create(union bpf_attr *attr, bpfptr_t uattr)
     return 0;
 }
 
-// Flow Color Manager
+// Flow Color Manager Entrypoint?
 static u64 get_next_color(void) 
 {
     return 0x2;
@@ -5640,19 +5572,10 @@ static u64 get_next_color(void)
 
 extern const char *get_syscall_name(int syscall);
 
-static void test_ftrace_handler(unsigned long ip, unsigned long parent_ip,
-			      struct ftrace_ops *op, struct ftrace_regs *fregs)
-{
-    //struct task_struct * t = current;
-    pr_info("PID: %d In ftrace handler!\n", current->pid);
-    current->process_dynamic_color = 0x2;
-    pr_info("Static color: %llu Dynamic color: %llu\n", current->process_static_color, current->process_dynamic_color);
-}
-
-
 static void entry_dep_handler(unsigned long ip, unsigned long parent_ip,
 			      struct ftrace_ops *ops, struct ftrace_regs *fregs)
 {
+    // ftrace_ops private field holds just color for this type
     current->process_dynamic_color = (u64)ops->private;
 }
 
@@ -5664,7 +5587,6 @@ static int flow_set_entry_dep(struct bpf_prog *prog, u64 * arg_array, u64 arg_ar
     struct ftrace_ops * ops = kzalloc(sizeof(struct ftrace_ops), GFP_KERNEL);
     ops->private = (void *)color;
         
-    //ops->func = (ftrace_func_t)test_ftrace_handler;
     ops->func = (ftrace_func_t)entry_dep_handler;
     // Args are a list of system call numbers
     for (u64 i = 0; i < arg_array_len; i++) {
@@ -5687,26 +5609,23 @@ struct flow_path_dep {
 static void path_dep_handler(unsigned long ip, unsigned long parent_ip,
 			      struct ftrace_ops *ops, struct ftrace_regs *fregs)
 {
-    char str[PATH_MAX];
+    char str[2048]; // PATH_MAX / 2 = 2048
     struct flow_path_dep * path_dep = (struct flow_path_dep *)ops->private;
     struct pt_regs * regs = ftrace_get_regs(fregs);
     u64 fd = regs->di;
-    struct file * f = fget(fd);
-    if (!f) {
-        current->process_dynamic_color = 0x1;
+    struct file * f = fget(fd); 
+    if (!f) { // When is the file ptr null?
+        current->process_dynamic_color = 0x1; // This is default color but idk if this is correct
         return;
     }
-    char * pa = d_path(&f->f_path, str, PATH_MAX);
+    char * pa = d_path(&f->f_path, str, 2048); // PATH_MAX / 2 = 2048
  
     if (strncmp(path_dep->path_string, pa, path_dep->path_string_len - 1) == 0) {
         current->process_dynamic_color = path_dep->color;
     }
     else {
-        current->process_dynamic_color = 0x1;
+        current->process_dynamic_color = 0x1; // This is default color idk if this is correct
     }
-    //pr_info("Filter: %s Path: %s\n", path_dep->path_string, pa);
-    
-    //
 }
 
 static int flow_set_path_dep(struct bpf_prog *prog, struct flow_path_dep * path_dep, char * location_string, u64 location_len, u64 color)
@@ -5746,6 +5665,7 @@ static int flow_set_palette(union bpf_attr *attr, bpfptr_t uattr)
     }
     pr_info("Prog name is %s\n", target_prog->aux->name);
 
+    // Invoke the color manager
     u64 color = get_next_color();
 
     // For each palette type we will have a handler to set up the color palette
@@ -5790,8 +5710,6 @@ static int flow_set_palette(union bpf_attr *attr, bpfptr_t uattr)
 
     return 0;
 }
-
-
 
 static int link_update_map(struct bpf_link *link, union bpf_attr *attr)
 {
@@ -6053,7 +5971,7 @@ static int bpf_iter_create(union bpf_attr *attr)
 }
 
 // TODO: update to include dynamic color
-static int __sys_process_set_color(int pid, u64 color)
+static int __sys_process_set_color(int pid, u64 color, u64 dyn_color)
 {
     struct task_struct * ts;
     ts = find_task_by_vpid(pid);
@@ -6064,7 +5982,7 @@ static int __sys_process_set_color(int pid, u64 color)
 
     if (bpf_capable()) {
         ts->process_static_color = color;
-        ts->process_dynamic_color = color;
+        ts->process_dynamic_color = dyn_color;
         return 0;
     }
     else {
@@ -6086,9 +6004,9 @@ static int __sys_process_get_color(int pid, u64 __user *ptr)
     return 0;
 }
 
-SYSCALL_DEFINE2(process_set_color, int, pid, u64, color)
+SYSCALL_DEFINE3(process_set_color, int, pid, u64, color, u64, dyn_color)
 {
-    return __sys_process_set_color(pid, color);
+    return __sys_process_set_color(pid, color, dyn_color);
 }
 
 SYSCALL_DEFINE2(process_get_color, int, pid, u64 __user *, ptr)
