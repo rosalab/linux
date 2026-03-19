@@ -6597,5 +6597,10 @@ static void __color_test(void)
     return;
 }
 
+SYSCALL_DEFINE0(empty_syscall)
+{
+    return 0;
+}
+
     
 #endif /* CONFIG_SYSCTL */
