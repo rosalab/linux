@@ -849,11 +849,11 @@ __SYSCALL(__NR_getxattrat, sys_getxattrat)
 __SYSCALL(__NR_listxattrat, sys_listxattrat)
 #define __NR_removexattrat 466
 __SYSCALL(__NR_removexattrat, sys_removexattrat)
-#define __NR_empty_syscall 467
+#define __NR_empty_syscall 470
 __SYSCALL(__NR_empty_syscall, sys_empty_syscall)
 
 #undef __NR_syscalls
-#define __NR_syscalls 468
+#define __NR_syscalls 471
 
 /*
  * 32 bit systems traditionally used different
