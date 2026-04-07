@@ -33,6 +33,7 @@
 #include <linux/compat.h>
 #include <linux/mnt_idmapping.h>
 #include <linux/filelock.h>
+#include <linux/hashtable.h>
 
 #include "internal.h"
 
@@ -1405,7 +1406,24 @@ static long do_sys_openat2(int dfd, const char __user *filename,
 			fd = PTR_ERR(f);
 		} else {
 			fd_install(fd, f);
-		}
+            /* Allocate struct to hold the fd */
+            //pr_info("Filename %s, %s\n", tmp->name, filename);
+            char * full_path = kmalloc(1024, GFP_KERNEL);
+            char * pa = d_path(&f->f_path, full_path, 1024);
+            if (strncmp("/etc", pa, 4) == 0) {
+
+                struct fd_hash * hashed = kmalloc(sizeof(struct fd_hash), GFP_KERNEL);
+                if (hashed != NULL) {
+                    INIT_HLIST_NODE(&hashed->node);
+                    hashed->fd = fd;
+                    /* add the fd into the hashtable */
+                    if (current->fd_hashtable) {
+                        dyn_hash_add(current->fd_hashtable, &hashed->node, fd, 4);
+                    }
+                }
+            }
+            kfree(full_path);
+		    }
 	}
 	putname(tmp);
 	return fd;

@@ -103,6 +103,7 @@
 #include <linux/pidfs.h>
 #include <linux/ptdump.h>
 #include <net/net_namespace.h>
+#include <linux/hashtable.h>
 
 #include <asm/io.h>
 #include <asm/setup.h>
@@ -113,6 +114,8 @@
 #include <trace/events/initcall.h>
 
 #include <kunit/test.h>
+
+DEFINE_HASHTABLE(root_fd_hash, 4);
 
 static int kernel_init(void *);
 
@@ -903,6 +906,9 @@ void start_kernel(void)
 	char *after_dashes;
 
 	set_task_stack_end_magic(&init_task);
+    //init_task.fd_hashtable = NULL; // temp to stop access
+    //init_task.fd_hashtable = root_fd_hash;
+    //__hash_init(init_task.fd_hashtable, 1 << 4);
 	smp_setup_processor_id();
 	debug_objects_early_init();
 	init_vmlinux_build_id();

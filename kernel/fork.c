@@ -105,6 +105,7 @@
 #include <uapi/linux/pidfd.h>
 #include <linux/pidfs.h>
 #include <linux/tick.h>
+#include <linux/hashtable.h>
 
 #include <asm/pgalloc.h>
 #include <linux/uaccess.h>
@@ -1098,6 +1099,13 @@ void set_task_stack_end_magic(struct task_struct *tsk)
 	*stackend = STACK_END_MAGIC;	/* for overflow detection */
 }
 
+static void task_fd_hashtable_init(struct task_struct *tsk)
+{
+    /* Allocate a hashtable with 2^4 buckets (arb) */
+    tsk->fd_hashtable = kmalloc(sizeof(struct hlist_head) * (1 << 4), GFP_KERNEL);
+    __hash_init(tsk->fd_hashtable, 4);
+}
+
 static struct task_struct *dup_task_struct(struct task_struct *orig, int node)
 {
 	struct task_struct *tsk;
@@ -1136,6 +1144,7 @@ static struct task_struct *dup_task_struct(struct task_struct *orig, int node)
 	tsk->seccomp.filter = NULL;
 #endif
 
+    task_fd_hashtable_init(tsk);
 	setup_thread_stack(tsk, orig);
 	clear_user_return_notifier(tsk);
 	clear_tsk_need_resched(tsk);

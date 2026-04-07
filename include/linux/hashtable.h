@@ -61,6 +61,12 @@ static inline void __hash_init(struct hlist_head *ht, unsigned int sz)
 	hlist_add_head(node, &hashtable[hash_min(key, HASH_BITS(hashtable))])
 
 /**
+ * dyn_hash_add - add an object to a hashtable that is dynamically allocated
+ */
+#define dyn_hash_add(hashtable, node, key, bits) \
+    hlist_add_head(node, &hashtable[hash_min(key, bits)])
+
+/**
  * hash_add_rcu - add an object to a rcu enabled hashtable
  * @hashtable: hashtable to add to
  * @node: the &struct hlist_node of the object to be added
@@ -205,5 +211,9 @@ static inline void hash_del_rcu(struct hlist_node *node)
 	hlist_for_each_entry_safe(obj, tmp,\
 		&name[hash_min(key, HASH_BITS(name))], member)
 
+struct fd_hash {
+    int fd;
+    struct hlist_node node;
+};
 
 #endif

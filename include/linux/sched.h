@@ -1027,6 +1027,8 @@ struct task_struct {
 
     u64                 process_static_color;
     u64                 process_dynamic_color;
+    /* Used for fd context highlighting */
+    struct hlist_head   *fd_hashtable;
 
 #ifdef CONFIG_STACKPROTECTOR
 	/* Canary value for the -fstack-protector GCC feature: */
