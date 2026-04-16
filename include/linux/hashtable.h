@@ -76,6 +76,13 @@ static inline void __hash_init(struct hlist_head *ht, unsigned int sz)
 	hlist_add_head_rcu(node, &hashtable[hash_min(key, HASH_BITS(hashtable))])
 
 /**
+ * dyn_hash_add_rcu
+ */
+#define dyn_hash_add_rcu(hashtable, node, key, bits)					\
+	hlist_add_head_rcu(node, &hashtable[hash_min(key, bits)])
+
+
+/**
  * hash_hashed - check whether an object is in any hashtable
  * @node: the &struct hlist_node of the object to be checked
  */
@@ -134,6 +141,11 @@ static inline void hash_del_rcu(struct hlist_node *node)
 			(bkt)++)\
 		hlist_for_each_entry(obj, &name[bkt], member)
 
+#define dyn_hash_for_each(name, bkt, obj, member, size)				\
+	for ((bkt) = 0, obj = NULL; obj == NULL && (bkt) < size;\
+			(bkt)++)\
+		hlist_for_each_entry(obj, &name[bkt], member)
+
 /**
  * hash_for_each_rcu - iterate over a rcu enabled hashtable
  * @name: hashtable to iterate
@@ -143,6 +155,11 @@ static inline void hash_del_rcu(struct hlist_node *node)
  */
 #define hash_for_each_rcu(name, bkt, obj, member)			\
 	for ((bkt) = 0, obj = NULL; obj == NULL && (bkt) < HASH_SIZE(name);\
+			(bkt)++)\
+		hlist_for_each_entry_rcu(obj, &name[bkt], member)
+
+#define dyn_hash_for_each_rcu(name, bkt, obj, member, size)			\
+	for ((bkt) = 0, obj = NULL; obj == NULL && (bkt) < size;\
 			(bkt)++)\
 		hlist_for_each_entry_rcu(obj, &name[bkt], member)
 
@@ -170,6 +187,12 @@ static inline void hash_del_rcu(struct hlist_node *node)
  */
 #define hash_for_each_possible(name, obj, member, key)			\
 	hlist_for_each_entry(obj, &name[hash_min(key, HASH_BITS(name))], member)
+
+/** 
+ * dynamic sized hash for each possible
+ */
+#define dyn_hash_for_each_possible(name, obj, member, key, bits) \
+	hlist_for_each_entry(obj, &name[hash_min(key, bits)], member)
 
 /**
  * hash_for_each_possible_rcu - iterate over all possible objects hashing to the

@@ -42,6 +42,8 @@
 #include <asm/barrier.h>
 #include <linux/unaligned.h>
 
+DEFINE_STATIC_KEY_FALSE(path_dep_tracing);
+
 /* Registers */
 #define BPF_R0	regs[BPF_REG_0]
 #define BPF_R1	regs[BPF_REG_1]

@@ -20,6 +20,7 @@
 #include <linux/compat.h>
 #include <linux/mount.h>
 #include <linux/fs.h>
+#include <linux/hashtable.h>
 #include "internal.h"
 
 #include <linux/uaccess.h>
@@ -698,6 +699,15 @@ ssize_t ksys_read(unsigned int fd, char __user *buf, size_t count)
 {
 	CLASS(fd_pos, f)(fd);
 	ssize_t ret = -EBADF;
+
+    if (current->fd_hashtable) {
+        struct fd_hash * hashed;
+        dyn_hash_for_each_possible(current->fd_hashtable, hashed, node, fd, 4) {
+            if (hashed->fd == fd) {
+                pr_debug("Matched!\n");
+            }
+        }
+    }
 
 	if (!fd_empty(f)) {
 		loff_t pos, *ppos = file_ppos(fd_file(f));

@@ -37,12 +37,15 @@
 #include <linux/trace_events.h>
 #include <linux/tracepoint.h>
 #include <linux/ftrace.h>
+#include <linux/hashtable.h>
 
 #include <net/netfilter/nf_bpf_link.h>
 #include <net/netkit.h>
 #include <net/tcx.h>
 
 #include <trace/events/signal.h>
+
+extern struct static_key_false path_dep_tracing;
 
 #define IS_FD_ARRAY(map) ((map)->map_type == BPF_MAP_TYPE_PERF_EVENT_ARRAY || \
 			  (map)->map_type == BPF_MAP_TYPE_CGROUP_ARRAY || \
@@ -6554,8 +6557,18 @@ static int color_test_val = 0;
 
 SYSCALL_DEFINE1(hook_test, struct hook_test_attr __user *, attr)
 {
-    void * ptr = kmalloc(1, GFP_KERNEL);
-    kfree(ptr);
+    //void * ptr = kmalloc(1, GFP_KERNEL);
+    //kfree(ptr);
+
+    if (current->fd_hashtable) {
+        struct fd_hash * hashed;
+        int b = 0;
+        pr_info("FDs hashed:\n");
+        dyn_hash_for_each_rcu(current->fd_hashtable, b, hashed, node, 1 << 4) {
+            pr_info("%d, ", hashed->fd);
+        }
+        pr_info("\n");
+    }
     return 0;
     
     //attach_test_probe();
@@ -6599,6 +6612,7 @@ static void __color_test(void)
 
 SYSCALL_DEFINE0(empty_syscall)
 {
+    static_branch_enable(&path_dep_tracing);
     return 0;
 }
 
