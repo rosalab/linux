@@ -6564,9 +6564,11 @@ SYSCALL_DEFINE1(hook_test, struct hook_test_attr __user *, attr)
         struct fd_hash * hashed;
         int b = 0;
         pr_info("FDs hashed:\n");
+        rcu_read_lock();
         dyn_hash_for_each_rcu(current->fd_hashtable, b, hashed, node, 1 << 4) {
             pr_info("%d, ", hashed->fd);
         }
+        rcu_read_unlock();
         pr_info("\n");
     }
     return 0;
@@ -6612,7 +6614,11 @@ static void __color_test(void)
 
 SYSCALL_DEFINE0(empty_syscall)
 {
-    static_branch_enable(&path_dep_tracing);
+    if (static_key_enabled(&path_dep_tracing)) {
+        static_branch_disable(&path_dep_tracing);
+    } else {
+        static_branch_enable(&path_dep_tracing);
+    }
     return 0;
 }
 

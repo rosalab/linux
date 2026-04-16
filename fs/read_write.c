@@ -26,6 +26,8 @@
 #include <linux/uaccess.h>
 #include <asm/unistd.h>
 
+extern struct static_key_false path_dep_tracing;
+
 const struct file_operations generic_ro_fops = {
 	.llseek		= generic_file_llseek,
 	.read_iter	= generic_file_read_iter,
@@ -700,11 +702,13 @@ ssize_t ksys_read(unsigned int fd, char __user *buf, size_t count)
 	CLASS(fd_pos, f)(fd);
 	ssize_t ret = -EBADF;
 
-    if (current->fd_hashtable) {
-        struct fd_hash * hashed;
-        dyn_hash_for_each_possible(current->fd_hashtable, hashed, node, fd, 4) {
-            if (hashed->fd == fd) {
-                pr_debug("Matched!\n");
+    if (static_branch_unlikely(&path_dep_tracing)) {
+        if (current->fd_hashtable) {
+            struct fd_hash * hashed;
+            dyn_hash_for_each_possible(current->fd_hashtable, hashed, node, fd, 4) {
+                if (hashed->fd == fd) {
+                    pr_debug("Matched!\n");
+                }
             }
         }
     }
