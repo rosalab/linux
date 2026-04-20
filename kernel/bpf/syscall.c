@@ -6564,11 +6564,13 @@ SYSCALL_DEFINE1(hook_test, struct hook_test_attr __user *, attr)
         struct fd_hash * hashed;
         int b = 0;
         pr_info("FDs hashed:\n");
-        rcu_read_lock();
+        //rcu_read_lock();
+        mutex_lock(&current->fd_hashtable_mutex);
         dyn_hash_for_each_rcu(current->fd_hashtable, b, hashed, node, 1 << 4) {
             pr_info("%d, ", hashed->fd);
         }
-        rcu_read_unlock();
+        mutex_unlock(&current->fd_hashtable_mutex);
+        //rcu_read_unlock();
         pr_info("\n");
     }
     return 0;

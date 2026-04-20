@@ -206,6 +206,10 @@ static inline void hash_del_rcu(struct hlist_node *node)
 	hlist_for_each_entry_rcu(obj, &name[hash_min(key, HASH_BITS(name))],\
 		member, ## cond)
 
+#define dyn_hash_for_each_possible_rcu(name, obj, member, key, size, cond...)	\
+	hlist_for_each_entry_rcu(obj, &name[hash_min(key, size)],\
+		member, ## cond)
+
 /**
  * hash_for_each_possible_rcu_notrace - iterate over all possible objects hashing
  * to the same bucket in an rcu enabled hashtable in a rcu enabled hashtable
