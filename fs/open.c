@@ -1423,7 +1423,7 @@ static long do_sys_openat2(int dfd, const char __user *filename,
                         /* add the fd into the hashtable */
                         if (current->fd_hashtable) {
                             mutex_lock(&current->fd_hashtable_mutex);
-                            dyn_hash_add_rcu(current->fd_hashtable, &hashed->node, fd, 4);
+                            dyn_hash_add(current->fd_hashtable, &hashed->node, fd, 4);
                             mutex_unlock(&current->fd_hashtable_mutex);
                             //synchronize_rcu();
                         }

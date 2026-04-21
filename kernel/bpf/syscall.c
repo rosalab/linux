@@ -6566,7 +6566,7 @@ SYSCALL_DEFINE1(hook_test, struct hook_test_attr __user *, attr)
         pr_info("FDs hashed:\n");
         //rcu_read_lock();
         mutex_lock(&current->fd_hashtable_mutex);
-        dyn_hash_for_each_rcu(current->fd_hashtable, b, hashed, node, 1 << 4) {
+        dyn_hash_for_each(current->fd_hashtable, b, hashed, node, 1 << 4) {
             pr_info("%d, ", hashed->fd);
         }
         mutex_unlock(&current->fd_hashtable_mutex);
