@@ -1571,6 +1571,22 @@ SYSCALL_DEFINE1(close, unsigned int, fd)
 	if (!file)
 		return -EBADF;
 
+    // If we close the FD then find and free it in the hashtable
+    if (static_branch_unlikely(&path_dep_tracing)) {
+        if (current->fd_hashtable) {
+            struct fd_hash * hashed = NULL;
+            mutex_lock(&current->fd_hashtable_mutex);
+            dyn_hash_for_each_possible_rcu(current->fd_hashtable, hashed, node, fd, 4) {
+                if (hashed != NULL && hashed->fd == fd) {
+                    hash_del(&hashed->node);
+                    kfree(hashed);
+                    break;
+                }
+            }
+            mutex_unlock(&current->fd_hashtable_mutex);
+        }
+    }
+
 	retval = filp_flush(file, current->files);
 
 	/*
