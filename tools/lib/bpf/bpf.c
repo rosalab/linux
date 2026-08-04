@@ -336,6 +336,9 @@ int bpf_prog_load(enum bpf_prog_type prog_type,
 	attr.insns = ptr_to_u64(insns);
 	attr.insn_cnt = (__u32)insn_cnt;
 
+    attr.bytecode_annotations = OPTS_GET(opts, bytecode_annotations, 0);
+    attr.bytecode_annotations_len = OPTS_GET(opts, bytecode_annotations_len, 0);
+
 	attach_prog_fd = OPTS_GET(opts, attach_prog_fd, 0);
 	attach_btf_obj_fd = OPTS_GET(opts, attach_btf_obj_fd, 0);
 

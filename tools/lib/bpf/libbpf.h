@@ -2078,6 +2078,13 @@ LIBBPF_API int libbpf_unregister_prog_handler(int handler_id);
  */
 LIBBPF_API int bpf_program__clone(struct bpf_program *prog, const struct bpf_prog_load_opts *opts);
 
+/**
+ * Funtion to set bytecode annotations for a program
+ */
+LIBBPF_API void bpf_program__set_annotations(struct bpf_program *prog, 
+                                             struct bpf_bytecode_annotation *annotations, 
+                                             __u64 annotations_len); 
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif

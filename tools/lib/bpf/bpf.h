@@ -126,6 +126,10 @@ struct bpf_prog_load_opts {
 	__u32 log_true_size;
 	__u32 token_fd;
 
+    /* bytecode annotations for maps */
+    __aligned_u64 bytecode_annotations;
+    __u64 bytecode_annotations_len;
+
 	/* if set, provides the length of fd_array */
 	__u32 fd_array_cnt;
 	size_t :0;

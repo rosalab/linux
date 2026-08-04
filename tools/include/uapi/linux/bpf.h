@@ -1630,6 +1630,8 @@ union bpf_attr {
 		__aligned_u64	line_info;	/* line info */
 		__u32		line_info_cnt;	/* number of bpf_line_info records */
 		__u32		attach_btf_id;	/* in-kernel BTF type id to attach to */
+        __aligned_u64   bytecode_annotations; /* pointer to array of annotations */
+        __u64       bytecode_annotations_len; /* length of bytecode annotations */
 		union {
 			/* valid prog_fd to attach to bpf prog */
 			__u32		attach_prog_fd;
@@ -7730,6 +7732,15 @@ struct bpf_insn_array_value {
 	__u32 xlated_off;
 	__u32 jitted_off;
 	__u32 :32;
+};
+
+/*
+ * Structure for bytecode annotations records. Currently only used for 
+ * specifying the expected map access type for a map access/update call.
+ */
+struct bpf_bytecode_annotation {
+    __u64 insn_off;
+    __u32 btf_id;
 };
 
 #endif /* _UAPI__LINUX_BPF_H__ */

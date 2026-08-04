@@ -517,6 +517,9 @@ struct bpf_program {
 	__u32 prog_flags;
 	__u8  hash[SHA256_DIGEST_LENGTH];
 
+    struct bpf_bytecode_annotation *bytecode_annotations;
+    __u64 bytecode_annotations_len;
+
 	struct bpf_light_subprog *subprogs;
 	__u32 subprog_cnt;
 };
@@ -15169,4 +15172,18 @@ void bpf_object__destroy_skeleton(struct bpf_object_skeleton *s)
 	free(s->maps);
 	free(s->progs);
 	free(s);
+}
+
+void bpf_program__set_annotations(struct bpf_program *prog,
+                                  struct bpf_bytecode_annotation *annotations,
+                                  __u64 annotations_len)
+{
+    if (!prog)
+        return;
+
+    if (annotations_len <= 0) 
+        return;
+
+    prog->bytecode_annotations = annotations;
+    prog->bytecode_annotations_len = annotations_len;
 }
