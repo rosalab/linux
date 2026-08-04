@@ -2081,7 +2081,7 @@ LIBBPF_API int bpf_program__clone(struct bpf_program *prog, const struct bpf_pro
 /**
  * Funtion to set bytecode annotations for a program
  */
-LIBBPF_API void bpf_program__set_annotations(struct bpf_program *prog, 
+LIBBPF_API int bpf_program__set_annotations(struct bpf_program *prog, 
                                              struct bpf_bytecode_annotation *annotations, 
                                              __u64 annotations_len); 
 

@@ -7979,6 +7979,9 @@ static int bpf_object_load_prog(struct bpf_object *obj, struct bpf_program *prog
 	load_attr.prog_flags = prog->prog_flags;
 	load_attr.fd_array = obj->fd_array;
 
+    load_attr.bytecode_annotations = (__aligned_u64)prog->bytecode_annotations;
+    load_attr.bytecode_annotations_len = prog->bytecode_annotations_len;
+
 	load_attr.token_fd = obj->token_fd;
 	if (obj->token_fd)
 		load_attr.prog_flags |= BPF_F_TOKEN_FD;
@@ -15174,16 +15177,17 @@ void bpf_object__destroy_skeleton(struct bpf_object_skeleton *s)
 	free(s);
 }
 
-void bpf_program__set_annotations(struct bpf_program *prog,
+int bpf_program__set_annotations(struct bpf_program *prog,
                                   struct bpf_bytecode_annotation *annotations,
                                   __u64 annotations_len)
 {
     if (!prog)
-        return;
+        return -1;
 
     if (annotations_len <= 0) 
-        return;
+        return -1;
 
     prog->bytecode_annotations = annotations;
     prog->bytecode_annotations_len = annotations_len;
+    return 0;
 }
