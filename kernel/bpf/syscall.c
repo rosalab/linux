@@ -3108,6 +3108,14 @@ static int bpf_prog_load(union bpf_attr *attr, bpfptr_t uattr, struct bpf_log_at
 		goto put_token;
 	}
 
+    prog->aux->annotations = kzalloc(sizeof(struct bpf_bytecode_annotation) * attr->bytecode_annotations_len, GFP_USER);
+    if (!prog->aux->annotations) {
+        err = -EINVAL;
+        goto put_token;
+    }
+    prog->aux->annotations_len = attr->bytecode_annotations_len;
+
+    
 	prog->expected_attach_type = attr->expected_attach_type;
 	prog->sleepable = !!(attr->prog_flags & BPF_F_SLEEPABLE);
 	prog->aux->attach_btf = attach_btf;
@@ -3124,6 +3132,10 @@ static int bpf_prog_load(union bpf_attr *attr, bpfptr_t uattr, struct bpf_log_at
 	prog->len = attr->insn_cnt;
 
 	err = -EFAULT;
+    if (copy_from_bpfptr(prog->aux->annotations,
+                 make_bpfptr(attr->bytecode_annotations, uattr.is_kernel),
+                 sizeof(struct bpf_bytecode_annotation) * attr->bytecode_annotations_len) != 0)
+        goto free_prog;
 	if (copy_from_bpfptr(prog->insns,
 			     make_bpfptr(attr->insns, uattr.is_kernel),
 			     bpf_prog_insn_size(prog)) != 0)
@@ -3134,6 +3146,8 @@ static int bpf_prog_load(union bpf_attr *attr, bpfptr_t uattr, struct bpf_log_at
 				sizeof(license) - 1) < 0)
 		goto free_prog;
 	license[sizeof(license) - 1] = 0;
+
+    
 
 	/* eBPF programs must be GPL compatible to use GPL-ed functions */
 	prog->gpl_compatible = license_is_gpl_compatible(license) ? 1 : 0;

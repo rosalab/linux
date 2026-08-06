@@ -17337,6 +17337,14 @@ static int do_check_insn(struct bpf_verifier_env *env, bool *do_print_state)
 	return -EFAULT;
 }
 
+static void print_bytecode_annotations(struct bpf_bytecode_annotation *annotations,
+                                       u64 annotations_len)
+{
+    for (int i = 0; i < annotations_len; i++) {
+        pr_info("%d: %llu %u\n", i, (annotations + i)->insn_off, (annotations+i)->btf_id);
+    }
+}
+
 static int do_check(struct bpf_verifier_env *env)
 {
 	bool pop_log = !(env->log.level & BPF_LOG_LEVEL2);
@@ -17345,6 +17353,10 @@ static int do_check(struct bpf_verifier_env *env)
 	int insn_cnt = env->prog->len;
 	bool do_print_state = false;
 	int prev_insn_idx = -1;
+
+    if (env->prog->aux->annotations) {
+        print_bytecode_annotations(env->prog->aux->annotations, env->prog->aux->annotations_len);    
+    }
 
 	for (;;) {
 		struct bpf_insn *insn;
@@ -18082,6 +18094,42 @@ static int check_insn_fields(struct bpf_verifier_env *env, struct bpf_insn *insn
 		verbose(env, "unknown insn class %d\n", BPF_CLASS(insn->code));
 		return -EINVAL;
 	}
+}
+
+/*
+ * Check that map types match for annotations
+ */
+static int bpf_check_map_type(struct bpf_verifier_env *env)
+{
+    struct bpf_insn *insn;
+    struct bpf_bytecode_annotation *annotation = env->prog->aux->annotations;
+    u64 annotations_len = env->prog->aux->annotations_len;
+    u64 map_ptr = 0;
+    struct bpf_map *map;
+    int i;
+    
+    pr_info("Annotations len is %llu\n", annotations_len);
+    // for each annotation
+    for (i = 0; i < annotations_len; annotation++, i++) {
+        // get the instruction will be the location of the map address
+        insn = env->prog->insnsi + annotation->insn_off;
+        // find the map ptr. should be a pseudo ldimm64 right before maybe?
+        map_ptr = ((u32)insn->imm) | ((u64)((insn+1)->imm) << 32);
+        //map_ptr += ((u64)insn[1].imm) >> 32;
+        map = (struct bpf_map *)map_ptr;
+        // Null pointer map
+        if (!map) {
+            return -1;
+        }
+        // Debug printing
+        pr_debug("Map is %px with name %s\nMap BTF value id %d\n", map, map->name, map->btf_value_type_id);
+        // compare the btf
+        if (map->btf_value_type_id != annotation->btf_id) {
+            verbose(env, "Invalid map access type\n");
+            return -EINVAL;
+        }
+    }
+    return 0;
 }
 
 /*
@@ -19874,7 +19922,12 @@ int bpf_check(struct bpf_prog **prog, union bpf_attr *attr, bpfptr_t uattr,
 	if (ret < 0)
 		goto skip_full_check;
 
+    // This is where map pseudo imm64 get resolved
 	ret = check_and_resolve_insns(env);
+	if (ret < 0)
+		goto skip_full_check;
+
+    ret = bpf_check_map_type(env);
 	if (ret < 0)
 		goto skip_full_check;
 

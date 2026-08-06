@@ -1801,6 +1801,8 @@ struct bpf_prog_aux {
 	struct bpf_kfunc_desc_tab *kfunc_tab;
 	struct bpf_kfunc_btf_tab *kfunc_btf_tab;
 	u32 size_poke_tab;
+    struct bpf_bytecode_annotation *annotations;
+    u64 annotations_len;
 #ifdef CONFIG_FINEIBT
 	struct bpf_ksym ksym_prefix;
 #endif
